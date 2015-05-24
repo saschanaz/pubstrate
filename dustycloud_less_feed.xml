@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>DustyCloud Brainstorms</title><link href="http://dustycloud.org/" rel="alternate"></link><link href="http://dustycloud.org/blog/index.xml" rel="self"></link><id>http://dustycloud.org/</id><updated>2015-05-01T21:55:00-05:00</updated><entry><title>Interviewed on Ryno the Bearded</title><link href="http://dustycloud.org/blog/rynothebearded-interview/" rel="alternate"></link><updated>2015-04-07T20:04:00-05:00</updated><author><name>Christopher Allan Webber</name></author><id>tag:dustycloud.org,2015-04-07:blog/rynothebearded-interview/</id><summary type="html">&lt;p&gt;I was &lt;a class="reference external" href="http://rynothebearded.com/2015/04/my-origin-story/"&gt;interviewed on Ryno the Bearded&lt;/a&gt;
+in an episode with the curious title &amp;quot;My Origin Story&amp;quot;.  I'm not sure
+whose that refers to, maybe both of us, because we both talked about
+our backstories.  (Though, I think if I was going to lay out my &amp;quot;free
+software origin story&amp;quot;, it would probably include some other
+things... but maybe it would get to be fairly rambly.  I've thought
+about trying to write up what that is before, but I guess there were a
+lot of &amp;quot;moments&amp;quot; for my free software origins, not any one moment like
+&amp;quot;I was bitten by a libre radioactive spider&amp;quot;.)&lt;/p&gt;
+&lt;p&gt;I really enjoyed doing this one, and maybe you'll enjoy listening to
+it.  It's kind of rambly and conversational and we came in with very
+little as in terms of questions, but I think I tend to do fairly well
+in that format.&lt;/p&gt;
+&lt;p&gt;I did cut off the end of the interview by saying I had to go to the
+bathroom though.  Not really the most dignified of exits on my part.
+Oh well.&lt;/p&gt;
+</summary><category term="ryno the bearded"></category><category term="podcast"></category><category term="interview"></category><category term="mediagoblin"></category></entry><entry><title>Fever Dream: cryptocurrency</title><link href="http://dustycloud.org/blog/fever-dream-cryptocurrency/" rel="alternate"></link><updated>2015-03-29T12:42:00-05:00</updated><author><name>Christopher Allan Webber</name></author><id>tag:dustycloud.org,2015-03-29:blog/fever-dream-cryptocurrency/</id><summary type="html">&lt;p&gt;I've been sick the last two days, and for some reason, I've been
+dreaming in lisp.  It's not the first time I've dreamt in code, but
+all times have been in lisp.  Maybe lisp is not as readable as many
+would like, but it seems dreamable.&lt;/p&gt;
+&lt;p&gt;Just got up from another nap, another lisp-based fever dream. This one
+about a cryptocurrencty on an actor model system, built for a MUD/AR
+type environment... no blockchain required (note: may be inspired by
+reading Rainbows End between naps):&lt;/p&gt;
+&lt;ul class="simple"&gt;
+&lt;li&gt;Various actors represent &amp;quot;reserves&amp;quot;, like the Federal Reserve can
+print their own money, as much as they like, but there may be
+various community enforcements of this&lt;/li&gt;
+&lt;li&gt;You might have different central banks / reserves on different
+servers&lt;/li&gt;
+&lt;li&gt;The &amp;quot;value&amp;quot; or exchange rate determined by the market, like
+international currency.&lt;/li&gt;
+&lt;li&gt;Currency is non-divisible (you have 100 rupees, but not .1 rupees)&lt;/li&gt;
+&lt;li&gt;Bank has a private key, so does each actor.&lt;/li&gt;
+&lt;li&gt;Basically more or less passing along capabilities (I think???) but
+maybe even the central bank signing whoever has &amp;quot;posession&amp;quot;. The
+bank does not know who things are transferred to, but does verify
+that the transferring owner has the right capability currently
+belonging to that unit's ID, and does issue a new capability to the
+new owner.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Does this make sense? I'm too sick to know for now. But transactions
+flying everywhere, wrapped in parentheses, in my fevered mind.&lt;/p&gt;
+&lt;p&gt;If I have more crazy lisp fever dreams today I will record them here.
+No guarantee of sanity.&lt;/p&gt;
+</summary><category term="cryptocurrency"></category><category term="fever"></category></entry></feed>
