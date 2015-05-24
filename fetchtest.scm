@@ -1,14 +1,19 @@
 (use-modules (web client)
              (ice-9 receive)
+             (ice-9 hash-table)
              (sxml simple)
              (sxml match)
              (web client)
              (ice-9 rdelim)
-             (srfi srfi-1))
+             (srfi srfi-1)
+             (json))
 
-(xml->sxml
- (receive (response body)
-     (http-get "http://dustycloud.org/blog/index.xml") body))
+(define (get-dustycloud-data)
+  (xml->sxml
+   (receive (response body)
+       (http-get "http://dustycloud.org/blog/index.xml") body)
+   #:namespaces '((atom . "http://www.w3.org/2005/Atom"))
+   #:trim-whitespace? #t))
 
 
 (define dumb-example-blog
