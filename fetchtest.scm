@@ -9,23 +9,12 @@
              (json))
 
 
-
 (define (get-dustycloud-data)
   (xml->sxml
    (receive (response body)
        (http-get "http://dustycloud.org/blog/index.xml") body)
    #:namespaces '((atom . "http://www.w3.org/2005/Atom"))
    #:trim-whitespace? #t))
-
-
-(define dumb-example-blog
-  "<blog><post><title>Yeah man</title><body>Omg I am so tired</body><butt /></post><post><title>What's for dinner</title><body>Cookies?</body></post></blog>")
-
-(scm->json-string 
- (sxml-match (cadr (xml->sxml dumb-example-blog))
-             [(blog (post (title ,title) (body ,body) . ,yo) ...)
-              (list (alist->hash-table (list (cons "title" title) (cons "body" body))) ...)]
-             [,otherwise #f]))
 
 
 (define dustycloud-data
