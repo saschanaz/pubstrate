@@ -42,23 +42,30 @@
   (define (process-entry . entry-pieces)
     (fold
      (lambda (piece activity)
-       (sxml-match
-        piece
-        [(atom:title ,title . ,_)
-         (hash-set! activity "title" title)]
-        [(atom:link (@ (rel "alternate") (href ,href) . ,_))
-         (hash-set!
-          (hash-ref activity "object")
-          "@id" href)]
-        [,else
-         (begin
-           (format #t "TODO: ~a\n" else)
-           #nil)
-
-         ;; (hash-set!
-         ;;  activity "TODO"
-         ;;  (cons else (hash-ref activity "TODO" '())))
-         ])
+       (let ((object-set! (lambda (key val)
+                            (hash-set! (hash-ref activity "object")
+                                       key val))))
+         (sxml-match
+          piece
+          [(atom:title ,title . ,_)
+           (object-set! "title" title)]
+          [(atom:link (@ (rel "alternate") (href ,href) . ,_))
+           (object-set! "@id" href)]
+          [(atom:updated ,when)
+           (hash-set! activity "published" when)]
+          [(atom:summary ,summary)
+           (object-set! "summary" summary)]
+          [(atom:content ,content)
+           (object-set! "content" content)]
+          ;; TODO: expand this to support more author definition stuff
+          [(atom:author (atom:name ,author-name))
+           (object-set! "attributedTo"
+                        (alist->hash-table
+                         `(("displayName" ,author-name))))]
+          [,else
+           (begin
+             (format #t "TODO: ~a\n" else)
+             #nil)]))
        activity)
      (alist->hash-table
       `(("@context" . "http://www.w3.org/ns/activitystreams")
@@ -78,7 +85,6 @@
      (process-entry entry-part ...)]
     [,else #nil])))
 
-(display (scm->json-string (feed->activitystream dustycloud-data "http://dustycloud.org/")
-                           #:pretty #t))
+;; (display (scm->json-string (feed->activitystream dustycloud-data "http://dustycloud.org/") #:pretty #t))
 
-(map (lambda (x) (hash-map->list cons x)) (car (feed->activitystream dustycloud-data "derp")))
+;; (map (lambda (x) (hash-map->list cons x)) (car (feed->activitystream dustycloud-data "derp")))
