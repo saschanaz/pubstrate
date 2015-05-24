@@ -36,6 +36,8 @@
 
 
 (define (feed->activitystream feed actor)
+  ;; Things we don't know, we just return nil, so this is a lazy way
+  ;; to clean things up for this circumstance.
   (define (clean-result result)
     (delete #nil result))
 
@@ -83,10 +85,12 @@
    (let loop ((feed feed))
      (sxml-match
       feed
-      ;; Not sure why but I can't seem to use the catamorphism
-      ;; feature here
+      ;; Process the top-level, loop over feed items
+      ;; (Not sure why but I can't seem to use the catamorphism
+      ;; feature here...)
       [(*TOP* ,_ ... (atom:feed ,feed-item ...))
        (map loop feed-item)]
+      ;; Pass off parts a feed entry over to the entry processor
       [(atom:entry ,entry-part ...)
        (process-entry entry-part ...)]
       [,else #nil]))))
