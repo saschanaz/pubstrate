@@ -39,6 +39,9 @@
   (define (clean-result result)
     (delete #nil result))
 
+  ;; Process a single entry.
+  ;; We go through all the pieces and use pattern matching to
+  ;; build up the result.
   (define (process-entry . entry-pieces)
     (fold
      (lambda (piece activity)
@@ -77,13 +80,16 @@
      entry-pieces))
 
   (clean-result
-   (sxml-match
-    (caddr feed)
-    [(atom:feed ,[feed-item] ...)
-     feed-item]
-    [(atom:entry ,entry-part ...)
-     (process-entry entry-part ...)]
-    [,else #nil])))
+   (let loop ((feed feed))
+     (sxml-match
+      feed
+      ;; Not sure why but I can't seem to use the catamorphism
+      ;; feature here
+      [(*TOP* ,_ ... (atom:feed ,feed-item ...))
+       (map loop feed-item)]
+      [(atom:entry ,entry-part ...)
+       (process-entry entry-part ...)]
+      [,else #nil]))))
 
 ;; (display (scm->json-string (feed->activitystream dustycloud-data "http://dustycloud.org/") #:pretty #t))
 
