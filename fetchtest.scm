@@ -8,6 +8,8 @@
              (srfi srfi-1)
              (json))
 
+
+
 (define (get-dustycloud-data)
   (xml->sxml
    (receive (response body)
@@ -52,6 +54,9 @@
                                        key val))))
          (sxml-match
           piece
+          ;; Why not just use the atom:id as an activity id? ;)
+          [(atom:id ,activity-id)
+           (hash-set! activity "@id" activity-id)]
           [(atom:title ,title . ,_)
            (object-set! "title" title)]
           [(atom:link (@ (rel "alternate") (href ,href) . ,_))
@@ -62,11 +67,22 @@
            (object-set! "summary" summary)]
           [(atom:content ,content)
            (object-set! "content" content)]
+          [(atom:category (@ (term ,tagname) . ,rest))
+           (object-set!
+            "tag"
+            ;; Add this tag to existing tags
+            (cons (alist->hash-table
+                   (list (cons "@type" "Object")
+                         (cons "displayName" tagname)))
+                  (hash-ref (hash-ref activity "object")
+                            "tag" '())))]
           ;; TODO: expand this to support more author definition stuff
           [(atom:author (atom:name ,author-name))
            (object-set! "attributedTo"
                         (alist->hash-table
-                         `(("displayName" ,author-name))))]
+                         (list
+                          '("@type" . "Person")
+                          (cons "displayName" author-name))))]
           [,else
            (begin
              (format #t "TODO: ~a\n" else)
