@@ -34,15 +34,6 @@
    #:namespaces '((atom . "http://www.w3.org/2005/Atom"))
    #:trim-whitespace? #t))
 
-(car
- (delete
-  #nil
-  (let matcher ((data (caddr dustycloud-data)))
-    (sxml-match data
-                [(atom:feed ,feed-item ...) `(,(matcher feed-item) ...)]
-                [(atom:entry . ,foo) foo]
-                [,else #nil]))))
-
 
 (define (feed->activitystream feed actor)
   (define (clean-result result)
