@@ -170,10 +170,6 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Offer"
   '())
 
-(define-asclass <Connect> (<Activity>)
-  "http://www.w3.org/ns/activitystreams#Connect"
-  '())
-
 (define-asclass <FriendRequest> (<Connect>)
   "http://www.w3.org/ns/activitystreams#FriendRequest"
   '())
@@ -278,18 +274,14 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Complete"
   '())
 
-(define-asclass <Achieve> (<Activity>)
-  "http://www.w3.org/ns/activitystreams#Achieve"
-  '())
-
-(define-asclass <Claim> (<Activity>)
-  "http://www.w3.org/ns/activitystreams#Claim"
-  '(proof))
-
 
 ;; ========================================
 ;; Extended classes: Object types
 ;; ========================================
+
+(define-asclass <Connection> (<Object>)
+  "http://www.w3.org/ns/activitystreams#Connection"
+  '(a b relationship))
 
 (define-asclass <Application> (<Actor>)
   "http://www.w3.org/ns/activitystreams#Application"
@@ -299,36 +291,16 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Content"
   '(duration width height))
 
-(define-asclass <Device> (<Actor>)
-  "http://www.w3.org/ns/activitystreams#Device"
-  '())
-
 (define-asclass <Group> (<Actor>)
   "http://www.w3.org/ns/activitystreams#Group"
-  '())
-
-(define-asclass <Organization> (<Group>)
-  "http://www.w3.org/ns/activitystreams#Organization"
-  '())
-
-(define-asclass <Community> (<Group>)
-  "http://www.w3.org/ns/activitystreams#Community"
   '())
 
 (define-asclass <Person> (<Actor>)
   "http://www.w3.org/ns/activitystreams#Person"
   '())
 
-(define-asclass <Identity> (<Actor>)
-  "http://www.w3.org/ns/activitystreams#Identity"
-  '())
-
 (define-asclass <Process> (<Activity>)
   "http://www.w3.org/ns/activitystreams#Process"
-  '())
-
-(define-asclass <Role> (<Actor>)
-  "http://www.w3.org/ns/activitystreams#Role"
   '())
 
 (define-asclass <Service> (<Actor>)
@@ -371,10 +343,6 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Note"
   '())
 
-(define-asclass <PossibleAnswer> (<Content>)
-  "http://www.w3.org/ns/activitystreams#PossibleAnswer"
-  '(shape))
-
 (define-asclass <Question> (<Content> <IntransitiveActivity>)
   "http://www.w3.org/ns/activitystreams#Question"
   '(oneOf anyOf))
@@ -387,10 +355,10 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Place"
   '(accuracy altitude latitude longitude radius units))
 
-(define-asclass <Reservation> (<Activity>)
-  "http://www.w3.org/ns/activitystreams#Reservation"
-  '())
-
 (define-asclass <Mention> (<ASLink>)
   "http://www.w3.org/ns/activitystreams#Link"
+  '())
+
+(define-asclass <Profile> (<Content>)
+  "http://www.w3.org/ns/activitystreams#Profile"
   '())
