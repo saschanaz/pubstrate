@@ -118,6 +118,10 @@ Use like:
 ;; Extended classes: Activity types
 ;; ========================================
 
+(define-asclass <Respond> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Respond"
+  '())
+
 (define-asclass <Accept> (<Respond>)
   "http://www.w3.org/ns/activitystreams#Accept"
   '())
@@ -162,8 +166,12 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Leave"
   '())
 
-(define-asclass <Connect> (<Activity>)
-  "http://www.w3.org/ns/activitystreams#Connect"
+(define-asclass <Like> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Like"
+  '())
+
+(define-asclass <Offer> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Offer"
   '())
 
 (define-asclass <FriendRequest> (<Connect>)
@@ -214,6 +222,10 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Update"
   '())
 
+(define-asclass <Experience> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Experience"
+  '())
+
 (define-asclass <View> (<Experience>)
   "http://www.w3.org/ns/activitystreams#View"
   '())
@@ -228,10 +240,6 @@ Use like:
 ;;; see: https://github.com/jasnell/w3c-socialwg-activitystreams/issues/114
 (define-asclass <Read> (<View>)
   "http://www.w3.org/ns/activitystreams#Read"
-  '())
-
-(define-asclass <Respond> (<Activity>)
-  "http://www.w3.org/ns/activitystreams#Respond"
   '())
 
 (define-asclass <Move> (<Activity>)
