@@ -176,6 +176,10 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Offer"
   '())
 
+(define-asclass <Connect> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Connect"
+  '())
+
 (define-asclass <FriendRequest> (<Connect>)
   "http://www.w3.org/ns/activitystreams#FriendRequest"
   '())
@@ -297,7 +301,7 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Application"
   '())
 
-(define-asclass <Content> (<Object>)
+(define-asclass <Content> (<ASObject>)
   "http://www.w3.org/ns/activitystreams#Content"
   '(duration width height))
 
@@ -353,6 +357,10 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Folder"
   '())
 
+(define-asclass <Document> (<Content>)
+  "http://www.w3.org/ns/activitystreams#Document"
+  '())
+
 (define-asclass <Audio> (<Document>)
   "http://www.w3.org/ns/activitystreams#Audio"
   '())
@@ -361,7 +369,7 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Image"
   '())
 
-(define-asclass <Video> (<Document>>)
+(define-asclass <Video> (<Document>)
   "http://www.w3.org/ns/activitystreams#Video"
   '())
 
@@ -377,11 +385,11 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Question"
   '(oneOf anyOf))
 
-(define-asclass <Event> (<Object>)
+(define-asclass <Event> (<ASObject>)
   "http://www.w3.org/ns/activitystreams#Event"
   '())
 
-(define-asclass <Place> (<Object>)
+(define-asclass <Place> (<ASObject>)
   "http://www.w3.org/ns/activitystreams#Place"
   '(accuracy altitude latitude longitude radius units))
 
@@ -389,7 +397,6 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Reservation"
   '())
 
-(define-asclass <Mention> (<Link>)
+(define-asclass <Mention> (<ASLink>)
   "http://www.w3.org/ns/activitystreams#Link"
   '())
-
