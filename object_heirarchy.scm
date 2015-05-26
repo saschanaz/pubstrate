@@ -43,7 +43,9 @@
 
 (define-generic render-as-json)
 
-;; Utility to gather the list of all 
+;; Utility to gather the list of all relevant properties
+
+;;; NOTE: DOES NOT DELETE DUPLICATES!
 
 (define* (gather-properties class #:optional (prop 'properties))
   "Gather available properties recursively from AS definitions
@@ -285,3 +287,109 @@ Use like:
 (define-asclass <Claim> (<Activity>)
   "http://www.w3.org/ns/activitystreams#Claim"
   '(proof))
+
+
+;; ========================================
+;; Extended classes: Object types
+;; ========================================
+
+(define-asclass <Application> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Application"
+  '())
+
+(define-asclass <Content> (<Object>)
+  "http://www.w3.org/ns/activitystreams#Content"
+  '(duration width height))
+
+(define-asclass <Device> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Device"
+  '())
+
+(define-asclass <Group> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Group"
+  '())
+
+(define-asclass <Organization> (<Group>)
+  "http://www.w3.org/ns/activitystreams#Organization"
+  '())
+
+(define-asclass <Community> (<Group>)
+  "http://www.w3.org/ns/activitystreams#Community"
+  '())
+
+(define-asclass <Person> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Person"
+  '())
+
+(define-asclass <Identity> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Identity"
+  '())
+
+(define-asclass <Process> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Process"
+  '())
+
+(define-asclass <Role> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Role"
+  '())
+
+(define-asclass <Service> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Service"
+  '())
+
+(define-asclass <Article> (<Content>)
+  "http://www.w3.org/ns/activitystreams#Article"
+  '())
+
+(define-asclass <Content> (<Collection>)
+  "http://www.w3.org/ns/activitystreams#Collection"
+  '())
+
+(define-asclass <Folder> (<Collection>)
+  "http://www.w3.org/ns/activitystreams#Folder"
+  '())
+
+(define-asclass <Story> (<OrderedCollection>)
+  "http://www.w3.org/ns/activitystreams#Folder"
+  '())
+
+(define-asclass <Audio> (<Document>)
+  "http://www.w3.org/ns/activitystreams#Audio"
+  '())
+
+(define-asclass <Image> (<Document>)
+  "http://www.w3.org/ns/activitystreams#Image"
+  '())
+
+(define-asclass <Video> (<Document>>)
+  "http://www.w3.org/ns/activitystreams#Video"
+  '())
+
+(define-asclass <Note> (<Content>)
+  "http://www.w3.org/ns/activitystreams#Note"
+  '())
+
+(define-asclass <PossibleAnswer> (<Content>)
+  "http://www.w3.org/ns/activitystreams#PossibleAnswer"
+  '(shape))
+
+(define-asclass <Question> (<Content> <IntransitiveActivity>)
+  "http://www.w3.org/ns/activitystreams#Question"
+  '(oneOf anyOf))
+
+(define-asclass <Event> (<Object>)
+  "http://www.w3.org/ns/activitystreams#Event"
+  '())
+
+(define-asclass <Place> (<Object>)
+  "http://www.w3.org/ns/activitystreams#Place"
+  '(accuracy altitude latitude longitude radius units))
+
+(define-asclass <Reservation> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Reservation"
+  '())
+
+(define-asclass <Mention> (<Link>)
+  "http://www.w3.org/ns/activitystreams#Link"
+  '())
+
