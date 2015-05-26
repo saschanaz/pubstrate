@@ -279,7 +279,7 @@ Use like:
 ;; Extended classes: Object types
 ;; ========================================
 
-(define-asclass <Connection> (<Object>)
+(define-asclass <Connection> (<ASObject>)
   "http://www.w3.org/ns/activitystreams#Connection"
   '(a b relationship))
 
