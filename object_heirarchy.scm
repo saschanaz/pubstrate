@@ -21,11 +21,11 @@
 (use-modules (oop goops))
 
 (define-class <json-ldable> ()
-  (fields #:allocation #:each-subclass)
+  (properties #:allocation #:each-subclass)
   ;; (mandatory #:allocation #:each-subclass)
   (uri #:allocation #:each-subclass)
   )
-(class-slot-set! <json-ldable> 'fields
+(class-slot-set! <json-ldable> 'properties
                  '(@context @type @id))
 
 ;; emacs: (put 'define-asclass 'scheme-indent-function 2)
@@ -34,22 +34,22 @@
 ;;; since there is often a lot of boilerplate
 
 (define-syntax-rule (define-asclass class (parent ...)
-                      as-uri as-fields . rest)
+                      as-uri as-properties . rest)
   (begin
     (define-class class (parent ...)
       . rest)
     (class-slot-set! class 'uri as-uri)
-    (class-slot-set! class 'fields as-fields)))
+    (class-slot-set! class 'properties as-properties)))
 
 (define-generic render-as-json)
 
 ;; Utility to gather the list of all 
 
-(define* (gather-fields class #:optional (prop 'fields))
-  "Gather available fields recursively from AS definitions
+(define* (gather-properties class #:optional (prop 'properties))
+  "Gather available properties recursively from AS definitions
 
 Use like:
-  (gather-fields <Activity>)"
+  (gather-properties <Activity>)"
   (let ((listy-results
          (catch 'goops-error
            (lambda () (class-slot-ref class prop))
@@ -58,7 +58,7 @@ Use like:
         '()
         (apply append
                listy-results
-               (map (lambda (class) (gather-fields class prop))
+               (map (lambda (class) (gather-properties class prop))
                     (class-direct-supers class))))))
 
 
@@ -130,3 +130,150 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Add"
   '())
 
+(define-asclass <Arrive> (<IntransitiveActivity>)
+  "http://www.w3.org/ns/activitystreams#Arrive"
+  '())
+
+(define-asclass <Create> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Create"
+  '())
+
+(define-asclass <Delete> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Delete"
+  '())
+
+(define-asclass <Favorite> (<Respond>)
+  "http://www.w3.org/ns/activitystreams#Favorite"
+  '())
+
+(define-asclass <Follow> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Follow"
+  '())
+
+(define-asclass <Ignore> (<Respond>)
+  "http://www.w3.org/ns/activitystreams#Ignore"
+  '())
+
+(define-asclass <Join> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Join"
+  '())
+
+(define-asclass <Leave> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Leave"
+  '())
+
+(define-asclass <Connect> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Connect"
+  '())
+
+(define-asclass <FriendRequest> (<Connect>)
+  "http://www.w3.org/ns/activitystreams#FriendRequest"
+  '())
+
+(define-asclass <Give> (<Offer>)
+  "http://www.w3.org/ns/activitystreams#Give"
+  '())
+
+(define-asclass <Invite> (<Offer>)
+  "http://www.w3.org/ns/activitystreams#Invite"
+  '())
+
+(define-asclass <Post> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Post"
+  '())
+
+(define-asclass <Reject> (<Respond>)
+  "http://www.w3.org/ns/activitystreams#Reject"
+  '())
+
+(define-asclass <TentativeReject> (<Reject>)
+  "http://www.w3.org/ns/activitystreams#TentativeReject"
+  '())
+
+(define-asclass <Remove> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Remove"
+  '())
+
+(define-asclass <Review> (<Respond>)
+  "http://www.w3.org/ns/activitystreams#Review"
+  '())
+
+(define-asclass <Save> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Save"
+  '())
+
+(define-asclass <Share> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Share"
+  '())
+
+(define-asclass <Undo> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Undo"
+  '())
+
+(define-asclass <Update> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Update"
+  '())
+
+(define-asclass <View> (<Experience>)
+  "http://www.w3.org/ns/activitystreams#View"
+  '())
+
+;;; I'd love to see this one dropped :P
+;;; see: https://github.com/jasnell/w3c-socialwg-activitystreams/issues/113
+(define-asclass <Watch> (<View>)
+  "http://www.w3.org/ns/activitystreams#Watch"
+  '())
+
+;;; I'd love to see this one become a subclass of Read
+;;; see: https://github.com/jasnell/w3c-socialwg-activitystreams/issues/114
+(define-asclass <Read> (<View>)
+  "http://www.w3.org/ns/activitystreams#Read"
+  '())
+
+(define-asclass <Respond> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Respond"
+  '())
+
+(define-asclass <Move> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Move"
+  '())
+
+(define-asclass <Travel> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Travel"
+  '())
+
+(define-asclass <Announce> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Announce"
+  '())
+
+(define-asclass <Block> (<Ignore>)
+  "http://www.w3.org/ns/activitystreams#Block"
+  '())
+
+(define-asclass <Flag> (<Respond>)
+  "http://www.w3.org/ns/activitystreams#Flag"
+  '())
+
+(define-asclass <Dislike> (<Respond>)
+  "http://www.w3.org/ns/activitystreams#Dislike"
+  '())
+
+(define-asclass <Confirm> (<Respond>)
+  "http://www.w3.org/ns/activitystreams#Confirm"
+  '())
+
+(define-asclass <Assign> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Assign"
+  '())
+
+(define-asclass <Complete> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Complete"
+  '())
+
+(define-asclass <Achieve> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Achieve"
+  '())
+
+(define-asclass <Claim> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Claim"
+  '(proof))
