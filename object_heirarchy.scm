@@ -81,12 +81,6 @@ Use like:
   '(href rel mediaType displayName title
          hreflang height width duration))
 
-
-(define-asclass <ASLink> (<json-ldable>)
-  "http://www.w3.org/ns/activitystreams#Link"
-  '(href rel mediaType displayName title
-         hreflang height width duration))
-
 (define-asclass <Activity> (<ASObject>)
   "http://www.w3.org/ns/activitystreams#Activity"
   '(actor object target result origin priority
