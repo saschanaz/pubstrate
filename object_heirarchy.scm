@@ -24,7 +24,7 @@
   (properties #:allocation #:each-subclass)
   ;; (mandatory #:allocation #:each-subclass)
   (uri #:allocation #:each-subclass)
-  )
+  (fields #:init-keyword #:fields))
 (class-slot-set! <json-ldable> 'properties
                  '(@context @type @id))
 
@@ -114,11 +114,7 @@ Use like:
 ;; Extended classes: Activity types
 ;; ========================================
 
-(define-asclass <Respond> (<Activity>)
-  "http://www.w3.org/ns/activitystreams#Respond"
-  '())
-
-(define-asclass <Accept> (<Respond>)
+(define-asclass <Accept> (<Activity>)
   "http://www.w3.org/ns/activitystreams#Accept"
   '())
 
@@ -142,7 +138,7 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Delete"
   '())
 
-(define-asclass <Favorite> (<Respond>)
+(define-asclass <Favorite> (<Activity>)
   "http://www.w3.org/ns/activitystreams#Favorite"
   '())
 
@@ -150,7 +146,7 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Follow"
   '())
 
-(define-asclass <Ignore> (<Respond>)
+(define-asclass <Ignore> (<Activity>)
   "http://www.w3.org/ns/activitystreams#Ignore"
   '())
 
@@ -174,10 +170,6 @@ Use like:
   "http://www.w3.org/ns/activitystreams#FriendRequest"
   '())
 
-(define-asclass <Give> (<Offer>)
-  "http://www.w3.org/ns/activitystreams#Give"
-  '())
-
 (define-asclass <Invite> (<Offer>)
   "http://www.w3.org/ns/activitystreams#Invite"
   '())
@@ -186,7 +178,7 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Post"
   '())
 
-(define-asclass <Reject> (<Respond>)
+(define-asclass <Reject> (<Activity>)
   "http://www.w3.org/ns/activitystreams#Reject"
   '())
 
@@ -196,14 +188,6 @@ Use like:
 
 (define-asclass <Remove> (<Activity>)
   "http://www.w3.org/ns/activitystreams#Remove"
-  '())
-
-(define-asclass <Review> (<Respond>)
-  "http://www.w3.org/ns/activitystreams#Review"
-  '())
-
-(define-asclass <Save> (<Activity>)
-  "http://www.w3.org/ns/activitystreams#Save"
   '())
 
 (define-asclass <Share> (<Activity>)
@@ -254,16 +238,12 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Block"
   '())
 
-(define-asclass <Flag> (<Respond>)
+(define-asclass <Flag> (<Activity>)
   "http://www.w3.org/ns/activitystreams#Flag"
   '())
 
-(define-asclass <Dislike> (<Respond>)
+(define-asclass <Dislike> (<Activity>)
   "http://www.w3.org/ns/activitystreams#Dislike"
-  '())
-
-(define-asclass <Confirm> (<Respond>)
-  "http://www.w3.org/ns/activitystreams#Confirm"
   '())
 
 (define-asclass <Assign> (<Activity>)
@@ -362,3 +342,4 @@ Use like:
 (define-asclass <Profile> (<Content>)
   "http://www.w3.org/ns/activitystreams#Profile"
   '())
+
