@@ -15,9 +15,6 @@
 ;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301 USA
 
-;;; Just an experiment to define the full set of relationships in AS2.0
-;;; as classes.. not actually intended to be used
-
 (use-modules (oop goops))
 
 (define-class <json-ldable> ()
@@ -40,6 +37,10 @@
       . rest)
     (class-slot-set! class 'uri as-uri)
     (class-slot-set! class 'properties as-properties)))
+
+;; Make, activitystream convenience style
+(define-generic make-as)
+(define-method (make-as (class <json-ldable>)))
 
 (define-generic render-as-json)
 
@@ -342,4 +343,3 @@ Use like:
 (define-asclass <Profile> (<Content>)
   "http://www.w3.org/ns/activitystreams#Profile"
   '())
-
