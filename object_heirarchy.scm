@@ -22,7 +22,7 @@
   (properties #:allocation #:each-subclass)
   ;; (mandatory #:allocation #:each-subclass)
   (uri #:allocation #:each-subclass)
-  (fields #:init-keyword #:fields))
+  (fields #:init-keyword #:fields #:getter as-fields))
 (class-slot-set! <json-ldable> 'properties
                  '(@context @type @id))
 
@@ -77,12 +77,36 @@ Example usage:
     (((? string? id) rest ...)
      (let ((hashed-fields (hash-fields rest)))
        (begin
-         (hash-set! hashed-fields #:id id)
+         (hash-set! hashed-fields "@id" id)
          (make class #:fields hashed-fields))))
     ((. fields)
      (make class #:fields (hash-fields fields)))))
 
-(define-generic render-as-json)
+
+;;; Recursively convert to hashtable, including all children
+(define-generic as-to-hash)
+(define-method (as-to-hash (as-object <json-ldable>))
+  (let ((as-hash (make-hash-table)))
+    (hash-for-each-handle
+     (lambda (handle)
+       (let ((key (car handle))
+             (val (cdr handle)))
+         (if (is-a? val <json-ldable>)
+             (hash-set! as-hash key (as-to-hash val))
+             (hash-set! as-hash key val))))
+     (as-fields as-object))
+    as-hash))
+
+(define-generic as-to-json)
+(define-method (as-to-json (as-object <json-ldable>))
+  (scm->json-string
+   (as-to-hash as-object)))
+
+(define-generic as-to-json-pretty)
+(define-method (as-to-json-pretty (as-object <json-ldable>))
+  (scm->json-string
+   (as-to-hash as-object) #:pretty #t))
+
 
 ;; Utility to gather the list of all relevant properties
 
