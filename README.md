@@ -5,4 +5,6 @@ A bunch of hacks on ActivityStreams / ActivityPump stuff, playing
 around with things.
 
 Everything in here is LGPL v3 or later, as published by the Free
-Software Foundation.
+Software Foundation, with exceptions below:
+
+ - dustycloud_less_feed.xml is CC BY-SA 3.0
