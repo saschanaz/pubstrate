@@ -15,7 +15,8 @@
 ;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301 USA
 
-(use-modules (oop goops))
+(use-modules (oop goops)
+             (ice-9 match))
 
 (define-class <json-ldable> ()
   (properties #:allocation #:each-subclass)
@@ -39,8 +40,47 @@
     (class-slot-set! class 'properties as-properties)))
 
 ;; Make, activitystream convenience style
-(define-generic make-as)
-(define-method (make-as (class <json-ldable>)))
+;;; Redo as metaobject method
+;; (define-generic make-as)
+;; (define-method (make-as (class <json-ldable>) . fields)
+;;   ...)
+
+(define (make-as class . fields)
+  "Easily make an activitystreams object from keyword arguments
+
+Example usage:
+  (define root-beer-note
+    (make-as <Post>
+      ;; Putting the string first is the same thing as #:@id
+      \"http://tsyesika.co.uk/act/foo-id-here/\"
+      #:actor (make-as <Person>
+                #:@id \"http://tsyesika.co.uk\"
+                #:displayName \"Jessica Tallon\")
+      #:to (list \"acct:cwebber@identi.ca\")
+      #:object (make-as <Note>
+                 \"http://tsyesika.co.uk/chat/sup-yo/\"
+                 #:content \"Up for some root beer floats?\")))
+"
+  (define (hash-fields fields)
+    (let loop ((fields fields)
+               (hashed-fields (make-hash-table)))
+      (match fields
+        (((? keyword? key) val . rest)
+         (begin
+           (hash-set! hashed-fields
+                      (symbol->string (keyword->symbol key))
+                      val)
+           (loop rest hashed-fields)))
+        (()
+         hashed-fields))))
+  (match fields
+    (((? string? id) rest ...)
+     (let ((hashed-fields (hash-fields rest)))
+       (begin
+         (hash-set! hashed-fields #:id id)
+         (make class #:fields hashed-fields))))
+    ((. fields)
+     (make class #:fields (hash-fields fields)))))
 
 (define-generic render-as-json)
 
@@ -63,7 +103,6 @@ Use like:
                listy-results
                (map (lambda (class) (gather-properties class prop))
                     (class-direct-supers class))))))
-
 
 ;; ========================================
 ;; Core classes
