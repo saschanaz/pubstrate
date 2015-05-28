@@ -126,6 +126,7 @@
         (process-entry entry-part ...)]
        [,else #nil])))))
 
+;; (fluid-set! %default-port-encoding "UTF-8")
 ;; (display (scm->json-string (feed->activitystream dustycloud-data "http://dustycloud.org/") #:pretty #t))
 
 ;; (map (lambda (x) (hash-map->list cons x)) (car (feed->activitystream dustycloud-data "derp")))
