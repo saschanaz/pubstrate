@@ -66,8 +66,14 @@
           ;; Why not just use the atom:id as an activity id? ;)
           [(atom:id ,activity-id)
            (hash-set! activity "@id" activity-id)]
-          [(atom:title ,title . ,_)
+          ;; If html or xhtml, use title
+          [(atom:title (@ (type "xhtml") . ,__) ,title . ,_)
            (object-set! "title" title)]
+          [(atom:title (@ (type "html") . ,__) ,title . ,_)
+           (object-set! "title" title)]
+          ;; Default is type="text", or displayName if no type set
+          [(atom:title ,title . ,_)
+           (object-set! "displayName" title)]
           [(atom:link (@ (rel "alternate") (href ,href) . ,_))
            (object-set! "@id" href)]
           [(atom:updated ,when)
