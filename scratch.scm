@@ -18,7 +18,7 @@
 ;; Experimenting with api stuff in here
 
 (define root-beer-note
-  (make-as <Post>
+  (make-as <Create>
     ;; Putting the string first is the same thing as #:@id
     "http://tsyesika.co.uk/act/foo-id-here/"
     #:actor (make-as <Person>
@@ -32,7 +32,7 @@
 (as-to-json root-beer-note)
 
 (define json-root-beer-note
-  "{\"@type\": \"Post\",
+  "{\"@type\": \"Create\",
  \"@id\": \"http://tsyesika.co.uk/act/foo-id-here/\",
  \"actor\": {
      \"@type\": \"Person\",
@@ -44,3 +44,17 @@
      \"@id\": \"http://tsyesika.co.uk/chat/sup-yo/\",
      \"content\": \"Up for some root beer floats?\"}}")
 (json-to-as json-root-beer-note)
+
+;; Theoretical sugar syntax?
+(define root-beer-note
+  (make-as-chain
+   (<Create>
+    ;; Putting the string first is the same thing as #:@id
+    "http://tsyesika.co.uk/act/foo-id-here/"
+    #:actor (<Person>
+              #:@id "http://tsyesika.co.uk"
+              #:displayName "Jessica Tallon")
+    #:to (list "acct:cwebber@identi.ca")
+    #:object (<Note>
+               "http://tsyesika.co.uk/chat/sup-yo/"
+               #:content "Up for some root beer floats?"))))
