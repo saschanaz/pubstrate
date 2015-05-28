@@ -16,7 +16,9 @@
 ;; 02110-1301 USA
 
 (use-modules (oop goops)
-             (ice-9 match))
+             (ice-9 match)
+             (ice-9 hash-table)
+             (json))
 
 (define-class <json-ldable> ()
   (properties #:allocation #:each-subclass)
@@ -31,13 +33,13 @@
 ;;; This is a shortcut for defining activitystreams-style objects
 ;;; since there is often a lot of boilerplate
 
-(define-syntax-rule (define-asclass class (parent ...)
+(define-syntax-rule (define-asclass asclass (parent ...)
                       as-uri as-properties . rest)
   (begin
-    (define-class class (parent ...)
+    (define-class asclass (parent ...)
       . rest)
-    (class-slot-set! class 'uri as-uri)
-    (class-slot-set! class 'properties as-properties)))
+    (class-slot-set! asclass 'uri as-uri)
+    (class-slot-set! asclass 'properties as-properties)))
 
 ;; Make, activitystream convenience style
 ;;; Redo as metaobject method
@@ -85,7 +87,7 @@ Example usage:
 
 ;;; Recursively convert to hashtable, including all children
 (define-generic as-to-hash)
-(define-method (as-to-hash (as-object <json-ldable>))
+(define-method (as-to-hash (as-object <json-ldable>) contexts)
   (let ((as-hash (make-hash-table)))
     (hash-for-each-handle
      (lambda (handle)
@@ -95,7 +97,14 @@ Example usage:
              (hash-set! as-hash key (as-to-hash val))
              (hash-set! as-hash key val))))
      (as-fields as-object))
+    (hash-set! as-hash "@type"
+               (extract-type-from-contexts-or-uri
+                contexts (slot-ref as-object 'uri)))
     as-hash))
+
+(define-method (as-to-hash (as-object <json-ldable>))
+  (as-to-hash as-object (list default-context)))
+
 
 (define-generic as-to-json)
 (define-method (as-to-json (as-object <json-ldable>))
@@ -230,16 +239,8 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Offer"
   '())
 
-(define-asclass <FriendRequest> (<Connect>)
-  "http://www.w3.org/ns/activitystreams#FriendRequest"
-  '())
-
 (define-asclass <Invite> (<Offer>)
   "http://www.w3.org/ns/activitystreams#Invite"
-  '())
-
-(define-asclass <Post> (<Activity>)
-  "http://www.w3.org/ns/activitystreams#Post"
   '())
 
 (define-asclass <Reject> (<Activity>)
@@ -355,8 +356,8 @@ Use like:
   "http://www.w3.org/ns/activitystreams#Article"
   '())
 
-(define-asclass <Content> (<Collection>)
-  "http://www.w3.org/ns/activitystreams#Collection"
+(define-asclass <Album> (<Collection>)
+  "http://www.w3.org/ns/activitystreams#Album"
   '())
 
 (define-asclass <Folder> (<Collection>)
@@ -406,3 +407,99 @@ Use like:
 (define-asclass <Profile> (<Content>)
   "http://www.w3.org/ns/activitystreams#Profile"
   '())
+
+;; ---------------
+;; pseudo-contexts
+;; ---------------
+
+(define-class <pseudo-context> ()
+  (mapping #:init-keyword #:mapping
+           #:accessor pseudo-context-mapping)
+  ;;;; This will be necessary when constructing from json.
+  ;;;; Should be memoized.
+  ;; (reverse-map)
+  )
+
+(define-generic extract-type-from-context)
+(define-method (extract-type-from-context (context <pseudo-context>) uri)
+  "Retreive uri' simple name representation from context"
+  (hash-ref (pseudo-context-mapping context) uri #f))
+
+(define (extract-type-from-contexts-or-uri contexts uri)
+  (or
+   (let loop ((contexts contexts))
+     (if (null? contexts)
+         #f
+         (let ((type (extract-type-from-context
+                      (car contexts) uri)))
+           (if type
+               type
+               (loop (cdr contexts))))))
+   uri))
+
+
+(define default-context
+  (make <pseudo-context>
+    #:mapping
+    (alist->hash-table
+     ;; This is a dumb way to do things but I'm kinda tired.
+     (map (lambda (cell)
+            (cons
+             (class-slot-ref (car cell) 'uri)
+             (cdr cell)))
+          `((,<Accept> . "Accept")
+            (,<Activity> . "Activity")
+            (,<IntransitiveActivity> . "IntransitiveActivity")
+            (,<Actor> . "Actor")
+            (,<Add> . "Add")
+            (,<Album> . "Album")
+            (,<Announce> . "Announce")
+            (,<Application> . "Application")
+            (,<Arrive> . "Arrive")
+            (,<Article> . "Article")
+            (,<Audio> . "Audio")
+            (,<Block> . "Block")
+            (,<Collection> . "Collection")
+            (,<Connection> . "Connection")
+            (,<Content> . "Content")
+            (,<Create> . "Create")
+            (,<Delete> . "Delete")
+            (,<Dislike> . "Dislike")
+            (,<Document> . "Document")
+            (,<Event> . "Event")
+            (,<Favorite> . "Favorite")
+            (,<Folder> . "Folder")
+            (,<Follow> . "Follow")
+            (,<Flag> . "Flag")
+            (,<Group> . "Group")
+            (,<Ignore> . "Ignore")
+            (,<Image> . "Image")
+            (,<Invite> . "Invite")
+            (,<Join> . "Join")
+            (,<Leave> . "Leave")
+            (,<Like> . "Like")
+            (,<ASLink> . "Link")
+            (,<Mention> . "Mention")
+            (,<Note> . "Note")
+            (,<ASObject> . "Object")
+            (,<Offer> . "Offer")
+            (,<OrderedCollection> . "OrderedCollection")
+            (,<Person> . "Person")
+            (,<Place> . "Place")
+            (,<Process> . "Process")
+            (,<Profile> . "Profile")
+            (,<Question> . "Question")
+            (,<Reject> . "Reject")
+            (,<Remove> . "Remove")
+            (,<Service> . "Service")
+            (,<Story> . "Story")
+            (,<TentativeAccept> . "TentativeAccept")
+            (,<TentativeReject> . "TentativeReject")
+            (,<Undo> . "Undo")
+            (,<Update> . "Update")
+            (,<Video> . "Video")
+            (,<Experience> . "Experience")
+            (,<View> . "View")
+            (,<Read> . "Read")
+            (,<Move> . "Move")
+            (,<Travel> . "Travel"))))))
