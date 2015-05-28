@@ -106,19 +106,25 @@
            '(("@type" . "Article"))))))
      entry-pieces))
 
-  (clean-result
-   (let loop ((feed feed))
-     (sxml-match
-      feed
-      ;; Process the top-level, loop over feed items
-      ;; (Not sure why but I can't seem to use the catamorphism
-      ;; feature here...)
-      [(*TOP* ,_ ... (atom:feed ,feed-item ...))
-       (map loop feed-item)]
-      ;; Pass off parts a feed entry over to the entry processor
-      [(atom:entry ,entry-part ...)
-       (process-entry entry-part ...)]
-      [,else #nil]))))
+  (define (wrap-in-collection items)
+    (alist->hash-table
+     `(("@type" . "Collection")
+       ("items" . ,items))))
+
+  (wrap-in-collection
+   (clean-result
+    (let loop ((feed feed))
+      (sxml-match
+       feed
+       ;; Process the top-level, loop over feed items
+       ;; (Not sure why but I can't seem to use the catamorphism
+       ;; feature here...)
+       [(*TOP* ,_ ... (atom:feed ,feed-item ...))
+        (map loop feed-item)]
+       ;; Pass off parts a feed entry over to the entry processor
+       [(atom:entry ,entry-part ...)
+        (process-entry entry-part ...)]
+       [,else #nil])))))
 
 ;; (display (scm->json-string (feed->activitystream dustycloud-data "http://dustycloud.org/") #:pretty #t))
 
