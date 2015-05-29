@@ -41,6 +41,7 @@
   ;; Not public
   (--json-promise-- as--json-promise as--set-json-promise))
 
+;; TODO: support printing the @id of the object, if exists
 (set-record-type-printer!
  <as-obj>
  (lambda (record port)
