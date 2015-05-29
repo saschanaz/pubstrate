@@ -28,7 +28,7 @@
 (set-record-type-printer!
  <as-type>
  (lambda (record port)
-   (format port "<as-type: ~s>" (as-type-uri record))))
+   (format port "#<as-type: ~s>" (as-type-uri record))))
 
 (define-syntax-rule (make-as-obj-factory proc-name type)
   (define (proc-name . args)
