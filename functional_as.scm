@@ -16,6 +16,8 @@
 ;; 02110-1301 USA
 
 (use-modules (srfi srfi-9)
+             (srfi srfi-9 gnu)
+             (ice-9 match)
              (ice-9 vlist))
 
 (define-record-type <as-type>
@@ -44,6 +46,12 @@
   #nil)
 
 (define (make-as-obj type fields)
+  "Constructor for making activitystreams objects
+
+TYPE is an <as-type> and FIELDS is a vhash of fields.
+
+In general it is recommended that you use (make-as) instead,
+which has a much more friendly syntax using keywords."
   (let ((as-obj (make-as-obj-internal type fields)))
     ;; Yes, its promise field references itself ;p
     ;; 
@@ -54,10 +62,42 @@
     as-obj))
 
 (define (make-as type . fields)
-  (define (convert-fields-to-vhash fields)
-    ;; TODO
-    #nil)
-  (make-as type (convert-fields-to-vhash fields)))
+  "Easily make an activitystreams object from keyword arguments
+
+The first argument after type may be a string for the @id uri.  All
+remaining arguments are keyword arguments used to construct the object
+fields.
+
+Example usage:
+  (define root-beer-note
+    (make-as <Post>
+      ;; Putting the string first is the same thing as #:@id
+      \"http://tsyesika.co.uk/act/foo-id-here/\"
+      #:actor (make-as <Person>
+                #:@id \"http://tsyesika.co.uk\"
+                #:displayName \"Jessica Tallon\")
+      #:to (list \"acct:cwebber@identi.ca\")
+      #:object (make-as <Note>
+                 \"http://tsyesika.co.uk/chat/sup-yo/\"
+                 #:content \"Up for some root beer floats?\")))
+"
+  (define (vhash-fields fields)
+    (let loop ((fields fields)
+               (hashed-fields vlist-null))
+      (match fields
+        (((? keyword? key) val . rest)
+         (loop rest
+               (vhash-cons key val hashed-fields)))
+        (()
+         hashed-fields))))
+
+  (match fields
+    (((? string? id) rest ...)
+     (make-as-obj type
+                  (vhash-cons "@id" id
+                              (hash-fields rest))))
+    ((. fields)
+     (make-as-obj type (hash-fields fields)))))
 
 (define-syntax-rule (make-as-obj-factory proc-name type)
   (define (proc-name . args)
@@ -69,10 +109,22 @@
 
 ;; TODO: Expand to handle function sugar with make-as-obj-factory
 
-(define-syntax-rule (define-asclass asclass (parent ...)
-                      as-uri as-properties)
-  (define asclass (make-as-type as-uri (list parent ...) as-properties)))
-
+(define-syntax define-asclass
+  (syntax-rules ()
+    "Define an activitystream class / type"
+    ((define-asclass asclass (parent ...)
+       as-uri as-properties)
+     (define asclass (make-as-type as-uri (list parent ...)
+                                   as-properties)))
+    ;; invoke the macro above, but also add an object factory function
+    ((define-asclass asclass (parent ...)
+       as-uri as-properties factory-name)
+     ;; invoke the function
+     (begin
+       (define-asclass asclass (parent ...)
+         as-uri as-properties)
+       ;; but also make a factory function
+       (make-as-obj-factory factory-name asclass)))))
 
 ;;; ******************
 ;;; * Standard vocab *
