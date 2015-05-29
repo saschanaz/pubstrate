@@ -30,10 +30,6 @@
  (lambda (record port)
    (format port "#<as-type: ~s>" (as-type-uri record))))
 
-(define-syntax-rule (make-as-obj-factory proc-name type)
-  (define (proc-name . args)
-    (apply make-as type args)))
-
 ;; ActivityStreams type Object (or Link)
 (define-record-type <as-obj>
   (make-as-obj-internal type fields)
@@ -63,10 +59,22 @@
     #nil)
   (make-as type (convert-fields-to-vhash fields)))
 
+(define-syntax-rule (make-as-obj-factory proc-name type)
+  (define (proc-name . args)
+    (apply make-as type args)))
+
 (define (as-to-json as-obj)
   (force (as--json-promise as-obj)))
 
 
+;; TODO: Expand to handle function sugar with make-as-obj-factory
+
 (define-syntax-rule (define-asclass asclass (parent ...)
                       as-uri as-properties)
   (define asclass (make-as-type as-uri (list parent ...) as-properties)))
+
+
+;;; ******************
+;;; * Standard vocab *
+;;; * ============== *
+;;; ******************
