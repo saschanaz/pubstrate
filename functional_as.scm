@@ -115,24 +115,360 @@ Example usage:
 
 ;; TODO: Expand to handle function sugar with make-as-obj-factory
 
-(define-syntax define-asclass
+(define-syntax define-astype
   (syntax-rules ()
     "Define an activitystream class / type"
-    ((define-asclass asclass (parent ...)
+    ((define-astype astype (parent ...)
        as-uri as-properties)
-     (define asclass (make-as-type as-uri (list parent ...)
+     (define astype (make-as-type as-uri (list parent ...)
                                    as-properties)))
     ;; invoke the macro above, but also add an object factory function
-    ((define-asclass asclass (parent ...)
+    ((define-astype astype (parent ...)
        as-uri as-properties factory-name)
      ;; invoke the function
      (begin
-       (define-asclass asclass (parent ...)
+       (define-astype astype (parent ...)
          as-uri as-properties)
        ;; but also make a factory function
-       (make-as-obj-factory factory-name asclass)))))
+       (make-as-obj-factory factory-name astype)))))
+
+
 
 ;;; ******************
 ;;; * Standard vocab *
 ;;; * ============== *
 ;;; ******************
+
+;;;; TODO: move all the as-object and friends sugar into sugar.scm?
+
+;; ========================================
+;; Core classes
+;; ========================================
+
+(define-astype <ASObject> ()
+  "http://www.w3.org/ns/activitystreams#Object"
+  '(alias attachment attributedTo content
+          context displayName endTime generator icon
+          image inReplyTo location preview published
+          replies scope startTime summary tag title
+          updated url)
+  as-object)
+
+(define-astype <ASLink> ()
+  "http://www.w3.org/ns/activitystreams#Link"
+  '(href rel mediaType displayName title
+         hreflang height width duration)
+  as-link)
+
+(define-astype <Activity> (<ASObject>)
+  "http://www.w3.org/ns/activitystreams#Activity"
+  '(actor object target result origin priority
+          to bto cc bcc)
+  as-activity)
+
+;;; In this one, the actor is a direct object of action as opposed to
+;;; the object property
+;;; 
+;;; ... technically this does NOT inherit the "object" field, but our
+;;; algorithm for determining available properties assumes it does...
+
+(define-astype <IntransitiveActivity> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#IntransitiveActivity"
+  '()
+  as-intransitive-activity)
+
+(define-astype <Actor> (<ASObject>)
+  "http://www.w3.org/ns/activitystreams#Actor"
+  '()
+  as-actor)
+
+(define-astype <Collection> (<ASObject>)
+  "http://www.w3.org/ns/activitystreams#Collection"
+  '(totalItems itemsPerPage current next prev
+               first last self items)
+  as-collection)
+
+(define-astype <OrderedCollection> (<Collection>)
+  "http://www.w3.org/ns/activitystreams#OrderedCollection"
+  '(startIndex)
+  as-ordered-collection)
+
+
+;; ========================================
+;; Extended classes: Activity types
+;; ========================================
+
+(define-astype <Accept> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Accept"
+  '()
+  as-accept)
+
+(define-astype <TentativeAccept> (<Accept>)
+  "http://www.w3.org/ns/activitystreams#TentativeAccept"
+  '()
+  as-tentative-accept)
+
+(define-astype <Add> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Add"
+  '()
+  as-add)
+
+(define-astype <Arrive> (<IntransitiveActivity>)
+  "http://www.w3.org/ns/activitystreams#Arrive"
+  '()
+  as-arrive)
+
+(define-astype <Create> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Create"
+  '()
+  as-create)
+
+(define-astype <Delete> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Delete"
+  '()
+  as-delete)
+
+(define-astype <Favorite> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Favorite"
+  '()
+  as-favorite)
+
+(define-astype <Follow> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Follow"
+  '()
+  as-follow)
+
+(define-astype <Ignore> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Ignore"
+  '()
+  as-ignore)
+
+(define-astype <Join> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Join"
+  '()
+  as-join)
+
+(define-astype <Leave> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Leave"
+  '()
+  as-leave)
+
+(define-astype <Like> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Like"
+  '()
+  as-like)
+
+(define-astype <Offer> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Offer"
+  '()
+  as-offer)
+
+(define-astype <Invite> (<Offer>)
+  "http://www.w3.org/ns/activitystreams#Invite"
+  '()
+  as-invite)
+
+(define-astype <Reject> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Reject"
+  '()
+  as-reject)
+
+(define-astype <TentativeReject> (<Reject>)
+  "http://www.w3.org/ns/activitystreams#TentativeReject"
+  '()
+  as-tentative-reject)
+
+(define-astype <Remove> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Remove"
+  '()
+  as-remove)
+
+(define-astype <Share> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Share"
+  '()
+  as-share)
+
+(define-astype <Undo> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Undo"
+  '()
+  as-undo)
+
+(define-astype <Update> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Update"
+  '()
+  as-update)
+
+(define-astype <Experience> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Experience"
+  '()
+  as-experience)
+
+(define-astype <View> (<Experience>)
+  "http://www.w3.org/ns/activitystreams#View"
+  '()
+  as-view)
+
+;;; I'd love to see this one dropped :P
+;;; see: https://github.com/jasnell/w3c-socialwg-activitystreams/issues/113
+(define-astype <Watch> (<View>)
+  "http://www.w3.org/ns/activitystreams#Watch"
+  '()
+  as-watch)
+
+;;; I'd love to see this one become a subclass of Read
+;;; see: https://github.com/jasnell/w3c-socialwg-activitystreams/issues/114
+(define-astype <Read> (<View>)
+  "http://www.w3.org/ns/activitystreams#Read"
+  '()
+  as-read)
+
+(define-astype <Move> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Move"
+  '()
+  as-move)
+
+(define-astype <Travel> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Travel"
+  '()
+  as-travel)
+
+(define-astype <Announce> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Announce"
+  '()
+  as-announce)
+
+(define-astype <Block> (<Ignore>)
+  "http://www.w3.org/ns/activitystreams#Block"
+  '()
+  as-block)
+
+(define-astype <Flag> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Flag"
+  '()
+  as-flag)
+
+(define-astype <Dislike> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Dislike"
+  '()
+  as-dislike)
+
+(define-astype <Assign> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Assign"
+  '()
+  as-assign)
+
+(define-astype <Complete> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Complete"
+  '()
+  as-complete)
+
+
+;; ========================================
+;; Extended classes: Object types
+;; ========================================
+
+(define-astype <Connection> (<ASObject>)
+  "http://www.w3.org/ns/activitystreams#Connection"
+  '(a b relationship)
+  as-connection)
+
+(define-astype <Application> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Application"
+  '()
+  as-application)
+
+(define-astype <Content> (<ASObject>)
+  "http://www.w3.org/ns/activitystreams#Content"
+  '(duration width height)
+  as-content)
+
+(define-astype <Group> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Group"
+  '()
+  as-group)
+
+(define-astype <Person> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Person"
+  '()
+  as-person)
+
+(define-astype <Process> (<Activity>)
+  "http://www.w3.org/ns/activitystreams#Process"
+  '()
+  as-process)
+
+(define-astype <Service> (<Actor>)
+  "http://www.w3.org/ns/activitystreams#Service"
+  '()
+  as-service)
+
+(define-astype <Article> (<Content>)
+  "http://www.w3.org/ns/activitystreams#Article"
+  '()
+  as-article)
+
+(define-astype <Album> (<Collection>)
+  "http://www.w3.org/ns/activitystreams#Album"
+  '()
+  as-album)
+
+(define-astype <Folder> (<Collection>)
+  "http://www.w3.org/ns/activitystreams#Folder"
+  '()
+  as-folder)
+
+(define-astype <Story> (<OrderedCollection>)
+  "http://www.w3.org/ns/activitystreams#Folder"
+  '()
+  as-story)
+
+(define-astype <Document> (<Content>)
+  "http://www.w3.org/ns/activitystreams#Document"
+  '()
+  as-document)
+
+(define-astype <Audio> (<Document>)
+  "http://www.w3.org/ns/activitystreams#Audio"
+  '()
+  as-audio)
+
+(define-astype <Image> (<Document>)
+  "http://www.w3.org/ns/activitystreams#Image"
+  '()
+  as-image)
+
+(define-astype <Video> (<Document>)
+  "http://www.w3.org/ns/activitystreams#Video"
+  '()
+  as-video)
+
+(define-astype <Note> (<Content>)
+  "http://www.w3.org/ns/activitystreams#Note"
+  '()
+  as-note)
+
+(define-astype <Question> (<Content> <IntransitiveActivity>)
+  "http://www.w3.org/ns/activitystreams#Question"
+  '(oneOf anyOf)
+  as-question)
+
+(define-astype <Event> (<ASObject>)
+  "http://www.w3.org/ns/activitystreams#Event"
+  '()
+  as-event)
+
+(define-astype <Place> (<ASObject>)
+  "http://www.w3.org/ns/activitystreams#Place"
+  '(accuracy altitude latitude longitude radius units)
+  as-place)
+
+(define-astype <Mention> (<ASLink>)
+  "http://www.w3.org/ns/activitystreams#Link"
+  '()
+  as-mention)
+
+(define-astype <Profile> (<Content>)
+  "http://www.w3.org/ns/activitystreams#Profile"
+  '()
+  as-profile)
+
