@@ -41,6 +41,11 @@
   ;; Not public
   (--json-promise-- as--json-promise as--set-json-promise))
 
+(set-record-type-printer!
+ <as-obj>
+ (lambda (record port)
+   (format port "#<<as-obj> type: ~a>" (as-type record))))
+
 ;; TODO
 (define (as-to-json-internal as-obj)
   #nil)
@@ -95,9 +100,9 @@ Example usage:
     (((? string? id) rest ...)
      (make-as-obj type
                   (vhash-cons "@id" id
-                              (hash-fields rest))))
+                              (vhash-fields rest))))
     ((. fields)
-     (make-as-obj type (hash-fields fields)))))
+     (make-as-obj type (vhash-fields fields)))))
 
 (define-syntax-rule (make-as-obj-factory proc-name type)
   (define (proc-name . args)
