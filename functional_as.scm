@@ -21,15 +21,13 @@
              (ice-9 vlist)
              (json))
 
+
 (define-record-type <as-type>
   (make-as-type uri parents props)
   as-type?
   (uri as-type-uri)
   (parents as-type-parents)
-  (props as-type-props)
-  ;;; TODO: Add contexts here
-  ;; (contexts)
-)
+  (props as-type-props))
 
 (set-record-type-printer!
  <as-type>
@@ -38,10 +36,16 @@
 
 ;; ActivityStreams type Object (or Link)
 (define-record-type <as-obj>
-  (make-as-obj-internal type fields)
+  (make-as-obj-internal type fields contexts implied-contexts)
   as-obj?
   (type as-type)
   (fields as-fields)
+  ;; Implied contexts affect expansion of types and etc, but aren't
+  ;; explicitly put in @context
+  ;; 
+  ;; Contexts do affect expansion of types, and also appear in @context
+  (implied-contexts as-implied-contexts)
+  (contexts as-contexts)
   ;; Not public
   (--json-promise-- as--json-promise as--set-json-promise))
 
@@ -84,14 +88,17 @@
   (scm->json-string
    (as-to-hash as-obj) #:pretty pretty))
 
-(define (make-as-obj type fields)
+(define* (make-as-obj type fields
+                      #:key
+                      (contexts (%default-as-contexts))
+                      (implied-contexts (%default-as-implied-contexts)))
   "Constructor for making activitystreams objects
 
 TYPE is an <as-type> and FIELDS is a vhash of fields.
 
 In general it is recommended that you use (make-as) instead,
 which has a much more friendly syntax using keywords."
-  (let ((as-obj (make-as-obj-internal type fields)))
+  (let ((as-obj (make-as-obj-internal type fields contexts implied-contexts)))
     ;; Yes, its promise field references itself ;p
     ;; 
     ;; Alternately, we could make the promise reference just the type
@@ -119,6 +126,11 @@ Example usage:
       #:object (make-as <Note>
                  \"http://tsyesika.co.uk/chat/sup-yo/\"
                  #:content \"Up for some root beer floats?\")))
+
+Note that you can't supply the context or supplied contexts via make-as,
+due to this aiming for simplicity.  However, if you want to take a
+lazy route, you can use (parameterize) on the
+%default-as-contexts and %default-as-implied-contexts fields.
 "
   (define (vhash-fields fields)
     (let loop ((fields fields)
@@ -503,3 +515,101 @@ Example usage:
   '()
   as-profile)
 
+
+;; ---------------
+;; pseudo-contexts
+;; ---------------
+
+(define-record-type <pseudo-context>
+  (make-pseudo-context mapping)
+  pseudo-context?
+  (mapping pseudo-context-mapping)
+  ;;;; This will be necessary when constructing from json.
+  ;;;; Should be memoized.
+  ;; (reverse-map)
+  )
+
+(define (extract-type-from-context context uri)
+  "Retreive uri' simple name representation from context"
+  (vhash-assoc (pseudo-context-mapping context) uri #f))
+
+(define (extract-type-from-contexts-or-uri contexts uri)
+  (or
+   (let loop ((contexts contexts))
+     (if (null? contexts)
+         #f
+         (let ((type (extract-type-from-context
+                      (car contexts) uri)))
+           (if type
+               type
+               (loop (cdr contexts))))))
+   uri))
+
+(define default-context
+  (alist->vhash
+   (map (lambda (cell)
+          (cons
+           (as-type-uri (car cell))
+           (cdr cell)))
+        `((,<Accept> . "Accept")
+          (,<Activity> . "Activity")
+          (,<IntransitiveActivity> . "IntransitiveActivity")
+          (,<Actor> . "Actor")
+          (,<Add> . "Add")
+          (,<Album> . "Album")
+          (,<Announce> . "Announce")
+          (,<Application> . "Application")
+          (,<Arrive> . "Arrive")
+          (,<Article> . "Article")
+          (,<Audio> . "Audio")
+          (,<Block> . "Block")
+          (,<Collection> . "Collection")
+          (,<Connection> . "Connection")
+          (,<Content> . "Content")
+          (,<Create> . "Create")
+          (,<Delete> . "Delete")
+          (,<Dislike> . "Dislike")
+          (,<Document> . "Document")
+          (,<Event> . "Event")
+          (,<Favorite> . "Favorite")
+          (,<Folder> . "Folder")
+          (,<Follow> . "Follow")
+          (,<Flag> . "Flag")
+          (,<Group> . "Group")
+          (,<Ignore> . "Ignore")
+          (,<Image> . "Image")
+          (,<Invite> . "Invite")
+          (,<Join> . "Join")
+          (,<Leave> . "Leave")
+          (,<Like> . "Like")
+          (,<ASLink> . "Link")
+          (,<Mention> . "Mention")
+          (,<Note> . "Note")
+          (,<ASObject> . "Object")
+          (,<Offer> . "Offer")
+          (,<OrderedCollection> . "OrderedCollection")
+          (,<Person> . "Person")
+          (,<Place> . "Place")
+          (,<Process> . "Process")
+          (,<Profile> . "Profile")
+          (,<Question> . "Question")
+          (,<Reject> . "Reject")
+          (,<Remove> . "Remove")
+          (,<Service> . "Service")
+          (,<Story> . "Story")
+          (,<TentativeAccept> . "TentativeAccept")
+          (,<TentativeReject> . "TentativeReject")
+          (,<Undo> . "Undo")
+          (,<Update> . "Update")
+          (,<Video> . "Video")
+          (,<Experience> . "Experience")
+          (,<View> . "View")
+          (,<Read> . "Read")
+          (,<Move> . "Move")
+          (,<Travel> . "Travel")))))
+
+(define %default-as-contexts
+  (make-parameter '()))
+(define %default-as-implied-contexts
+  (make-parameter
+   (list default-context)))
