@@ -18,14 +18,18 @@
 (use-modules (srfi srfi-9)
              (srfi srfi-9 gnu)
              (ice-9 match)
-             (ice-9 vlist))
+             (ice-9 vlist)
+             (json))
 
 (define-record-type <as-type>
   (make-as-type uri parents props)
   as-type?
   (uri as-type-uri)
   (parents as-type-parents)
-  (props as-type-props))
+  (props as-type-props)
+  ;;; TODO: Add contexts here
+  ;; (contexts)
+)
 
 (set-record-type-printer!
  <as-type>
@@ -47,9 +51,38 @@
  (lambda (record port)
    (format port "#<<as-obj> type: ~a>" (as-type record))))
 
+(define (vhash->hash-table vhash)
+  "Convert VHASH into a hash table."
+  (vhash-fold (lambda (key value hashtable)
+                (let ((unique-sym (gensym)))
+                  (if (eq? unique-sym
+                           (hash-ref hashtable key unique-sym))
+                      (hash-set! hashtable key value)))
+                hashtable)
+              (make-hash-table)
+              vhash))
+
+(define (as-to-hash as-obj)
+  ;; TODO: handle contexts
+  (let ((as-hash (make-hash-table)))
+    (hash-for-each-handle
+     (lambda (handle)
+       (let ((key (car handle))
+             (val (cdr handle)))
+         (if (as-obj? val)
+             (hash-set! as-hash key (as-to-hash val))
+             (hash-set! as-hash key val))))
+     (vhash->hash-table (as-fields as-obj)))
+    (hash-set! as-hash "@type"
+               ;; (extract-type-from-contexts-or-uri
+               ;;  contexts (slot-ref as-object 'uri))
+               (as-type-uri (as-type as-obj)))
+    as-hash))
+
 ;; TODO
-(define (as-to-json-internal as-obj)
-  #nil)
+(define* (as-to-json-internal as-obj #:key (pretty #f))
+  (scm->json-string
+   (as-to-hash as-obj) #:pretty pretty))
 
 (define (make-as-obj type fields)
   "Constructor for making activitystreams objects
@@ -93,7 +126,8 @@ Example usage:
       (match fields
         (((? keyword? key) val . rest)
          (loop rest
-               (vhash-cons key val hashed-fields)))
+               (vhash-cons (symbol->string (keyword->symbol key))
+                           val hashed-fields)))
         (()
          hashed-fields))))
 
@@ -129,7 +163,6 @@ Example usage:
          as-uri as-properties)
        ;; but also make a factory function
        (make-as-obj-factory factory-name astype)))))
-
 
 
 ;;; ******************
