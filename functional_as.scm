@@ -66,6 +66,23 @@
               (make-hash-table)
               vhash))
 
+(define (as-type-string as-obj)
+  "Get the type as a string for an ActivityStreams object.
+
+This is affected by the context."
+  (let ((uri (as-type-uri (as-type as-obj))))
+    (or
+     (let loop ((contexts (append (as-contexts as-obj)
+                                  (as-implied-contexts as-obj))))
+       (if (null? contexts)
+           #f
+           (let ((type (extract-type-from-context
+                        (car contexts) uri)))
+             (if type
+                 type
+                 (loop (cdr contexts))))))
+     uri)))
+
 (define (as-to-hash as-obj)
   ;; TODO: handle contexts
   (let ((as-hash (make-hash-table)))
@@ -78,9 +95,7 @@
              (hash-set! as-hash key val))))
      (vhash->hash-table (as-fields as-obj)))
     (hash-set! as-hash "@type"
-               ;; (extract-type-from-contexts-or-uri
-               ;;  contexts (slot-ref as-object 'uri))
-               (as-type-uri (as-type as-obj)))
+               (as-type-string as-obj))
     as-hash))
 
 ;; TODO
@@ -531,82 +546,74 @@ lazy route, you can use (parameterize) on the
 
 (define (extract-type-from-context context uri)
   "Retreive uri' simple name representation from context"
-  (vhash-assoc (pseudo-context-mapping context) uri #f))
-
-(define (extract-type-from-contexts-or-uri contexts uri)
-  (or
-   (let loop ((contexts contexts))
-     (if (null? contexts)
-         #f
-         (let ((type (extract-type-from-context
-                      (car contexts) uri)))
-           (if type
-               type
-               (loop (cdr contexts))))))
-   uri))
+  (let ((result (vhash-assoc uri (pseudo-context-mapping context))))
+    (if result
+        (cdr result)
+        #f)))
 
 (define default-context
-  (alist->vhash
-   (map (lambda (cell)
-          (cons
-           (as-type-uri (car cell))
-           (cdr cell)))
-        `((,<Accept> . "Accept")
-          (,<Activity> . "Activity")
-          (,<IntransitiveActivity> . "IntransitiveActivity")
-          (,<Actor> . "Actor")
-          (,<Add> . "Add")
-          (,<Album> . "Album")
-          (,<Announce> . "Announce")
-          (,<Application> . "Application")
-          (,<Arrive> . "Arrive")
-          (,<Article> . "Article")
-          (,<Audio> . "Audio")
-          (,<Block> . "Block")
-          (,<Collection> . "Collection")
-          (,<Connection> . "Connection")
-          (,<Content> . "Content")
-          (,<Create> . "Create")
-          (,<Delete> . "Delete")
-          (,<Dislike> . "Dislike")
-          (,<Document> . "Document")
-          (,<Event> . "Event")
-          (,<Favorite> . "Favorite")
-          (,<Folder> . "Folder")
-          (,<Follow> . "Follow")
-          (,<Flag> . "Flag")
-          (,<Group> . "Group")
-          (,<Ignore> . "Ignore")
-          (,<Image> . "Image")
-          (,<Invite> . "Invite")
-          (,<Join> . "Join")
-          (,<Leave> . "Leave")
-          (,<Like> . "Like")
-          (,<ASLink> . "Link")
-          (,<Mention> . "Mention")
-          (,<Note> . "Note")
-          (,<ASObject> . "Object")
-          (,<Offer> . "Offer")
-          (,<OrderedCollection> . "OrderedCollection")
-          (,<Person> . "Person")
-          (,<Place> . "Place")
-          (,<Process> . "Process")
-          (,<Profile> . "Profile")
-          (,<Question> . "Question")
-          (,<Reject> . "Reject")
-          (,<Remove> . "Remove")
-          (,<Service> . "Service")
-          (,<Story> . "Story")
-          (,<TentativeAccept> . "TentativeAccept")
-          (,<TentativeReject> . "TentativeReject")
-          (,<Undo> . "Undo")
-          (,<Update> . "Update")
-          (,<Video> . "Video")
-          (,<Experience> . "Experience")
-          (,<View> . "View")
-          (,<Read> . "Read")
-          (,<Move> . "Move")
-          (,<Travel> . "Travel")))))
+  (make-pseudo-context
+   (alist->vhash
+    (map (lambda (cell)
+           (cons
+            (as-type-uri (car cell))
+            (cdr cell)))
+         `((,<Accept> . "Accept")
+           (,<Activity> . "Activity")
+           (,<IntransitiveActivity> . "IntransitiveActivity")
+           (,<Actor> . "Actor")
+           (,<Add> . "Add")
+           (,<Album> . "Album")
+           (,<Announce> . "Announce")
+           (,<Application> . "Application")
+           (,<Arrive> . "Arrive")
+           (,<Article> . "Article")
+           (,<Audio> . "Audio")
+           (,<Block> . "Block")
+           (,<Collection> . "Collection")
+           (,<Connection> . "Connection")
+           (,<Content> . "Content")
+           (,<Create> . "Create")
+           (,<Delete> . "Delete")
+           (,<Dislike> . "Dislike")
+           (,<Document> . "Document")
+           (,<Event> . "Event")
+           (,<Favorite> . "Favorite")
+           (,<Folder> . "Folder")
+           (,<Follow> . "Follow")
+           (,<Flag> . "Flag")
+           (,<Group> . "Group")
+           (,<Ignore> . "Ignore")
+           (,<Image> . "Image")
+           (,<Invite> . "Invite")
+           (,<Join> . "Join")
+           (,<Leave> . "Leave")
+           (,<Like> . "Like")
+           (,<ASLink> . "Link")
+           (,<Mention> . "Mention")
+           (,<Note> . "Note")
+           (,<ASObject> . "Object")
+           (,<Offer> . "Offer")
+           (,<OrderedCollection> . "OrderedCollection")
+           (,<Person> . "Person")
+           (,<Place> . "Place")
+           (,<Process> . "Process")
+           (,<Profile> . "Profile")
+           (,<Question> . "Question")
+           (,<Reject> . "Reject")
+           (,<Remove> . "Remove")
+           (,<Service> . "Service")
+           (,<Story> . "Story")
+           (,<TentativeAccept> . "TentativeAccept")
+           (,<TentativeReject> . "TentativeReject")
+           (,<Undo> . "Undo")
+           (,<Update> . "Update")
+           (,<Video> . "Video")
+           (,<Experience> . "Experience")
+           (,<View> . "View")
+           (,<Read> . "Read")
+           (,<Move> . "Move")
+           (,<Travel> . "Travel"))))))
 
 (define %default-as-contexts
   (make-parameter '()))
