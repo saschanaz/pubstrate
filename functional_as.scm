@@ -113,8 +113,6 @@ Example usage:
   (force (as--json-promise as-obj)))
 
 
-;; TODO: Expand to handle function sugar with make-as-obj-factory
-
 (define-syntax define-astype
   (syntax-rules ()
     "Define an activitystream class / type"
