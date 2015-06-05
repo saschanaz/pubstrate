@@ -511,7 +511,7 @@ lazy route, you can use (parameterize) on the
   '()
   as-person)
 
-(define-astype <Process> (<Activity>)
+(define-astype <Process> (<Actor>)
   "http://www.w3.org/ns/activitystreams#Process"
   '()
   as-process)
