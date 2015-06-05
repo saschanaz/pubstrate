@@ -15,12 +15,71 @@
 ;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301 USA
 
-(use-modules (srfi srfi-9)
-             (srfi srfi-9 gnu)
-             (ice-9 match)
-             (ice-9 vlist)
-             (json))
+(define-module (activitystuff base)
+  #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-9 gnu)
+  #:use-module (ice-9 match)
+  #:use-module (ice-9 vlist)
+  #:use-module (json)
+  #:export (<as-type>
+            as-type? make-as-type as-type-uri as-type-parents as-type-props
+            define-astype
 
+            <as-obj>
+            as-obj? make-as-obj as-type as-fields
+            as-implied-contexts as-contexts
+
+            as-obj-type-string
+            as-to-hash  ; usually you can use the json methods probably
+            as-to-json as-to-json-pretty
+            
+            <pseudo-context>
+            make-pseudo-context pseudo-context? pseudo-context-mapping
+            extract-type-from-context
+            default-context
+            %default-as-contexts %default-as-implied-contexts
+
+            ;; utilities
+            vhash->hash-table
+
+            ;; **********
+            ;; Base vocab
+            ;; **********
+
+            ;; Core classes
+            ;; ------------
+            <ASObject> <ASLink>
+            <Activity> <IntransitiveActivity>
+            <Actor>
+            <Collection> <OrderedCollection>>
+            
+            ;; Extended classes: Activities
+            ;; ----------------------------
+            <Accept> <TentativeAccept>
+            <Add> <Arrive>
+            <Create> <Delete>
+            <Favorite> <Follow> <Ignore>
+            <Join> <Leave>
+            <Like>
+            <Offer> <Invite>
+            <Reject> <TentativeReject>
+            <Remove> <Share>
+            <Undo> <Update>
+            <Experience> <View> <Watch> <Read>
+            <Move> <Travel> <Announce> <Block>
+            <Flag> <Dislike> <Assign> <Complete>
+
+            ;; Extended classes: Object types
+            ;; ------------------------------
+            <Connection> <Application>
+            <Content>
+            <Group> <Person> <Process> <Service>
+            <Article>
+            <Album> <Folder> <Story>
+            <Document> <Audio> <Image> <Video> <Note>
+            <Question>
+            <Event> <Place> <Mention>
+            <Profile>))
 
 (define-record-type <as-type>
   (make-as-type uri parents props)
@@ -66,7 +125,7 @@
               (make-hash-table)
               vhash))
 
-(define (as-type-string as-obj)
+(define (as-obj-type-string as-obj)
   "Get the type as a string for an ActivityStreams object.
 
 This is affected by the context."
@@ -95,7 +154,7 @@ This is affected by the context."
              (hash-set! as-hash key val))))
      (vhash->hash-table (as-fields as-obj)))
     (hash-set! as-hash "@type"
-               (as-type-string as-obj))
+               (as-obj-type-string as-obj))
     as-hash))
 
 (define* (as-to-json-internal as-obj #:key (pretty #f))
