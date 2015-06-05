@@ -98,7 +98,6 @@ This is affected by the context."
                (as-type-string as-obj))
     as-hash))
 
-;; TODO
 (define* (as-to-json-internal as-obj #:key (pretty #f))
   (scm->json-string
    (as-to-hash as-obj) #:pretty pretty))
@@ -172,6 +171,9 @@ lazy route, you can use (parameterize) on the
 
 (define (as-to-json as-obj)
   (force (as--json-promise as-obj)))
+
+(define (as-to-json-pretty as-obj)
+  (as-to-json-internal as-obj #:pretty #t))
 
 
 (define-syntax define-astype
