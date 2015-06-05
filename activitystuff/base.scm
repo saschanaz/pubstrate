@@ -29,6 +29,9 @@
             as-obj? make-as-obj as-type as-fields
             as-implied-contexts as-contexts
 
+            make-as
+            make-as-obj-factory
+
             as-obj-type-string
             as-to-hash  ; usually you can use the json methods probably
             as-to-json as-to-json-pretty
@@ -48,38 +51,47 @@
 
             ;; Core classes
             ;; ------------
-            <ASObject> <ASLink>
-            <Activity> <IntransitiveActivity>
-            <Actor>
-            <Collection> <OrderedCollection>>
+            <ASObject> as-object <ASLink> as-link
+            <Activity> as-activity
+            <IntransitiveActivity> as-intransitive-activity
+            <Actor> as-activity
+            <Collection> as-collection
+            <OrderedCollection> as-ordered-collection
             
             ;; Extended classes: Activities
             ;; ----------------------------
-            <Accept> <TentativeAccept>
-            <Add> <Arrive>
-            <Create> <Delete>
-            <Favorite> <Follow> <Ignore>
-            <Join> <Leave>
-            <Like>
-            <Offer> <Invite>
-            <Reject> <TentativeReject>
-            <Remove> <Share>
-            <Undo> <Update>
-            <Experience> <View> <Watch> <Read>
-            <Move> <Travel> <Announce> <Block>
-            <Flag> <Dislike> <Assign> <Complete>
+            <Accept> as-accept
+            <TentativeAccept> as-tentative-accept
+            <Add> as-add 
+            <Arrive> as-arrive
+            <Create> as-create <Delete> as-delete
+            <Favorite> as-favorite <Follow> as-follow <Ignore> as-ignore
+            <Join> as-join <Leave> as-leave
+            <Like> as-like
+            <Offer> as-offer <Invite> as-invite
+            <Reject> as-reject <TentativeReject> as-tentative-reject
+            <Remove> as-remove <Share> as-share
+            <Undo> as-undo <Update> as-update
+            <Experience> as-experience <View> as-view
+            <Watch> as-watch <Read> as-read
+            <Move> as-move <Travel> as-travel
+            <Announce> as-announce <Block> as-block
+            <Flag> as-flag <Dislike> as-dislike
+            <Assign> as-assign <Complete> as-complete
 
             ;; Extended classes: Object types
             ;; ------------------------------
-            <Connection> <Application>
-            <Content>
-            <Group> <Person> <Process> <Service>
-            <Article>
-            <Album> <Folder> <Story>
-            <Document> <Audio> <Image> <Video> <Note>
-            <Question>
-            <Event> <Place> <Mention>
-            <Profile>))
+            <Connection> as-connection <Application> as-application
+            <Content> as-content
+            <Group> as-group <Person> as-person
+            <Process> as-process <Service> as-service
+            <Article> as-article
+            <Album> as-album <Folder> as-folder <Story> as-story
+            <Document> as-document <Audio> as-audio
+            <Image> as-image <Video> as-video <Note> as-note
+            <Question> as-question
+            <Event> as-event <Place> as-place <Mention> as-mention
+            <Profile> as-profile))
 
 (define-record-type <as-type>
   (make-as-type uri parents props)
