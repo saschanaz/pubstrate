@@ -33,7 +33,7 @@
             make-as-obj-factory
 
             as-obj-type-string
-            as-to-hash  ; usually you can use the json methods probably
+            as->hash  ; usually you can use the json methods probably
             as->json as->json-pretty
             
             <pseudo-context>
@@ -154,7 +154,7 @@ This is affected by the context."
                  (loop (cdr contexts))))))
      uri)))
 
-(define (as-to-hash as-obj)
+(define (as->hash as-obj)
   ;; TODO: handle contexts
   (let ((as-hash (make-hash-table)))
     (hash-for-each-handle
@@ -162,7 +162,7 @@ This is affected by the context."
        (let ((key (car handle))
              (val (cdr handle)))
          (if (as-obj? val)
-             (hash-set! as-hash key (as-to-hash val))
+             (hash-set! as-hash key (as->hash val))
              (hash-set! as-hash key val))))
      (vhash->hash-table (as-fields as-obj)))
     (hash-set! as-hash "@type"
@@ -171,7 +171,7 @@ This is affected by the context."
 
 (define* (as->json-internal as-obj #:key (pretty #f))
   (scm->json-string
-   (as-to-hash as-obj) #:pretty pretty))
+   (as->hash as-obj) #:pretty pretty))
 
 (define* (make-as-obj type fields
                       #:key
