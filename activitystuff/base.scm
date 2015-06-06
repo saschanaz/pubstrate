@@ -38,7 +38,7 @@
             
             <pseudo-context>
             make-pseudo-context pseudo-context? pseudo-context-mapping
-            extract-type-from-context
+            context-extract-type-name-from-uri
             default-context
             %default-as-contexts %default-as-implied-contexts
 
@@ -147,7 +147,7 @@ This is affected by the context."
                                   (as-implied-contexts as-obj))))
        (if (null? contexts)
            #f
-           (let ((type (extract-type-from-context
+           (let ((type (context-extract-type-name-from-uri
                         (car contexts) uri)))
              (if type
                  type
@@ -245,6 +245,59 @@ lazy route, you can use (parameterize) on the
 
 (define (as->json-pretty as-obj)
   (as->json-internal as-obj #:pretty #t))
+
+
+(define* (hash->as-obj hashed-json
+                       #:key
+                       (contexts (%default-as-contexts))
+                       (implied-contexts (%default-as-implied-contexts)))
+  (define (is-hash-and-looks-like-as-obj? obj)
+    (and (hash-table? obj)
+         (hash-ref obj "@type")))
+
+  (define (get-fields-and-type)
+    "Returned as a cons cell of (fields . type)"
+    (hash-fold
+     (lambda (key value prior)
+       (let ((fields (car prior))
+             (type (cdr prior)))
+         (cond
+          ((equal? key "@type")
+           (cons fields value))
+          ;; TODO: recurse on sub as-obj's
+          ((is-hash-and-looks-like-as-obj? value)
+           (cons
+            (vhash-cons key
+                        (hash->as-obj
+                         value
+                         #:contexts contexts
+                         #:implied-contexts implied-contexts)
+                        fields)
+            type))
+          (else
+           (cons
+            (vhash-cons key value fields)
+            type)))))
+     (cons vlist-null #f)
+     hashed-json))
+
+  (let* ((fields-and-type (get-fields-and-type))
+         (fields (car fields-and-type))
+         (type (cdr fields-and-type)))
+    (if (not type)
+        (throw 'no-valid-as-type))
+    (make-as-obj type fields
+                 #:contexts contexts
+                 #:implied-contexts implied-contexts)))
+
+(define* (json->as-obj json-string
+                       #:key
+                       (contexts (%default-as-contexts))
+                       (implied-contexts (%default-as-implied-contexts)))
+  "Convert json string into as-obj (recursively if need be)"
+  (hash->as-obj (call-with-input-string json-string json->scm)
+                #:contexts contexts
+                #:implied-contexts implied-contexts))
 
 
 (define-syntax define-astype
@@ -617,7 +670,7 @@ lazy route, you can use (parameterize) on the
   ;; (reverse-map)
   )
 
-(define (extract-type-from-context context uri)
+(define (context-extract-type-name-from-uri context uri)
   "Retreive uri' simple name representation from context"
   (let ((result (vhash-assoc uri (pseudo-context-mapping context))))
     (if result
