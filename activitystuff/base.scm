@@ -21,6 +21,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 hash-table)
+  #:use-module (web uri)
   #:use-module (json)
   #:export (<as-type>
             as-type? make-as-type as-type-uri as-type-parents as-type-props
@@ -249,7 +250,6 @@ lazy route, you can use (parameterize) on the
 (define (as->json-pretty as-obj)
   (as->json-internal as-obj #:pretty #t))
 
-
 (define* (hash->as-obj hashed-json
                        #:key
                        (contexts (%default-as-contexts))
@@ -266,7 +266,10 @@ lazy route, you can use (parameterize) on the
              (type (cdr prior)))
          (cond
           ((equal? key "@type")
-           (cons fields value))
+           (cons fields
+                 (as-contexts-resolve-type-string
+                  (append contexts implied-contexts)
+                  value)))
           ;; TODO: recurse on sub as-obj's
           ((is-hash-and-looks-like-as-obj? value)
            (cons
@@ -722,6 +725,34 @@ lazy route, you can use (parameterize) on the
 
 (define (as-context-shortname-to-as-type as-context shortname)
   (hash-ref (as-context-shortname-to-as-type-map as-context) shortname))
+
+(define* (as-contexts-resolve-type-string as-contexts type-str)
+  "Given a set of as-contexts, try to find a type object from type-str"
+  (define (as-type-finder find-method)
+    (lambda ()
+      (let loop ((contexts as-contexts))
+        (if (null? contexts)
+            #f
+            (let ((type (find-method
+                         (car contexts) type-str)))
+              (if type
+                  type
+                  (loop (cdr contexts))))))))
+
+  (define find-as-type-from-uri
+    (as-type-finder as-context-uri-to-as-type))
+
+  (define find-as-type-from-shortname
+    (as-type-finder as-context-shortname-to-as-type))
+
+  (if (string->uri type-str)
+      ;; Okay, it *is* a URI
+      (or
+       (find-as-type-from-uri)
+       (throw 'as-type-not-found-in-contexts))
+      (or
+       (find-as-type-from-shortname)
+       (throw 'as-type-not-found-in-contexts))))
 
 ;;; ********************
 ;;; * Default contexts *
