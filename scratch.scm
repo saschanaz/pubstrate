@@ -45,17 +45,3 @@
      \"content\": \"Up for some root beer floats?\"}}")
 
 ;; Convert it back: (json->as-obj json-root-beer-note)
-
-;; Theoretical sugar syntax?
-(define root-beer-note
-  (make-as-chain
-   (<Create>
-    ;; Putting the string first is the same thing as #:@id
-    "http://tsyesika.co.uk/act/foo-id-here/"
-    #:actor (<Person>
-              #:@id "http://tsyesika.co.uk"
-              #:displayName "Jessica Tallon")
-    #:to (list "acct:cwebber@identi.ca")
-    #:object (<Note>
-               "http://tsyesika.co.uk/chat/sup-yo/"
-               #:content "Up for some root beer floats?"))))
