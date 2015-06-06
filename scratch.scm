@@ -43,7 +43,8 @@
      \"@type\": \"Note\",
      \"@id\": \"http://tsyesika.co.uk/chat/sup-yo/\",
      \"content\": \"Up for some root beer floats?\"}}")
-(json-to-as json-root-beer-note)
+
+;; Convert it back: (json->as-obj json-root-beer-note)
 
 ;; Theoretical sugar syntax?
 (define root-beer-note
