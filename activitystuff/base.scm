@@ -20,6 +20,7 @@
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
+  #:use-module (ice-9 hash-table)
   #:use-module (json)
   #:export (<as-type>
             as-type? make-as-type as-type-uri as-type-parents as-type-props
@@ -36,9 +37,11 @@
             as->hash  ; usually you can use the json methods probably
             as->json as->json-pretty
             
-            <pseudo-context>
-            make-pseudo-context pseudo-context? pseudo-context-mapping
-            context-extract-type-name-from-uri
+            <as-context>
+            make-as-context as-context?
+            as-context-uri-to-shortname
+            as-context-uri-to-as-type
+            as-context-shortname-to-as-type
             default-context
             %default-as-contexts %default-as-implied-contexts
 
@@ -147,7 +150,7 @@ This is affected by the context."
                                   (as-implied-contexts as-obj))))
        (if (null? contexts)
            #f
-           (let ((type (context-extract-type-name-from-uri
+           (let ((type (as-context-uri-to-shortname
                         (car contexts) uri)))
              (if type
                  type
@@ -657,89 +660,127 @@ lazy route, you can use (parameterize) on the
   as-profile)
 
 
-;; ---------------
-;; pseudo-contexts
-;; ---------------
+;; -------------------------------
+;; activitystreams pseudo-contexts
+;; -------------------------------
 
-(define-record-type <pseudo-context>
-  (make-pseudo-context mapping)
-  pseudo-context?
-  (mapping pseudo-context-mapping)
-  ;;;; This will be necessary when constructing from json.
-  ;;;; Should be memoized.
-  ;; (reverse-map)
-  )
 
-(define (context-extract-type-name-from-uri context uri)
-  "Retreive uri' simple name representation from context"
-  (let ((result (vhash-assoc uri (pseudo-context-mapping context))))
-    (if result
-        (cdr result)
-        #f)))
+;;; All the mappings are set up at time that (make-as-context) is invoked
+
+;; TODO: Provide an optional uri for the context itself
+
+(define-record-type <as-context>
+  (make-as-context-internal uri-to-shortname-map
+                            uri-to-as-type-map
+                            shortname-to-as-type-map)
+  as-context?
+  ;; This one is the uri -> shortname, but is not generally
+  ;; used
+  ;;; Define mappings:
+  ;;;  - uri -> shortname
+  ;;;  - uri -> <as-type>
+  ;;;  - shortname -> <as-type>
+  (uri-to-shortname-map as-context-uri-to-shortname-map)
+  (uri-to-as-type-map as-context-uri-to-as-type-map)
+  (shortname-to-as-type-map as-context-shortname-to-as-type-map))
+
+;; Constructor
+(define (make-as-context mapping-list)
+  "Build an <as-context> object from an alist with entries of
+    (<as-type> . shortname)"
+  (make-as-context-internal
+   (alist->hash-table
+    (map
+     (lambda (entry)
+       (cons
+        (as-type-uri (car entry))
+        (cdr entry)))
+     mapping-list))
+   (alist->hash-table
+    (map
+     (lambda (entry)
+       (cons
+        (as-type-uri (car entry))
+        (car entry)))
+     mapping-list))
+   (alist->hash-table
+    (map
+     (lambda (entry)
+       (cons
+        (cdr entry)
+        (car entry)))
+     mapping-list))))
+
+
+;; Access the mapping, public methods
+
+(define (as-context-uri-to-shortname as-context uri)
+  (hash-ref (as-context-uri-to-shortname-map as-context) uri))
+
+(define (as-context-uri-to-as-type as-context uri)
+  (hash-ref (as-context-uri-to-as-type-map as-context) uri))
+
+(define (as-context-shortname-to-as-type as-context shortname)
+  (hash-ref (as-context-shortname-to-as-type-map as-context) shortname))
 
 (define default-context
-  (make-pseudo-context
-   (alist->vhash
-    (map (lambda (cell)
-           (cons
-            (as-type-uri (car cell))
-            (cdr cell)))
-         `((,<Accept> . "Accept")
-           (,<Activity> . "Activity")
-           (,<IntransitiveActivity> . "IntransitiveActivity")
-           (,<Actor> . "Actor")
-           (,<Add> . "Add")
-           (,<Album> . "Album")
-           (,<Announce> . "Announce")
-           (,<Application> . "Application")
-           (,<Arrive> . "Arrive")
-           (,<Article> . "Article")
-           (,<Audio> . "Audio")
-           (,<Block> . "Block")
-           (,<Collection> . "Collection")
-           (,<Connection> . "Connection")
-           (,<Content> . "Content")
-           (,<Create> . "Create")
-           (,<Delete> . "Delete")
-           (,<Dislike> . "Dislike")
-           (,<Document> . "Document")
-           (,<Event> . "Event")
-           (,<Favorite> . "Favorite")
-           (,<Folder> . "Folder")
-           (,<Follow> . "Follow")
-           (,<Flag> . "Flag")
-           (,<Group> . "Group")
-           (,<Ignore> . "Ignore")
-           (,<Image> . "Image")
-           (,<Invite> . "Invite")
-           (,<Join> . "Join")
-           (,<Leave> . "Leave")
-           (,<Like> . "Like")
-           (,<ASLink> . "Link")
-           (,<Mention> . "Mention")
-           (,<Note> . "Note")
-           (,<ASObject> . "Object")
-           (,<Offer> . "Offer")
-           (,<OrderedCollection> . "OrderedCollection")
-           (,<Person> . "Person")
-           (,<Place> . "Place")
-           (,<Process> . "Process")
-           (,<Profile> . "Profile")
-           (,<Question> . "Question")
-           (,<Reject> . "Reject")
-           (,<Remove> . "Remove")
-           (,<Service> . "Service")
-           (,<Story> . "Story")
-           (,<TentativeAccept> . "TentativeAccept")
-           (,<TentativeReject> . "TentativeReject")
-           (,<Undo> . "Undo")
-           (,<Update> . "Update")
-           (,<Video> . "Video")
-           (,<Experience> . "Experience")
-           (,<View> . "View")
-           (,<Read> . "Read")
-           (,<Move> . "Move")
-           (,<Travel> . "Travel"))))))
+  (make-as-context
+   `((,<Accept> . "Accept")
+     (,<Activity> . "Activity")
+     (,<IntransitiveActivity> . "IntransitiveActivity")
+     (,<Actor> . "Actor")
+     (,<Add> . "Add")
+     (,<Album> . "Album")
+     (,<Announce> . "Announce")
+     (,<Application> . "Application")
+     (,<Arrive> . "Arrive")
+     (,<Article> . "Article")
+     (,<Audio> . "Audio")
+     (,<Block> . "Block")
+     (,<Collection> . "Collection")
+     (,<Connection> . "Connection")
+     (,<Content> . "Content")
+     (,<Create> . "Create")
+     (,<Delete> . "Delete")
+     (,<Dislike> . "Dislike")
+     (,<Document> . "Document")
+     (,<Event> . "Event")
+     (,<Favorite> . "Favorite")
+     (,<Folder> . "Folder")
+     (,<Follow> . "Follow")
+     (,<Flag> . "Flag")
+     (,<Group> . "Group")
+     (,<Ignore> . "Ignore")
+     (,<Image> . "Image")
+     (,<Invite> . "Invite")
+     (,<Join> . "Join")
+     (,<Leave> . "Leave")
+     (,<Like> . "Like")
+     (,<ASLink> . "Link")
+     (,<Mention> . "Mention")
+     (,<Note> . "Note")
+     (,<ASObject> . "Object")
+     (,<Offer> . "Offer")
+     (,<OrderedCollection> . "OrderedCollection")
+     (,<Person> . "Person")
+     (,<Place> . "Place")
+     (,<Process> . "Process")
+     (,<Profile> . "Profile")
+     (,<Question> . "Question")
+     (,<Reject> . "Reject")
+     (,<Remove> . "Remove")
+     (,<Service> . "Service")
+     (,<Story> . "Story")
+     (,<TentativeAccept> . "TentativeAccept")
+     (,<TentativeReject> . "TentativeReject")
+     (,<Undo> . "Undo")
+     (,<Update> . "Update")
+     (,<Video> . "Video")
+     (,<Experience> . "Experience")
+     (,<View> . "View")
+     (,<Read> . "Read")
+     (,<Move> . "Move")
+     (,<Travel> . "Travel"))))
 
 (define %default-as-contexts
   (make-parameter '()))
