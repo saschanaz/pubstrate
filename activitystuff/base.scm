@@ -34,7 +34,7 @@
 
             as-obj-type-string
             as-to-hash  ; usually you can use the json methods probably
-            as-to-json as-to-json-pretty
+            as->json as->json-pretty
             
             <pseudo-context>
             make-pseudo-context pseudo-context? pseudo-context-mapping
@@ -169,7 +169,7 @@ This is affected by the context."
                (as-obj-type-string as-obj))
     as-hash))
 
-(define* (as-to-json-internal as-obj #:key (pretty #f))
+(define* (as->json-internal as-obj #:key (pretty #f))
   (scm->json-string
    (as-to-hash as-obj) #:pretty pretty))
 
@@ -189,7 +189,7 @@ which has a much more friendly syntax using keywords."
     ;; Alternately, we could make the promise reference just the type
     ;; and fields?
     (as--set-json-promise
-     as-obj (delay (as-to-json-internal as-obj)))
+     as-obj (delay (as->json-internal as-obj)))
     as-obj))
 
 (define (make-as type . fields)
@@ -240,11 +240,11 @@ lazy route, you can use (parameterize) on the
   (define (proc-name . args)
     (apply make-as type args)))
 
-(define (as-to-json as-obj)
+(define (as->json as-obj)
   (force (as--json-promise as-obj)))
 
-(define (as-to-json-pretty as-obj)
-  (as-to-json-internal as-obj #:pretty #t))
+(define (as->json-pretty as-obj)
+  (as->json-internal as-obj #:pretty #t))
 
 
 (define-syntax define-astype
