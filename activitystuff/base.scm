@@ -723,6 +723,11 @@ lazy route, you can use (parameterize) on the
 (define (as-context-shortname-to-as-type as-context shortname)
   (hash-ref (as-context-shortname-to-as-type-map as-context) shortname))
 
+;;; ********************
+;;; * Default contexts *
+;;; * ================ *
+;;; ********************
+
 (define default-context
   (make-as-context
    `((,<Accept> . "Accept")
