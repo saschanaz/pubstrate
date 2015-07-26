@@ -29,7 +29,7 @@
                "http://tsyesika.co.uk/chat/sup-yo/"
                #:content "Up for some root beer floats?")))
 
-(as-to-json root-beer-note)
+(as->json root-beer-note)
 
 (define json-root-beer-note
   "{\"@type\": \"Create\",
