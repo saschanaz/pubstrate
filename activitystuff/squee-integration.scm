@@ -20,7 +20,9 @@
   #:use-module (squee)
   #:export (insert-activity))
 
-(define (insert-activity conn activity)
+(define* (insert-as-obj conn as-obj #:key (local #t))
+  "Insert AS-OBJ into database at connection CONN"
   (exec-query conn
-              "INSERT INTO activities (data) VALUES ($1)"
-              (list (as->json activity))))
+              "INSERT INTO as_objects (data, local) VALUES ($1, $2)"
+              (list (as->json as-obj) (if local "true" "false"))))
+
