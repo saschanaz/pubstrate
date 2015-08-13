@@ -37,6 +37,7 @@
             as-obj-type-string
             as->hash  ; usually you can use the json methods probably
             as->json as->json-pretty
+            json->as-obj
             
             <as-context>
             make-as-context as-context?
