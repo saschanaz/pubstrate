@@ -1,3 +1,5 @@
+-- The most minimal representation of activities in the system
+
 CREATE TABLE activities (
        id BIGSERIAL PRIMARY KEY,
        data JSONB NOT NULL
