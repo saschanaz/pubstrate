@@ -17,7 +17,9 @@
 
 (define-module (activitystuff squee-integration)
   #:use-module (activitystuff base)
+  #:use-module (json)
   #:use-module (squee)
+  #:use-module (ice-9 match)
   #:export (insert-activity))
 
 (define* (insert-as-obj conn as-obj #:key (local #t))
@@ -26,3 +28,28 @@
               "INSERT INTO as_objects (data, local) VALUES ($1, $2)"
               (list (as->json as-obj) (if local "true" "false"))))
 
+(define (mvreturn-single-as-obj results)
+  "Friendly multi-value return of results for a single activitystreams object
+
+Expect list of list style RESULTS where each row is (data local private-data)"
+  (match results
+    (((data local private-data))
+     (values
+      (json->as-obj data)
+      ;; poor man's string->boolean cast
+      (equal? local "t")
+      (if (equal? private-data "")
+          #nil
+          (json->scm private-data))))))
+
+(define (get-as-obj-by-db-id conn id)
+  "Get an activitystreams object from the db"
+  (mvreturn-single-as-obj
+   (exec-query conn "SELECT data, local, private_data FROM as_objects WHERE id = $1"
+               (list (number->string id)))))
+
+(define (get-as-obj-by-object-id conn id)
+  "Get an activitystreams object from the db"
+  (mvreturn-single-as-obj
+   (exec-query conn "SELECT data, local, private_data FROM as_objects WHERE data->>'@id' = $1"
+               (list (number->string id)))))

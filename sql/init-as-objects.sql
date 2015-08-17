@@ -9,6 +9,6 @@ CREATE TABLE as_objects (
        -- Is this a local or a remote object?       
        local BOOLEAN NOT NULL,
        -- application-specific information about this object
-       private JSONB);
+       private_data JSONB);
 
 CREATE UNIQUE INDEX as_object_id ON as_objects ((data->>'@id'));
