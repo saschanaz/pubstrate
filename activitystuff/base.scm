@@ -23,6 +23,7 @@
   #:use-module (ice-9 hash-table)
   #:use-module (web uri)
   #:use-module (json)
+  #:use-module (activitystuff contrib json)
   #:export (<as-type>
             as-type? make-as-type as-type-uri as-type-parents as-type-props
             define-astype
@@ -306,6 +307,103 @@ lazy route, you can use (parameterize) on the
                 #:contexts contexts
                 #:implied-contexts implied-contexts))
 
+
+;; JSON helper procedures
+
+
+(define (json-alist? json-scm)
+  (and (pair? json-scm)
+       (eq? (car json-scm) '@)))
+
+(define (json-assoc key json-alist)
+  (assoc key (cdr json-alist)))
+
+(define (json-ref json-alist key)
+  "Like assoc-ref for a json-alist"
+  (assoc-ref (cdr json-alist) key))
+
+
+(define* (json-scm->as-obj json-scm
+                           #:key
+                           (contexts (%default-as-contexts))
+                           (implied-contexts (%default-as-implied-contexts)))
+  "Converts as much of the json SCM into <as-obj> objects as possible
+
+Things which do not appear to be <as-obj> will be left in their json scm
+representation, but this function does descend recursively."
+  (define (looks-like-as-obj? obj)
+    (and (json-alist? obj)
+         (json-ref obj "@type")))
+
+  (let converter ((json-scm json-scm))
+    (match json-scm
+      ;; Convert as-obj lists
+      ((? looks-like-as-obj? obj)
+       (make-as-obj (as-contexts-resolve-type-string
+                     (append contexts implied-contexts)
+                     (json-ref obj "@type"))
+                    ;; Convert the alist, but skip any "@type"
+                    (fold (lambda (item prev)
+                            (match item
+                              ;; Skip anything with "@type"
+                              (("@type" . val)
+                               prev)
+                              ;; Convert anything else
+                              ((key . val)
+                               (cons (cons key (converter val))
+                                     prev))))
+                          '()
+                          (cdr obj))
+                    #:contexts contexts
+                    #:implied-contexts implied-contexts))
+      ;; Convert general json-alists
+      ;; @@: A let could allow for the mostly-dulicate looks-like-as-obj
+      ;;     to be combined with this with a conditional.  Would be a
+      ;;     speedup too because we wouldn't have to check json-alist? twice
+      ((? json-alist? obj)
+       (cons '@
+        (fold (lambda (item prev)
+                (match item
+                  ;; Convert anything else
+                  ((key . val)
+                   (cons (cons key (converter val))
+                         prev))))
+              '()
+              (cdr obj))))
+
+      ;; Convert lists
+      ((litems ...)
+       (map converter litems))
+
+      ;; Anything else, pass it back
+      (anything-else anything-else))))
+
+(define* (json->as-obj-new json-string
+                           #:key
+                           (contexts (%default-as-contexts))
+                           (implied-contexts (%default-as-implied-contexts)))
+  "Convert json string into as-obj (recursively if need be)"
+  (json-scm->as-obj (call-with-input-string json-string read-json)
+                    #:contexts contexts
+                    #:implied-contexts implied-contexts))
+
+
+;; (define* (as-obj-new->json-scm as-obj)
+;;   (let convertor ((obj as-obj))
+;;     (match obj
+;;       ((? as-obj? as-obj)
+;;        `(@ ,(cons "@type" (as-type as-obj))
+;;            ,@(convert-as-fields (as-fields as-obj))))
+;;       (('@ alist-items ...)
+;;        (cons '@
+;;         (map (lambda (x)
+;;                (match x
+;;                  ((key . val)
+;;                   (cons key (convertor val))))))))
+;;       )
+    
+;;     )
+;;   )
 
 (define-syntax define-astype
   (syntax-rules ()
