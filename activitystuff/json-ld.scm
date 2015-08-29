@@ -53,6 +53,11 @@ should be done.
     "Append to the current base (if appropriate)"
     (maybe-append-uri-to-base uri base-iri))
 
+  (define (equal-including-checking-base? uri1 uri2)
+    "A check method to see if A matches B, or B with base apended"
+    (or (equal? uri1 uri2)
+        (equal? uri1 (append-to-base uri2))))
+
   (let loop ((result active-context)
              ;; contexts to process, basically...
              ;; @@: Maybe should be called remaining-contexts?
@@ -72,9 +77,8 @@ should be done.
              (loop '(@) next-contexts remote-contexts))
 
             ;; Okay it's a string, great, that means it's an iri
-            ((= append-to-base (? string? context))
-             (if (member context remote-contexts)  ; TODO: append-to-base in the
-                                                   ;   remote-contexts member check
+            ((? string? (= append-to-base context))
+             (if (member context remote-contexts equal-including-checking-base?)
                  (throw 'json-ld-error "recursive context inclusion"
                         #:context context))
              (let ((derefed-context (deref-context context)))
