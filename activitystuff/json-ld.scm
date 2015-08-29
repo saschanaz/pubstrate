@@ -25,10 +25,16 @@
   #:export (update-context))
 
 
+;; I mix up IRI, URI, and URL all over this document just like everyone else.
+;; <sunglasses>DEAL WITH IT</sunglasses>
+
 (define (basic-deref-remote-context iri)
   (throw 'json-ld-error "remote resolver not implemented yet :)"))
 
-(define* (maybe-append-uri-to-base uri #:optional base)
+;; This is effectively a check to see if something's an asbolute uri anyway...
+(define absolute-uri? string->uri)
+
+(define (maybe-append-uri-to-base uri base)
   "A sorta-correct way to join a URI to BASE, assuming there is a BASE,
 and assuming URI isn't a URI on its own.
 
@@ -38,14 +44,16 @@ Does the dumbest possible thing: string-appends together the base and URI.
 This might not be the best way to do it, further reading into
   http://tools.ietf.org/html/rfc3986#section-5.1
 should be done.
+
+NOTE: It loooks like the correct version of this is done in jsonld.py
 "
-  (if (and base (not (string->uri uri)))
+  (if (and (string? base)
+           (not (absolute-uri? uri)))
       (string-append base uri)
       uri))
 
 (define* (update-context active-context local-context
                          #:optional (remote-contexts '())
-                         ;; TODO: add #:base keyword argument option
                          #:key
                          (deref-context basic-deref-remote-context)
                          base-iri)
@@ -74,17 +82,20 @@ should be done.
           (match context
             ;; If null, result is a newly-initialized active context 
             (#nil
-             (loop '(@) next-contexts remote-contexts))
+             (loop `(@ ("@base" . ,(or base-iri #nil)))
+                   next-contexts remote-contexts))
 
             ;; Okay it's a string, great, that means it's an iri
             ((? string? (= append-to-base context))
              (if (member context remote-contexts equal-including-checking-base?)
-                 (throw 'json-ld-error "recursive context inclusion"
+                 (throw 'json-ld-error
+                        #:code "recursive context inclusion"
                         #:context context))
              (let ((derefed-context (deref-context context)))
                (if (not (and (json-alist? derefed-context)
                              (json-ref derefed-context "@context")))
-                   (throw 'json-ld-error "invalid remote context" context))
+                   (throw 'json-ld-error #:code "invalid remote context"
+                          #:context context))
                ;; We made it this far, so recurse on the derefed context
                ;; then continue with that updated result
                (let* ((context derefed-context)
@@ -93,9 +104,62 @@ should be done.
                  (loop result next-contexts remote-contexts))))
 
             ((? json-alist? context)
-             ;; TODO: resume here at 3.4
-             #f
-             
+             ;; TODO: this should NOT be a cond here... because
+             ;; we might do multiple things here for @base @vocab and @language
+             ;; It looks like 4, 5, and 6 are just adjusting the result.
+             ;; So we could instead making them into mini-functions we
+             ;; then chain together.
+             ;;
+             ;; So we should use these functions in combination with a fold...
+
+             (define (modify-result-from-base result)
+               (if (and (json-ref context "@base")
+                        (null? remote-contexts))
+                   ;; In this case we'll adjusting the result's "@base"
+                   ;; depending on what this context's @base is
+                   (match (json-ref context "@base")
+                     ;; If the @base in this context is null, remove
+                     ;; whatever current @base is in the result
+                     ((? null? _)
+                      ;; Remove base iri from result
+                      (remove (lambda (x) (match x (("@base" . _) #t) (_ #f)))
+                              result))
+
+                     ;; If it's an absolute URI, let's set that as the result's
+                     ;; @base
+                     ((? asbolute-uri? base-uri)
+                      (json-acons "@base" base-uri result))
+
+                     ;; Otherwise... if it's a string, we assume it's
+                     ;; still a relative URI
+                     ((? string? relative-base-uri)
+                      ;; If the current *result's* base-uri is not null....
+                      ;; resolve it against current base URI of result
+                      (if (string? (json-ref result "@base"))
+                          (json-acons "@base"
+                                      (maybe-append-uri-to-base
+                                       relative-base-uri (json-ref result "@base")))
+                          ;; Otherwise, this is an error...
+                          ;; "Value of @base in a @context must be an
+                          ;;  absolute IRI or empty string."
+                          (throw 'json-ld-error
+                                 ;; @@: context vs result seems kinda vague
+                                 ;;   to a user through this whole function, maybe
+                                 #:code "invalid base IRI"
+                                 #:context context
+                                 #:result result
+                                 #:base-iri relative-base-uri)))
+                     (invalid-base-value
+                      (throw 'json-ld-error
+                             #:code "invalid base IRI"
+                             #:base-iri invalid-base-value)))
+                   ;; Otherwise, return unmodified result
+                   result))
+
+             (define (modify-result-from-vocab result)
+               
+               )
+
              )
 
             ;; 3.3: Anything else at this point is an error...
