@@ -63,15 +63,8 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
                          #:key
                          (deref-context basic-deref-remote-context)
                          base-iri)
-  (define (append-to-base uri)
-    "Append to the current base (if appropriate)"
-    (maybe-append-uri-to-base uri base-iri))
-
-  (define (equal-including-checking-base? uri1 uri2)
-    "A check method to see if A matches B, or B with base apended"
-    (or (equal? uri1 uri2)
-        (equal? uri1 (append-to-base uri2))))
-
+  "This function builds up a new active-context based on the
+remaining context information to process from local-context"
   (let loop ((result active-context)
              ;; contexts to process, basically...
              ;; @@: Maybe should be called remaining-contexts?
@@ -82,6 +75,18 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
                   local-context
                   (list local-context)))
              (remote-contexts remote-contexts))
+    ;; Some helper functions...
+    (define (append-to-base uri)
+      "Append to the current base (if appropriate)"
+      ;; Not useful if this is the first invocation of result,
+      ;; but we don't use it there, so no biggie
+      (maybe-append-uri-to-base uri (json-ref result "@base")))
+
+    (define (equal-including-checking-base? uri1 uri2)
+      "A check method to see if A matches B, or B with base apended"
+      (or (equal? uri1 uri2)
+          (equal? uri1 (append-to-base uri2))))
+
     (if (null? local-context) result
         (let ((context (car local-context))
               (next-contexts (cdr local-context)))
@@ -105,7 +110,8 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
                ;; We made it this far, so recurse on the derefed context
                ;; then continue with that updated result
                (let* ((context derefed-context)
-                      (result (update-context result context (cons context remote-contexts)
+                      (result (update-context result context
+                                              (cons context remote-contexts)
                                               #:deref-context deref-context)))
                  (loop result next-contexts remote-contexts))))
 
@@ -187,11 +193,40 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
                      (else
                       (throw 'json-ld-error #:code "invalid default language"))))
 
-             ;; Fold goes here, and fold feeds into loop
+             (define (build-result)
+               (car
+                (fold
+                 (lambda (x result)
+                   (let ((ctx-entry (car x))
+                         (defined (cdr x)))
+                     (match ctx-entry
+                       (("@base" . ctx-base)
+                        (cons (modify-result-from-base result ctx-base)
+                              defined))
+                       (("@vocab" . ctx-vocab)
+                        (cons (modify-result-from-vocab result ctx-vocab)
+                              defined))
+                       (("@language" . ctx-language)
+                        (cons (modify-result-from-language result ctx-language)
+                              defined))
+                       ((ctx-key . ctx-val)
+                        ;; Notably we aren't passing ctx-key here because
+                        ;; (I suppose) create-term-definition has the whole context
+                        ;; and so can look it up anyway...
+                        (receive (result defined)
+                            (create-term-definition
+                             result context ctx-key defined)
+                          (cons result defined))))))
+                 (cons result '()) ;; second value here is "defined"
+                 (cdr context))))
 
-             )
+             (loop
+              (build-result)
+              next-contexts remote-contexts))
 
             ;; 3.3: Anything else at this point is an error...
             (_ (throw 'json-ld-error
                       #:code "invalid local context"
                       #:context context)))))))
+
+;; (define (create-term-definition ))
