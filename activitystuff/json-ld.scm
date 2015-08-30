@@ -116,14 +116,15 @@ remaining context information to process from local-context"
                  (loop result next-contexts remote-contexts))))
 
             ((? json-alist? context)
-             ;; TODO: this should NOT be a cond here... because
-             ;; we might do multiple things here for @base @vocab and @language
-             ;; It looks like 4, 5, and 6 are just adjusting the result.
-             ;; So we could instead making them into mini-functions we
-             ;; then chain together.
+             ;; Time to process over a json object of data.  Yay!
+             ;; We're really just folding over this object here,
+             ;; but three keys are special:
+             ;; "@base", "@vocab", and "@language".
+             ;; Otherwise, we process using the "Create term definition"
+             ;; algorithm.
              ;;
-             ;; So we should use these functions in combination with a fold...
-
+             ;; Because that's a lot of steps, for readability
+             ;; we break these out into functions then do the fold.
              (define (modify-result-from-base result context-base)
                (if (and context-base
                         (null? remote-contexts))
