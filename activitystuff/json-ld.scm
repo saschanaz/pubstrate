@@ -34,6 +34,12 @@
 ;; This is effectively a check to see if something's an asbolute uri anyway...
 (define absolute-uri? string->uri)
 
+(define (blank-node? obj)
+  "See if OBJ is a blank node (a string that starts with \"_:\")"
+  (and (string? obj)
+       (> (string-length obj) 2)
+       (equal? (substring obj 0 2) "_:")))
+
 (define (maybe-append-uri-to-base uri base)
   "A sorta-correct way to join a URI to BASE, assuming there is a BASE,
 and assuming URI isn't a URI on its own.
@@ -112,12 +118,12 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
              ;;
              ;; So we should use these functions in combination with a fold...
 
-             (define (modify-result-from-base result)
-               (if (and (json-ref context "@base")
+             (define (modify-result-from-base result context-base)
+               (if (and context-base
                         (null? remote-contexts))
                    ;; In this case we'll adjusting the result's "@base"
                    ;; depending on what this context's @base is
-                   (match (json-ref context "@base")
+                   (match context-base
                      ;; If the @base in this context is null, remove
                      ;; whatever current @base is in the result
                      ((? null? _)
@@ -138,7 +144,8 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
                       (if (string? (json-ref result "@base"))
                           (json-acons "@base"
                                       (maybe-append-uri-to-base
-                                       relative-base-uri (json-ref result "@base")))
+                                       relative-base-uri (json-ref result "@base"))
+                                      result)
                           ;; Otherwise, this is an error...
                           ;; "Value of @base in a @context must be an
                           ;;  absolute IRI or empty string."
@@ -156,11 +163,35 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
                    ;; Otherwise, return unmodified result
                    result))
 
-             (define (modify-result-from-vocab result)
-               
-               )
+             (define (modify-result-from-vocab result context-vocab)
+               (cond ((null? context-vocab)
+                      ;; remove vocabulary mapping from result
+                      (remove (lambda (x) (match x (("@vocab" . _) #t) (_ #f)))
+                              result))
+                     ;; If either an absolute IRI or blank node,
+                     ;; @vocab of result is set to context-vocab
+                     ((or (absolute-uri? context-vocab)
+                          (blank-node? context-vocab))
+                      (json-acons "@type" context-vocab result))
+                     (else
+                      (throw 'json-ld-error #:code "invalid vocab mapping"))))
+
+             (define (modify-result-from-language result context-language)
+               (cond ((null? context-language)
+                      ;; remove vocabulary mapping from result
+                      (remove (lambda (x) (match x (("@language" . _) #t) (_ #f)))
+                              result))
+                     ((string? context-language)
+                      (json-acons "@language" (string-downcase context-language)
+                                  result))
+                     (else
+                      (throw 'json-ld-error #:code "invalid default language"))))
+
+             ;; Fold goes here, and fold feeds into loop
 
              )
 
             ;; 3.3: Anything else at this point is an error...
-            (_ (throw 'json-ld-error "invalid local context" #:context context)))))))
+            (_ (throw 'json-ld-error
+                      #:code "invalid local context"
+                      #:context context)))))))
