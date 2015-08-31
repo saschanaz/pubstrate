@@ -81,6 +81,9 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
     "@container" "@list" "@set" "@reverse"
     "@index" "@base" "@vocab" "@graph"))
 
+(define json-ld-valid-containers
+  '("@set" "@index" #nil))
+
 (define (json-ld-keyword? obj)
   "See if OBJ is a json-ld special keyword
 
@@ -326,7 +329,7 @@ remaining context information to process from local-context"
                    (definition 
                      (if value-type
                          (begin
-                           (if (not (string? value-type))
+                           (if (not (string? (cdr value-type)))
                                (throw 'json-ld-error
                                       #:code "invalid type mapping"))
                            `(@ ("@type" . (iri-expansion active-context
@@ -338,6 +341,48 @@ remaining context information to process from local-context"
                     (if (json-assoc "@id" value)
                         (throw 'json-ld-error
                                #:code "invalid reverse property"))
-                    ;; Resume here at 11.2
+                    (if (not (string? (cdr value-reverse)))
+                        (throw 'json-ld-error
+                               #:code "invalid IRI mapping"))
+
+                    (define (definition-expand-iri definition)
+                      ;; 11.3
+                      (let* ((id-expansion
+                              (iri-expansion active-context
+                                             (cdr value-reverse) #t #f local-context
+                                             defined))
+                             (new-definition
+                              (json-acons "@id" id-expansion definition)))
+                        (if (not (or (absolute-uri? id-expansion)
+                                     (blank-node? id-expansion)))
+                            ;; Uhoh
+                            (throw 'json-ld-error
+                                   #:code "invalid IRI mapping")
+                            ;; oh okay!
+                            new-definition)))
+
+                    (define (definition-handle-container definition)
+                      ;; 11.4
+                      (let ((value-container (json-assoc "@container" value)))
+                        (if value-container
+                            (begin
+                              (if (not (member (cdr value-container)
+                                               json-ld-valid-containers))
+                                  (throw 'json-ld-error
+                                         #:code "invalid reverse property"))
+                              (json-acons "@container" (cdr value-container) definition))
+                            ;; otherwise return original definition
+                            definition)))
+
+                    (let* ((definition
+                             (json-acons
+                              "@reverse" #t
+                              (definition-handle-container
+                                (definition-expand-iri definition)))))
+                      (hash-set! defined term #t)
+                      (values (json-acons term definition active-context)
+                              defined)))
+                  (let ((definition (json-acons "@reverse" #f)))
+                    ;; Resume here for 13
                     ))
               )))))))))
