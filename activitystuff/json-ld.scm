@@ -17,6 +17,21 @@
 
 ;; See http://www.w3.org/TR/json-ld-api/
 
+;; Note that this module uses alists, specifically because the json library
+;; we're using also uses alists.  But is this a good idea?
+;;
+;; For small lists (~20 or so items) which is what I think most json
+;; docs average out to, alists are just fine.  I didn't believe this,
+;; but I was proven wrong by benchmarking myself: alists at this size
+;; are much faster than vhashes and even slightly faster than hashmaps.
+;; 
+;; ... but we're planning on using these tools with contexts as big
+;; as http://www.w3.org/ns/activitystreams and that might turn out to be
+;; a real nightmare?
+;;
+;; So in the future we might move this into more efficient
+;; datastructures ;P
+
 (define-module (activitystuff json-ld)
   #:use-module (activitystuff json-utils)
   #:use-module (srfi srfi-1)
@@ -57,6 +72,8 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
            (not (absolute-uri? uri)))
       (string-append base uri)
       uri))
+
+;; Algorithm 6.1
 
 (define* (update-context active-context local-context
                          #:optional (remote-contexts '())
@@ -230,4 +247,26 @@ remaining context information to process from local-context"
                       #:code "invalid local context"
                       #:context context)))))))
 
-;; (define (create-term-definition ))
+;; Algorithm 6.2
+
+(define (create-term-definition active-context local-context term defined)
+  ;; Let's see, has this term been defined, or started to be
+  ;; defined yet?...
+  (match (assq term defined)
+    ((;; If term definition already was created, we do nothing
+      ;; so return what we got!
+      (_ . #t)
+      (values active-context defined))
+     (;; If term definition is false, that means term definition
+      ;; started but never completed... a cycle!  Abort, abort!
+      (_ . #f)
+      (throw 'json-ld-error #:code "cyclic IRI mapping"))
+     (;; Not referenced yet in defined, continue
+      #f
+      (let (;; Set defined's value for this key to false, indicating
+            ;; that we started processing 
+            (defined (acons term #f defined)))
+        ;; TODO: Resume here at step 3, how do we see if something is a keyword?
+
+
+        )))))
