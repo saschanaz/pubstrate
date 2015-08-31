@@ -37,6 +37,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 receive)
   #:use-module (web uri)
   #:export (update-context))
 
@@ -336,6 +337,28 @@ remaining context information to process from local-context"
                                                          type #t #f
                                                          local-context defined))))
                          '(@))))
+              (define* (definition-expand-iri definition
+                         #:optional ensure-not-equal-context)
+                ;; 11.3
+                (let* ((id-expansion
+                        (iri-expansion active-context
+                                       (cdr value-reverse) #t #f local-context
+                                       defined))
+                       (new-definition
+                        (json-acons "@id" id-expansion definition)))
+                  (if (not (or (absolute-uri? id-expansion)
+                               (blank-node? id-expansion)))
+                      ;; Uhoh
+                      (throw 'json-ld-error
+                             #:code "invalid IRI mapping"))
+                  (if (and ensure-not-equal-context
+                           (equal? id-expansion "@context"))
+                      ;; also uhoh
+                      (throw 'json-ld-error
+                             #:code "invalid keyword alias"))
+                  ;; oh okay!
+                  new-definition))
+
               (if value-reverse
                   (begin
                     (if (json-assoc "@id" value)
@@ -344,22 +367,6 @@ remaining context information to process from local-context"
                     (if (not (string? (cdr value-reverse)))
                         (throw 'json-ld-error
                                #:code "invalid IRI mapping"))
-
-                    (define (definition-expand-iri definition)
-                      ;; 11.3
-                      (let* ((id-expansion
-                              (iri-expansion active-context
-                                             (cdr value-reverse) #t #f local-context
-                                             defined))
-                             (new-definition
-                              (json-acons "@id" id-expansion definition)))
-                        (if (not (or (absolute-uri? id-expansion)
-                                     (blank-node? id-expansion)))
-                            ;; Uhoh
-                            (throw 'json-ld-error
-                                   #:code "invalid IRI mapping")
-                            ;; oh okay!
-                            new-definition)))
 
                     (define (definition-handle-container definition)
                       ;; 11.4
@@ -382,7 +389,74 @@ remaining context information to process from local-context"
                       (hash-set! defined term #t)
                       (values (json-acons term definition active-context)
                               defined)))
-                  (let ((definition (json-acons "@reverse" #f)))
-                    ;; Resume here for 13
-                    ))
+                  (begin
+                    ;; naming things is hard, especially when you're implementing
+                    ;; the json-ld api
+                    ;; Anyway this does a multi-value return of definition
+                    ;; and active-context, adjusted as need be
+                    (define (more-definition-and-active-context-adjustments)
+                      (let ((definition
+                              (json-acons "@reverse" #f definition)))
+                        (cond
+                         ;; sec 13
+                         ((and (json-assoc "@id" value)
+                               (not (equal? (json-ref value "@id")
+                                            term)))
+                          (values (definition-expand-iri definition #t)
+                                  active-context))
+                         ;; sec 14
+                         ((string-contains term ":")
+                          ;; we cop out and go this route enough so
+                          (define (set-iri-mapping-of-def-to-term)
+                            (values (json-acons "@id" term definition)
+                                    active-context))
+                          (if (or (absolute-uri? term)
+                                  (blank-node? term))
+                              ;; set iri mapping of definition to term
+                              (set-iri-mapping-of-def-to-term)
+                              ;; otherwise, we've entered compact uri territory
+                              ;; we'll recurse into this function to build up
+                              ;; a new active context
+                              (match (string-split term #\:)
+                                ((prefix suffix)
+                                 (receive (active-context defined)
+                                     (create-term-definition
+                                      active-context local-context
+                                      prefix defined)
+                                   (let ((prefix-in-context
+                                          (json-assoc prefix active-context)))
+                                     (if prefix-in-context
+                                         (values (json-acons
+                                                  "@id"
+                                                  (string-append
+                                                   (json-ref (cdr prefix-in-context) "@id")
+                                                   suffix)
+                                                  definition))
+                                         ;; okay, yeah, it's set-iri-mapping-of-def-to-term
+                                         ;; but we want to return the new active-context
+                                         (values (json-acons "@id" term definition)
+                                                 active-context)))))
+                                (_
+                                 ;; we originally threw an error, but meh...
+                                 ;; anyway, must not have been a compact uri after all...
+                                 (set-iri-mapping-of-def-to-term)))))
+
+                         ;; sec 15
+                         ((json-assoc "@vocab" active-context)
+                          (values (json-acons
+                                   "@id"
+                                   (string-append
+                                    (json-ref active-context "@vocab")
+                                    term) definition)
+                                  active-context))
+
+                         (else
+                          (throw 'json-ld-error
+                                 #:code "invalid IRI mapping")))))
+                    (receive (definition active-context)
+                        (more-definition-and-active-context-adjustments)
+                      ;; TODO: resume at 16 here
+                      )
+                    )
+                  )
               )))))))))
