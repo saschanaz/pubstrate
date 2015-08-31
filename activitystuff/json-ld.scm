@@ -235,7 +235,7 @@ remaining context information to process from local-context"
                             (create-term-definition
                              result context ctx-key defined)
                           (cons result defined))))))
-                 (cons result '()) ;; second value here is "defined"
+                 (cons result (make-hash-table)) ;; second value here is "defined"
                  (cdr context))))
 
              (loop
@@ -249,24 +249,27 @@ remaining context information to process from local-context"
 
 ;; Algorithm 6.2
 
-(define (create-term-definition active-context local-context term defined)
+(define* (create-term-definition active-context local-context term
+                                 #:optional (defined (make-hash-table)))
   ;; Let's see, has this term been defined, or started to be
   ;; defined yet?...
-  (match (assq term defined)
-    ((;; If term definition already was created, we do nothing
-      ;; so return what we got!
-      (_ . #t)
-      (values active-context defined))
-     (;; If term definition is false, that means term definition
-      ;; started but never completed... a cycle!  Abort, abort!
-      (_ . #f)
-      (throw 'json-ld-error #:code "cyclic IRI mapping"))
-     (;; Not referenced yet in defined, continue
-      #f
-      (let (;; Set defined's value for this key to false, indicating
-            ;; that we started processing 
-            (defined (acons term #f defined)))
-        ;; TODO: Resume here at step 3, how do we see if something is a keyword?
+  (let* ((no-value (gensym))
+         (term-defined (hash-ref defined term no-value)))
+    (cond
+      ((;; If term definition already was created, we do nothing
+        ;; so return what we got!
+        (eq? term-defined #t)
+        (values active-context defined))
+       (;; If term definition is false, that means term definition
+        ;; started but never completed... a cycle!  Abort, abort!
+        (eq? term-defined #f)
+        (throw 'json-ld-error #:code "cyclic IRI mapping")))
+      (;; Not referenced yet in defined, continue
+       (eq? term-defined no-value)
+       (let (;; Set defined's value for this key to false, indicating
+             ;; that we started processing 
+             (defined (acons term #f defined)))
+         ;; TODO: Resume here at step 3, how do we see if something is a keyword?
 
 
-        )))))
+         )))))
