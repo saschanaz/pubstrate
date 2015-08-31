@@ -35,6 +35,7 @@
 (define-module (activitystuff json-ld)
   #:use-module (activitystuff json-utils)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
   #:use-module (web uri)
   #:export (update-context))
@@ -72,6 +73,21 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
            (not (absolute-uri? uri)))
       (string-append base uri)
       uri))
+
+
+;; @@: Should we also include ":"?
+(define json-ld-keywords
+  '("@context" "@id" "@value" "@language" "@type"
+    "@container" "@list" "@set" "@reverse"
+    "@index" "@base" "@vocab" "@graph"))
+
+(define (json-ld-keyword? obj)
+  "See if OBJ is a json-ld special keyword
+
+As a mild speed optimization, returns the remainder of json-ld-keywords
+rathr than #t if true (#f of course if false)"
+  (member obj json-ld-keywords))
+
 
 ;; Algorithm 6.1
 
@@ -256,20 +272,74 @@ remaining context information to process from local-context"
   (let* ((no-value (gensym))
          (term-defined (hash-ref defined term no-value)))
     (cond
-      ((;; If term definition already was created, we do nothing
-        ;; so return what we got!
-        (eq? term-defined #t)
-        (values active-context defined))
-       (;; If term definition is false, that means term definition
-        ;; started but never completed... a cycle!  Abort, abort!
-        (eq? term-defined #f)
-        (throw 'json-ld-error #:code "cyclic IRI mapping")))
-      (;; Not referenced yet in defined, continue
-       (eq? term-defined no-value)
-       (let (;; Set defined's value for this key to false, indicating
-             ;; that we started processing 
-             (defined (acons term #f defined)))
-         ;; TODO: Resume here at step 3, how do we see if something is a keyword?
+     ((;; If term definition already was created, we do nothing
+       ;; so return what we got!
+       (eq? term-defined #t)
+       (values active-context defined))
+      (;; If term definition is false, that means term definition
+       ;; started but never completed... a cycle!  Abort, abort!
+       (eq? term-defined #f)
+       (throw 'json-ld-error #:code "cyclic IRI mapping")))
+     (;; Not referenced yet in defined, continue
+      (eq? term-defined no-value)
+      (let (;; Set defined's value for this key to false, indicating
+            ;; that we started processing 
+            (defined (acons term #f defined)))
+        (hash-set! defined term #f)
+        (if (json-ld-keyword? term)
+            (throw 'json-ld-error
+                   #:code "keyword redefinition"))
 
-
-         )))))
+        (let (;; @@: Do we really need to remove any existing term
+              ;; definition for term in active context?  The spec says so,
+              ;; but might it just be overridden?
+              (active-context
+               (remove (cut equal? (car <>) term)
+                       active-context))
+              (value (json-ref local-context term)))
+          ;; TODO: resume at 7, see below, and consider switching to if
+          ;;   with let
+          (cond
+           ;; If value is null or a json object with "@id" mapping to null,
+           ;; then mark term as defined and set term in
+           ;; resulting context to null
+           ((or (null? value)
+                (and (json-alist? value)
+                     (eq? (json-ref value "@id") #nil)))
+            (begin
+              (hash-set! defined term #t)
+              (values
+               (json-acons term #nil active-context)
+               defined)))
+           ;; 
+           (else
+            (let* ((value (cond ((string? value)
+                                 `(@ ("@id" . ,value)))
+                                ((json-alist? value)
+                                 value)
+                                (else
+                                 (throw 'json-ld-error
+                                        #:code "invalid term definition"))))
+                   (value-reverse (json-assoc "@reverse" value))
+                   ;; Initialize definition, and maybe add @type to it
+                   (value-type (json-assoc "@type" value))
+                   (definition 
+                     '(@ ,@(if value-type        ; maybe add "@type"
+                               (begin
+                                 (if (not (string? value-type))
+                                     (throw 'json-ld-error
+                                            #:code "invalid type mapping"))
+                                 (list
+                                  (cons "@type"
+                                        (iri-expansion active-context
+                                                       type #t #f
+                                                       local-context defined))))
+                               '()))))
+              (if value-reverse
+                  (begin
+                    (if (json-assoc "@id" value)
+                        (throw 'json-ld-error
+                               #:code "invalid reverse property"))
+                    ;; Resume here at 11.2
+                    ))
+              )))))))))
