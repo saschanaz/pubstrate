@@ -324,17 +324,15 @@ remaining context information to process from local-context"
                    ;; Initialize definition, and maybe add @type to it
                    (value-type (json-assoc "@type" value))
                    (definition 
-                     '(@ ,@(if value-type        ; maybe add "@type"
-                               (begin
-                                 (if (not (string? value-type))
-                                     (throw 'json-ld-error
-                                            #:code "invalid type mapping"))
-                                 (list
-                                  (cons "@type"
-                                        (iri-expansion active-context
-                                                       type #t #f
-                                                       local-context defined))))
-                               '()))))
+                     (if value-type
+                         (begin
+                           (if (not (string? value-type))
+                               (throw 'json-ld-error
+                                      #:code "invalid type mapping"))
+                           `(@ ("@type" . (iri-expansion active-context
+                                                         type #t #f
+                                                         local-context defined))))
+                         '(@))))
               (if value-reverse
                   (begin
                     (if (json-assoc "@id" value)
