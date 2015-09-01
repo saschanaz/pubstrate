@@ -24,6 +24,7 @@
   #:use-module (web uri)
   #:use-module (json)
   #:use-module (activitystuff contrib json)
+  #:use-module (activitystuff json-utils)
   #:export (<as-type>
             as-type? make-as-type as-type-uri as-type-parents as-type-props
             define-astype
@@ -307,20 +308,6 @@ lazy route, you can use (parameterize) on the
                 #:contexts contexts
                 #:implied-contexts implied-contexts))
 
-
-;; JSON helper procedures
-
-
-(define (json-alist? json-scm)
-  (and (pair? json-scm)
-       (eq? (car json-scm) '@)))
-
-(define (json-assoc key json-alist)
-  (assoc key (cdr json-alist)))
-
-(define (json-ref json-alist key)
-  "Like assoc-ref for a json-alist"
-  (assoc-ref (cdr json-alist) key))
 
 
 (define* (json-scm->as-obj json-scm
