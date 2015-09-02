@@ -38,6 +38,7 @@
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
+  #:use-module (ice-9 vlist)
   #:use-module (web uri)
   #:export (update-context))
 
@@ -232,27 +233,27 @@ remaining context information to process from local-context"
                (car
                 (fold
                  (lambda (x result)
-                   (let ((ctx-entry (car x))
-                         (defined (cdr x)))
-                     (match ctx-entry
-                       (("@base" . ctx-base)
-                        (cons (modify-result-from-base result ctx-base)
-                              defined))
-                       (("@vocab" . ctx-vocab)
-                        (cons (modify-result-from-vocab result ctx-vocab)
-                              defined))
-                       (("@language" . ctx-language)
-                        (cons (modify-result-from-language result ctx-language)
-                              defined))
-                       ((ctx-key . ctx-val)
-                        ;; Notably we aren't passing ctx-key here because
-                        ;; (I suppose) create-term-definition has the whole context
-                        ;; and so can look it up anyway...
-                        (receive (result defined)
-                            (create-term-definition
-                             result context ctx-key defined)
-                          (cons result defined))))))
-                 (cons result (make-hash-table)) ;; second value here is "defined"
+                   (match x
+                     ((ctx-entry . defined)
+                      (match ctx-entry
+                        (("@base" . ctx-base)
+                         (cons (modify-result-from-base result ctx-base)
+                               defined))
+                        (("@vocab" . ctx-vocab)
+                         (cons (modify-result-from-vocab result ctx-vocab)
+                               defined))
+                        (("@language" . ctx-language)
+                         (cons (modify-result-from-language result ctx-language)
+                               defined))
+                        ((ctx-key . ctx-val)
+                         ;; Notably we aren't passing ctx-key here because
+                         ;; (I suppose) create-term-definition has the whole context
+                         ;; and so can look it up anyway...
+                         (receive (result defined)
+                             (create-term-definition
+                              result context ctx-key defined)
+                           (cons result defined)))))))
+                 (cons result vlist-null) ;; second value here is "defined"
                  (cdr context))))
 
              (loop
@@ -269,229 +270,227 @@ remaining context information to process from local-context"
 (define* (create-term-definition active-context local-context term defined)
   ;; Let's see, has this term been defined, or started to be
   ;; defined yet?...
-  (let* ((no-value (gensym))
-         (term-defined (hash-ref defined term no-value)))
-    (cond
-     ;; If term definition already was created, we do nothing
-     ;; so return what we got!
-     (((eq? term-defined #t)
-       (values active-context defined))
-      (;; If term definition is false, that means term definition
-       ;; started but never completed... a cycle!  Abort, abort!
-       (eq? term-defined #f)
-       (throw 'json-ld-error #:code "cyclic IRI mapping")))
-     ;; Not referenced yet in defined, continue
-     ((eq? term-defined no-value)
-      ;; Set defined's value for this key to false, indicating
-      ;; that we started processing 
-      (hash-set! defined term #f)
-      (if (json-ld-keyword? term)
-          (throw 'json-ld-error
-                 #:code "keyword redefinition"))
+  (match (vhash-assoc term defined)
+    ;; If term definition already was created, we do nothing
+    ;; so return what we got!
+    ((_ . #t)
+     (values active-context defined))
+    ;; If term definition is false, that means term definition
+    ;; started but never completed... a cycle!  Abort, abort!
+    ((_ . #f)
+     (throw 'json-ld-error #:code "cyclic IRI mapping"))
+    ;; Not referenced yet in defined, continue
+    (#f
+     (if (json-ld-keyword? term)
+         (throw 'json-ld-error
+                #:code "keyword redefinition"))
 
-      (let (;; @@: Do we really need to remove any existing term
-            ;; definition for term in active context?  The spec says so,
-            ;; but might it just be overridden?
-            (active-context
-             (remove (lambda (x) (equal? (car x) term))
-                     active-context))
-            (value (json-ref local-context term)))
-        ;; TODO: resume at 7, see below, and consider switching to if
-        ;;   with let
-        (cond
-         ;; If value is null or a json object with "@id" mapping to null,
-         ;; then mark term as defined and set term in
-         ;; resulting context to null
-         ((or (null? value)
-              (and (json-alist? value)
-                   (eq? (json-ref value "@id") #nil)))
-          (begin
-            (hash-set! defined term #t)
-            (values
-             (json-acons term #nil active-context)
-             defined)))
-         ;; 
-         (else
-          (let* ((value (cond ((string? value)
-                               `(@ ("@id" . ,value)))
-                              ((json-alist? value)
-                               value)
-                              (else
-                               (throw 'json-ld-error
-                                      #:code "invalid term definition"))))
-                 (value-reverse (json-assoc "@reverse" value))
-                 ;; Initialize definition, and maybe add @type to it
-                 (value-type (json-assoc "@type" value))
-                 (definition 
-                   (if value-type
-                       (begin
-                         (if (not (string? (cdr value-type)))
-                             (throw 'json-ld-error
-                                    #:code "invalid type mapping"))
-                         `(@ ("@type" . (iri-expansion active-context
-                                                       type #t #f
+     (let (;; Set defined's value for this key to false, indicating
+           ;; that we started processing 
+           (defined
+             (vhash-cons term #f defined))
+           ;; @@: Do we really need to remove any existing term
+           ;; definition for term in active context?  The spec says so,
+           ;; but might it just be overridden?
+           (active-context
+            (remove (lambda (x) (equal? (car x) term))
+                    active-context))
+           (value (json-ref local-context term)))
+       ;; TODO: resume at 7, see below, and consider switching to if
+       ;;   with let
+       (cond
+        ;; If value is null or a json object with "@id" mapping to null,
+        ;; then mark term as defined and set term in
+        ;; resulting context to null
+        ((or (null? value)
+             (and (json-alist? value)
+                  (eq? (json-ref value "@id") #nil)))
+         (values
+          (json-acons term #nil active-context)
+          (vhash-cons term #t defined)))
+        ;; 
+        (else
+         (let* ((value (cond ((string? value)
+                              `(@ ("@id" . ,value)))
+                             ((json-alist? value)
+                              value)
+                             (else
+                              (throw 'json-ld-error
+                                     #:code "invalid term definition"))))
+                (value-reverse (json-assoc "@reverse" value))
+                ;; Initialize definition, and maybe add @type to it
+                (value-type (json-assoc "@type" value))
+                (definition 
+                  (if value-type
+                      (begin
+                        (if (not (string? (cdr value-type)))
+                            (throw 'json-ld-error
+                                   #:code "invalid type mapping"))
+                        `(@ ("@type" . ,(iri-expansion active-context
+                                                       (cdr value-type) #t #f
                                                        local-context defined))))
-                       '(@))))
-            (define* (definition-expand-iri definition
-                       #:optional ensure-not-equal-context)
-              ;; 11.3
-              (let* ((id-expansion
-                      (iri-expansion active-context
-                                     (cdr value-reverse) #t #f local-context
-                                     defined))
-                     (new-definition
-                      (json-acons "@id" id-expansion definition)))
-                (if (not (or (absolute-uri? id-expansion)
-                             (blank-node? id-expansion)))
-                    ;; Uhoh
-                    (throw 'json-ld-error
-                           #:code "invalid IRI mapping"))
-                (if (and ensure-not-equal-context
-                         (equal? id-expansion "@context"))
-                    ;; also uhoh
-                    (throw 'json-ld-error
-                           #:code "invalid keyword alias"))
-                ;; oh okay!
-                new-definition))
+                      '(@))))
+           (define* (definition-expand-iri definition
+                      #:optional ensure-not-equal-context)
+             ;; 11.3
+             (let* ((id-expansion
+                     (iri-expansion active-context
+                                    (cdr value-reverse) #t #f local-context
+                                    defined))
+                    (new-definition
+                     (json-acons "@id" id-expansion definition)))
+               (if (not (or (absolute-uri? id-expansion)
+                            (blank-node? id-expansion)))
+                   ;; Uhoh
+                   (throw 'json-ld-error
+                          #:code "invalid IRI mapping"))
+               (if (and ensure-not-equal-context
+                        (equal? id-expansion "@context"))
+                   ;; also uhoh
+                   (throw 'json-ld-error
+                          #:code "invalid keyword alias"))
+               ;; oh okay!
+               new-definition))
 
-            (define (definition-handle-container-reverse definition)
-              ;; 11.4
-              (let ((value-container (json-assoc "@container" value)))
-                (if value-container
-                    (begin
-                      (if (not (member (cdr value-container)
-                                       '("@set" "@index" #nil)))
-                          (throw 'json-ld-error
-                                 #:code "invalid reverse property"))
-                      (json-acons "@container" (cdr value-container) definition))
-                    ;; otherwise return original definition
-                    definition)))
+           (define (definition-handle-container-reverse definition)
+             ;; 11.4
+             (let ((value-container (json-assoc "@container" value)))
+               (if value-container
+                   (begin
+                     (if (not (member (cdr value-container)
+                                      '("@set" "@index" #nil)))
+                         (throw 'json-ld-error
+                                #:code "invalid reverse property"))
+                     (json-acons "@container" (cdr value-container) definition))
+                   ;; otherwise return original definition
+                   definition)))
 
-            ;; This one is an adjustment deluxe, it does a significant
-            ;; amount of adjustments to the definition and builds
-            ;; up an active context to be used as well.
-            ;; @@: I wish I had a better name for this.
-            (define (more-definition-and-active-context-adjustments
-                     definition active-context)
-              (let ((definition
-                      (json-acons "@reverse" #f definition)))
-                (define (set-iri-mapping-of-def-to-term)
-                  (values (json-acons "@id" term definition)
-                          active-context))
-                (cond
-                 ;; sec 13
-                 ((and (json-assoc "@id" value)
-                       (not (equal? (json-ref value "@id")
-                                    term)))
-                  (values (definition-expand-iri definition #t)
-                          active-context))
-                 ;; sec 14
-                 ((string-contains term ":")
-                  ;; we cop out and go this route enough so
-                  (if (or (absolute-uri? term)
-                          (blank-node? term))
-                      ;; set iri mapping of definition to term
-                      (set-iri-mapping-of-def-to-term)
-                      ;; otherwise, we've entered compact uri territory
-                      ;; we'll recurse into this function to build up
-                      ;; a new active context
-                      (match (string-split term #\:)
-                        ((prefix suffix)
-                         (receive (active-context defined)
-                             (create-term-definition
-                              active-context local-context
-                              prefix defined)
-                           (let ((prefix-in-context
-                                  (json-assoc prefix active-context)))
-                             (if prefix-in-context
-                                 (values (json-acons
-                                          "@id"
-                                          (string-append
-                                           (json-ref (cdr prefix-in-context) "@id")
-                                           suffix)
-                                          definition))
-                                 ;; okay, yeah, it's set-iri-mapping-of-def-to-term
-                                 ;; but we want to return the new active-context
-                                 (values (json-acons "@id" term definition)
-                                         active-context)))))
-                        (_
-                         ;; we originally threw an error, but meh...
-                         ;; anyway, must not have been a compact uri after all...
-                         (set-iri-mapping-of-def-to-term)))))
+           ;; This one is an adjustment deluxe, it does a significant
+           ;; amount of adjustments to the definition and builds
+           ;; up an active context to be used as well.
+           ;; @@: I wish I had a better name for this.
+           (define (more-definition-and-active-context-adjustments
+                    definition active-context)
+             (let ((definition
+                     (json-acons "@reverse" #f definition)))
+               (define (set-iri-mapping-of-def-to-term)
+                 (values (json-acons "@id" term definition)
+                         active-context))
+               (cond
+                ;; sec 13
+                ((and (json-assoc "@id" value)
+                      (not (equal? (json-ref value "@id")
+                                   term)))
+                 (values (definition-expand-iri definition #t)
+                         active-context))
+                ;; sec 14
+                ((string-contains term ":")
+                 ;; we cop out and go this route enough so
+                 (if (or (absolute-uri? term)
+                         (blank-node? term))
+                     ;; set iri mapping of definition to term
+                     (set-iri-mapping-of-def-to-term)
+                     ;; otherwise, we've entered compact uri territory
+                     ;; we'll recurse into this function to build up
+                     ;; a new active context
+                     (match (string-split term #\:)
+                       ((prefix suffix)
+                        (receive (active-context defined)
+                            (create-term-definition
+                             active-context local-context
+                             prefix defined)
+                          (let ((prefix-in-context
+                                 (json-assoc prefix active-context)))
+                            (if prefix-in-context
+                                (values (json-acons
+                                         "@id"
+                                         (string-append
+                                          (json-ref (cdr prefix-in-context) "@id")
+                                          suffix)
+                                         definition))
+                                ;; okay, yeah, it's set-iri-mapping-of-def-to-term
+                                ;; but we want to return the new active-context
+                                (values (json-acons "@id" term definition)
+                                        active-context)))))
+                       (_
+                        ;; we originally threw an error, but meh...
+                        ;; anyway, must not have been a compact uri after all...
+                        (set-iri-mapping-of-def-to-term)))))
 
-                 ;; sec 15
-                 ((json-assoc "@vocab" active-context)
-                  (values (json-acons
-                           "@id"
-                           (string-append
-                            (json-ref active-context "@vocab")
-                            term) definition)
-                          active-context))
+                ;; sec 15
+                ((json-assoc "@vocab" active-context)
+                 (values (json-acons
+                          "@id"
+                          (string-append
+                           (json-ref active-context "@vocab")
+                           term) definition)
+                         active-context))
 
-                 (else
-                  (throw 'json-ld-error
-                         #:code "invalid IRI mapping")))))
+                (else
+                 (throw 'json-ld-error
+                        #:code "invalid IRI mapping")))))
 
-            (define (definition-handle-container-noreverse definition)
-              (let ((value-container (json-assoc "@container" value)))
-                (if value-container
-                    ;; Make sure container has an appropriate value,
-                    ;; set it in the definition
-                    (let ((container (cdr value-container)))
-                      (if (not (member container '("@list" "@set"
-                                                   "@index" "@language")))
-                          (throw 'json-ld-error
-                                 #:code "invalid container mapping"))
-                      (json-acons "@container" container definition))
-                    ;; otherwise, no adjustment needed apparently
-                    definition)))
+           (define (definition-handle-container-noreverse definition)
+             (let ((value-container (json-assoc "@container" value)))
+               (if value-container
+                   ;; Make sure container has an appropriate value,
+                   ;; set it in the definition
+                   (let ((container (cdr value-container)))
+                     (if (not (member container '("@list" "@set"
+                                                  "@index" "@language")))
+                         (throw 'json-ld-error
+                                #:code "invalid container mapping"))
+                     (json-acons "@container" container definition))
+                   ;; otherwise, no adjustment needed apparently
+                   definition)))
 
-            (define (definition-handle-language definition)
-              (let ((value-language (json-assoc "@language" value)))
-                (if value-language
-                    ;; Make sure language has an appropriate value,
-                    ;; set it in the definition
-                    (let ((language (cdr value-language)))
-                      (if (not (or (null? language) (string? language)))
-                          (throw 'json-ld-error
-                                 #:code "invalid language mapping"))
-                      (json-acons "@language" language definition))
-                    ;; otherwise, no adjustment needed apparently
-                    definition)))
+           (define (definition-handle-language definition)
+             (let ((value-language (json-assoc "@language" value)))
+               (if value-language
+                   ;; Make sure language has an appropriate value,
+                   ;; set it in the definition
+                   (let ((language (cdr value-language)))
+                     (if (not (or (null? language) (string? language)))
+                         (throw 'json-ld-error
+                                #:code "invalid language mapping"))
+                     (json-acons "@language" language definition))
+                   ;; otherwise, no adjustment needed apparently
+                   definition)))
 
-            (if value-reverse
-                (begin
-                  (if (json-assoc "@id" value)
-                      (throw 'json-ld-error
-                             #:code "invalid reverse property"))
-                  (if (not (string? (cdr value-reverse)))
-                      (throw 'json-ld-error
-                             #:code "invalid IRI mapping"))
+           (if value-reverse
+               (begin
+                 (if (json-assoc "@id" value)
+                     (throw 'json-ld-error
+                            #:code "invalid reverse property"))
+                 (if (not (string? (cdr value-reverse)))
+                     (throw 'json-ld-error
+                            #:code "invalid IRI mapping"))
 
-                  (let* ((definition
-                           (json-acons
-                            "@reverse" #t
-                            (definition-handle-container-reverse
-                              (definition-expand-iri definition))))
-                         (active-context (json-acons term definition active-context)))
-                    (hash-set! defined term #t)
-                    (values active-context defined)))
-                (begin
-                  ;; naming things is hard, especially when you're implementing
-                  ;; the json-ld api
-                  ;; Anyway this does a multi-value return of definition
-                  ;; and active-context, adjusted as need be
-                  (receive (definition active-context)
-                      (more-definition-and-active-context-adjustments
-                       definition active-context)
-                    ;; TODO: resume at 16 here
-                    (let* ((definition
-                             (definition-handle-language
-                               (definition-handle-container-noreverse definition)))
-                           (active-context (json-acons term definition active-context)))
-                      (hash-set! defined term #t)
-                      (values active-context defined)))))))))))))
+                 (let* ((definition
+                          (json-acons
+                           "@reverse" #t
+                           (definition-handle-container-reverse
+                             (definition-expand-iri definition))))
+                        (active-context (json-acons term definition active-context)))
+                   (values active-context (vhash-cons term #t defined))))
+               (begin
+                 ;; naming things is hard, especially when you're implementing
+                 ;; the json-ld api
+                 ;; Anyway this does a multi-value return of definition
+                 ;; and active-context, adjusted as need be
+                 (receive (definition active-context)
+                     (more-definition-and-active-context-adjustments
+                      definition active-context)
+                   ;; TODO: resume at 16 here
+                   (let* ((definition
+                            (definition-handle-language
+                              (definition-handle-container-noreverse definition)))
+                          (active-context (json-acons term definition active-context)))
+                     (values active-context (vhash-cons term #t defined)))))))))))))
 
 ;; Yeah, TODO
-(define (iri-expansion . args)
+(define* (iri-expansion active-context value
+                        #:optional
+                        (document-relative #f) (vocab #f)
+                        (local-context #nil) (defined #nil))
   #nil)
