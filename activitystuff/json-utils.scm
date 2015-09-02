@@ -78,10 +78,10 @@ Really this means converting @-prefixed alists to vhashes"
 
   (define (convert-json exp)
     (match exp
-      ((? json-alist? exp)
-       (convert-json-alist exp))
-      ((? pair? exp)
-       (convert-list exp))
+      ((? json-alist? alist)
+       (convert-json-alist alist))
+      ((items ...)
+       (convert-list items))
       (anything-else anything-else)))
 
   (convert-json sjson))
@@ -108,10 +108,10 @@ The opposite of sjson->vjson!"
 
   (define (convert-json exp)
     (match exp
-      ((? vlist? exp)
-       (convert-vlist exp))
-      ((? pair? exp)
-       (convert-list exp))
+      ((? vlist? vlist)
+       (convert-vlist vlist))
+      ((items ...)
+       (convert-list items))
       (anything-else anything-else)))
 
   (convert-json vjson))
