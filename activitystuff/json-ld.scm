@@ -266,8 +266,7 @@ remaining context information to process from local-context"
 
 ;; Algorithm 6.2
 
-(define* (create-term-definition active-context local-context term
-                                 #:optional (defined (make-hash-table)))
+(define* (create-term-definition active-context local-context term defined)
   ;; Let's see, has this term been defined, or started to be
   ;; defined yet?...
   (let* ((no-value (gensym))
