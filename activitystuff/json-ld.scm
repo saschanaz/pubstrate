@@ -82,9 +82,6 @@ NOTE: It loooks like the correct version of this is done in jsonld.py
     "@container" "@list" "@set" "@reverse"
     "@index" "@base" "@vocab" "@graph"))
 
-(define json-ld-valid-containers
-  '("@set" "@index" #nil))
-
 (define (json-ld-keyword? obj)
   "See if OBJ is a json-ld special keyword
 
@@ -358,20 +355,25 @@ remaining context information to process from local-context"
                 ;; oh okay!
                 new-definition))
 
-            (define (definition-handle-container definition)
+            (define (definition-handle-container-reverse definition)
               ;; 11.4
               (let ((value-container (json-assoc "@container" value)))
                 (if value-container
                     (begin
                       (if (not (member (cdr value-container)
-                                       json-ld-valid-containers))
+                                       '("@set" "@index" #nil)))
                           (throw 'json-ld-error
                                  #:code "invalid reverse property"))
                       (json-acons "@container" (cdr value-container) definition))
                     ;; otherwise return original definition
                     definition)))
 
-            (define (more-definition-and-active-context-adjustments)
+            ;; This one is an adjustment deluxe, it does a significant
+            ;; amount of adjustments to the definition and builds
+            ;; up an active context to be used as well.
+            ;; @@: I wish I had a better name for this.
+            (define (more-definition-and-active-context-adjustments
+                     definition active-context)
               (let ((definition
                       (json-acons "@reverse" #f definition)))
                 (define (set-iri-mapping-of-def-to-term)
@@ -431,6 +433,33 @@ remaining context information to process from local-context"
                   (throw 'json-ld-error
                          #:code "invalid IRI mapping")))))
 
+            (define (definition-handle-container-noreverse definition)
+              (let ((value-container (json-assoc "@container" value)))
+                (if value-container
+                    ;; Make sure container has an appropriate value,
+                    ;; set it in the definition
+                    (let ((container (cdr value-container)))
+                      (if (not (member container '("@list" "@set"
+                                                   "@index" "@language")))
+                          (throw 'json-ld-error
+                                 #:code "invalid container mapping"))
+                      (json-acons "@container" container definition))
+                    ;; otherwise, no adjustment needed apparently
+                    definition)))
+
+            (define (definition-handle-language definition)
+              (let ((value-language (json-assoc "@language" value)))
+                (if value-language
+                    ;; Make sure language has an appropriate value,
+                    ;; set it in the definition
+                    (let ((language (cdr value-language)))
+                      (if (not (or (null? language) (string? language)))
+                          (throw 'json-ld-error
+                                 #:code "invalid language mapping"))
+                      (json-acons "@language" language definition))
+                    ;; otherwise, no adjustment needed apparently
+                    definition)))
+
             (if value-reverse
                 (begin
                   (if (json-assoc "@id" value)
@@ -443,21 +472,27 @@ remaining context information to process from local-context"
                   (let* ((definition
                            (json-acons
                             "@reverse" #t
-                            (definition-handle-container
-                              (definition-expand-iri definition)))))
+                            (definition-handle-container-reverse
+                              (definition-expand-iri definition))))
+                         (active-context (json-acons term definition active-context)))
                     (hash-set! defined term #t)
-                    (values (json-acons term definition active-context)
-                            defined)))
+                    (values active-context defined)))
                 (begin
                   ;; naming things is hard, especially when you're implementing
                   ;; the json-ld api
                   ;; Anyway this does a multi-value return of definition
                   ;; and active-context, adjusted as need be
                   (receive (definition active-context)
-                      (more-definition-and-active-context-adjustments)
+                      (more-definition-and-active-context-adjustments
+                       definition active-context)
                     ;; TODO: resume at 16 here
-                    
-                    )
-                  )
-                )
-            ))))))))
+                    (let* ((definition
+                             (definition-handle-language
+                               (definition-handle-container-noreverse definition)))
+                           (active-context (json-acons term definition active-context)))
+                      (hash-set! defined term #t)
+                      (values active-context defined)))))))))))))
+
+;; Yeah, TODO
+(define (iri-expansion . args)
+  #nil)
