@@ -17,9 +17,10 @@
 
 
 (define-module (activitystuff json-utils)
-  ;; Maybe soon, import (activitystuff contrib json)
-  ;; ... but it doesn't seem really used yet
-  #:export (json-alist? json-assoc json-ref json-acons))
+  #:use-module (activitystuff contrib json)
+  #:export (json-alist?
+            json-assoc json-ref json-acons
+            read-json-from-string write-json-to-string))
 
 ;; JSON helper procedures
 
@@ -36,3 +37,14 @@
 
 (define (json-acons key value json-alist)
   (cons '@ (acons key value (cdr json-alist))))
+
+
+(define (read-json-from-string string)
+  (call-with-input-string string
+    (lambda (p)
+      (read-json p))))
+
+(define (write-json-to-string exp)
+  (call-with-output-string
+   (lambda (p)
+     (write-json exp p))))
