@@ -174,7 +174,7 @@ remaining context information to process from local-context"
 
                      ;; If it's an absolute URI, let's set that as the result's
                      ;; @base
-                     ((? asbolute-uri? base-uri)
+                     ((? absolute-uri? base-uri)
                       (json-acons "@base" base-uri result))
 
                      ;; Otherwise... if it's a string, we assume it's
