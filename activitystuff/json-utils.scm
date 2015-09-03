@@ -25,6 +25,7 @@
             json-alist-null?
             json-assoc json-ref json-acons
             json-alist-map json-alist-fold
+            json-alist->alist
 
             ;; Abstracting and hedging our bets
             ;; on json object representation
@@ -65,7 +66,7 @@ json-alist"
        ((key . val)
         (proc key val))))
    (match json-alist
-     ((@ . alist)
+     (('@ . alist)
       alist))))
 
 (define* (json-alist-fold proc initial json-alist)
@@ -78,9 +79,13 @@ json-alist as well as the previous value"
         (proc key val prev))))
    initial
    (match json-alist
-     ((@ . alist)
+     (('@ . alist)
       alist))))
 
+(define (json-alist->alist json-alist)
+  (match json-alist
+    ((@ . alist)
+     alist)))
 
 ;; Hedging our bets on what we're using for javascript objects...
 (define jsmap? json-alist?)
@@ -90,6 +95,7 @@ json-alist as well as the previous value"
 (define jsmap-cons json-acons)
 (define jsmap-map json-alist-map)
 (define jsmap-fold json-alist-fold)
+(define jsmap->alist json-alist->alist)
 
 (define (read-json-from-string string)
   (call-with-input-string string
