@@ -93,6 +93,21 @@ As a mild speed optimization, returns the remainder of json-ld-keywords
 rathr than #t if true (#f of course if false)"
   (member obj json-ld-keywords))
 
+;; ... helper func
+(define (context-mapping-assoc key context)
+  "Pull key out of a context's mapping"
+  (jsmap-assoc key (jsmap-ref context "mapping")))
+
+(define (context-mapping-cons key val context)
+  "Assign key to value in a context's mapping and return new context"
+  (jsmap-cons "mapping"
+              (jsmap-cons key val (jsmap-ref context "mapping"))
+              context))
+
+(define (context-mapping-delete key context)
+  (jsmap-cons "mapping"
+              (jsmap-delete key (jsmap-ref context "mapping"))
+              context))
 
 ;; Algorithm 6.1
 
@@ -271,6 +286,7 @@ remaining context information to process from local-context"
                       #:context context)))))))
 
 ;; Algorithm 6.2
+;; -------------
 
 (define* (create-term-definition active-context local-context term defined)
   ;; Let's see, has this term been defined, or started to be
@@ -298,8 +314,7 @@ remaining context information to process from local-context"
            ;; definition for term in active context?  The spec says so,
            ;; but might it just be overridden?
            (active-context
-            (remove (lambda (x) (equal? (car x) term))
-                    active-context))
+            (context-mapping-delete term active-context))
            (value (json-ref local-context term)))
        (cond
         ;; If value is null or a json object with "@id" mapping to null,
@@ -309,7 +324,7 @@ remaining context information to process from local-context"
              (and (json-alist? value)
                   (eq? (json-ref value "@id") #nil)))
          (values
-          (json-acons term #nil active-context)
+          (context-mapping-cons term #nil active-context)
           (vhash-cons term #t defined)))
         ;; otherwise, possibly convert value and continue...
         (else
