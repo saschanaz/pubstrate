@@ -96,7 +96,7 @@ rathr than #t if true (#f of course if false)"
 
 ;; Algorithm 6.1
 
-(define* (update-context active-context local-context
+(define* (process-context active-context local-context
                          #:optional (remote-contexts '())
                          #:key
                          (deref-context basic-deref-remote-context)
@@ -131,7 +131,9 @@ remaining context information to process from local-context"
           (match context
             ;; If null, result is a newly-initialized active context 
             (#nil
-             (loop `(@ ("@base" . ,base-ir))
+             (loop `(@ ("@base" . ,base-ir)
+                       ("mappings" . ,jsmap-nil)
+                       ("inverse" . #nil))
                    next-contexts remote-contexts))
 
             ;; Okay it's a string, great, that means it's an iri
@@ -148,9 +150,9 @@ remaining context information to process from local-context"
                ;; We made it this far, so recurse on the derefed context
                ;; then continue with that updated result
                (let* ((context derefed-context)
-                      (result (update-context result context
-                                              (cons context remote-contexts)
-                                              #:deref-context deref-context)))
+                      (result (process-context result context
+                                               (cons context remote-contexts)
+                                               #:deref-context deref-context)))
                  (loop result next-contexts remote-contexts))))
 
             ((? json-alist? context)
