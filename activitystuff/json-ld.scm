@@ -49,14 +49,17 @@
 (define (basic-deref-remote-context iri)
   (throw 'json-ld-error "remote resolver not implemented yet :)"))
 
+
 ;; This is effectively a check to see if something's an asbolute uri anyway...
 (define absolute-uri? string->uri)
+
 
 (define (blank-node? obj)
   "See if OBJ is a blank node (a string that starts with \"_:\")"
   (and (string? obj)
        (> (string-length obj) 2)
        (equal? (substring obj 0 2) "_:")))
+
 
 (define (maybe-append-uri-to-base uri base)
   "A sorta-correct way to join a URI to BASE, assuming there is a BASE,
@@ -370,7 +373,7 @@ remaining context information to process from local-context"
            (define (more-definition-and-active-context-adjustments
                     definition active-context)
              (let ((definition
-                     (json-acons "@reverse" #f definition)))
+                     (json-acons "reverse" #f definition)))
                (define (set-iri-mapping-of-def-to-term)
                  (values (json-acons "@id" term definition)
                          active-context))
@@ -466,7 +469,7 @@ remaining context information to process from local-context"
 
                  (let* ((definition
                           (json-acons
-                           "@reverse" #t
+                           "reverse" #t
                            (definition-handle-container-reverse
                              (definition-expand-iri definition))))
                         (active-context (json-acons term definition active-context)))
