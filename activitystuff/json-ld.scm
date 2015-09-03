@@ -296,8 +296,6 @@ remaining context information to process from local-context"
             (remove (lambda (x) (equal? (car x) term))
                     active-context))
            (value (json-ref local-context term)))
-       ;; TODO: resume at 7, see below, and consider switching to if
-       ;;   with let
        (cond
         ;; If value is null or a json object with "@id" mapping to null,
         ;; then mark term as defined and set term in
@@ -308,7 +306,7 @@ remaining context information to process from local-context"
          (values
           (json-acons term #nil active-context)
           (vhash-cons term #t defined)))
-        ;; 
+        ;; otherwise, possibly convert value and continue...
         (else
          (let* ((value (cond ((string? value)
                               `(@ ("@id" . ,value)))
@@ -492,5 +490,24 @@ remaining context information to process from local-context"
 (define* (iri-expansion active-context value
                         #:optional
                         (document-relative #f) (vocab #f)
-                        (local-context #nil) (defined #nil))
-  #nil)
+                        (local-context #nil)
+                        ;; @@: spec says defined should be null, but
+                        ;;   vlist-null seems to make more sense in our case
+                        (defined vlist-null))
+  (define (maybe-update-active-context)
+    (let ((context-matching-value (local-context)))
+      ;; wow okay this null? stuff totally falls apart for (@) reasons
+      (if (and (not (json-alist-null? local-context))
+               )))
+    )
+
+  (if (or (? null? value)
+          (? json-ld-keyword? value))
+      ;; keywords / null are just returned as-is
+      value
+      ;; Otherwise, see if we need to update the active context
+      ;; and continue with expansion...
+      (receive (active-context defined)
+          (maybe-update-active-context)
+        )
+    ))
