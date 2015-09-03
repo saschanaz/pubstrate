@@ -97,6 +97,9 @@ json-alist as well as the previous value"
 (define jsmap-fold json-alist-fold)
 (define jsmap->alist json-alist->alist)
 
+
+;; Simpler json reading and writing functions
+
 (define (read-json-from-string string)
   (call-with-input-string string
     (lambda (p)
@@ -113,6 +116,8 @@ json-alist as well as the previous value"
   "Like assoc-ref but for a vhash"
   (cdr (vhash-assoc key vhash)))
 
+
+;; Conversion funcs
 
 (define (sjson->vjson sjson)
   "Convert sjson format to vjson
