@@ -97,7 +97,7 @@ rathr than #t if true (#f of course if false)"
                          #:optional (remote-contexts '())
                          #:key
                          (deref-context basic-deref-remote-context)
-                         base-iri)
+                         (base-iri #nil))
   "This function builds up a new active-context based on the
 remaining context information to process from local-context"
   (let loop ((result active-context)
@@ -128,7 +128,7 @@ remaining context information to process from local-context"
           (match context
             ;; If null, result is a newly-initialized active context 
             (#nil
-             (loop `(@ ("@base" . ,(or base-iri #nil)))
+             (loop `(@ ("@base" . ,base-ir))
                    next-contexts remote-contexts))
 
             ;; Okay it's a string, great, that means it's an iri
