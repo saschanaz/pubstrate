@@ -24,15 +24,19 @@
   #:export (json-alist?
             json-alist-null? json-alist-nil
             json-assoc json-ref json-acons
+            json-alist-delete
             json-alist-map json-alist-fold
             json-alist->alist
+            alist->json-alist
 
             ;; Abstracting and hedging our bets
             ;; on json object representation
             jsmap?
             jsmap-null? jsmap-nil
             jsmap-assoc jsmap-ref jsmap-cons
+            jsmap-delete
             jsmap-map jsmap-fold
+            jsmap->alist alist->jsmap
 
             read-json-from-string write-json-to-string
             vhash-ref
@@ -60,6 +64,9 @@
 
 (define (json-acons key value json-alist)
   (cons '@ (acons key value (cdr json-alist))))
+
+(define (json-alist-delete key json-alist)
+  (alist->json-alist (alist-delete key (json-alist->alist json-alist))))
 
 (define* (json-alist-map proc json-alist)
   "Map over PROC which takes a key and a value each from each pair of
@@ -91,6 +98,9 @@ json-alist as well as the previous value"
     ((@ . alist)
      alist)))
 
+(define (alist->json-alist alist)
+  (cons '@ alist))
+
 ;; Hedging our bets on what we're using for javascript objects...
 (define jsmap? json-alist?)
 (define jsmap-null? json-alist-null?)
@@ -98,10 +108,11 @@ json-alist as well as the previous value"
 (define jsmap-assoc json-assoc)
 (define jsmap-ref json-ref)
 (define jsmap-cons json-acons)
+(define jsmap-delete json-alist-delete)
 (define jsmap-map json-alist-map)
 (define jsmap-fold json-alist-fold)
 (define jsmap->alist json-alist->alist)
-
+(define alist->jsmap alist->json-alist)
 
 ;; Simpler json reading and writing functions
 
