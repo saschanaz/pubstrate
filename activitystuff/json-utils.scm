@@ -22,7 +22,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
   #:export (json-alist?
-            json-alist-null?
+            json-alist-null? json-alist-nil
             json-assoc json-ref json-acons
             json-alist-map json-alist-fold
             json-alist->alist
@@ -30,7 +30,7 @@
             ;; Abstracting and hedging our bets
             ;; on json object representation
             jsmap?
-            jsmap-null?
+            jsmap-null? jsmap-nil
             jsmap-assoc jsmap-ref jsmap-cons
             jsmap-map jsmap-fold
 
@@ -45,7 +45,11 @@
        (eq? (car json-scm) '@)))
 
 (define (json-alist-null? json-alist)
-  (null? (cdr json-alist)))
+  (match json-alist
+    (('@ . '()) #t)
+    (_ #f)))
+
+(define json-alist-nil '(@))
 
 (define (json-assoc key json-alist)
   (assoc key (cdr json-alist)))
@@ -90,6 +94,7 @@ json-alist as well as the previous value"
 ;; Hedging our bets on what we're using for javascript objects...
 (define jsmap? json-alist?)
 (define jsmap-null? json-alist-null?)
+(define jsmap-nil json-alist-nil)
 (define jsmap-assoc json-assoc)
 (define jsmap-ref json-ref)
 (define jsmap-cons json-acons)
