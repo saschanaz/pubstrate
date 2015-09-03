@@ -22,7 +22,17 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
   #:export (json-alist?
+            json-alist-null?
             json-assoc json-ref json-acons
+            json-alist-map json-alist-fold
+
+            ;; Abstracting and hedging our bets
+            ;; on json object representation
+            jsmap?
+            jsmap-null?
+            jsmap-assoc jsmap-ref jsmap-cons
+            jsmap-map jsmap-fold
+
             read-json-from-string write-json-to-string
             vhash-ref
             sjson->vjson vjson->sjson))
@@ -33,6 +43,9 @@
   (and (pair? json-scm)
        (eq? (car json-scm) '@)))
 
+(define (json-alist-null? json-alist)
+  (null? (cdr json-alist)))
+
 (define (json-assoc key json-alist)
   (assoc key (cdr json-alist)))
 
@@ -42,6 +55,41 @@
 
 (define (json-acons key value json-alist)
   (cons '@ (acons key value (cdr json-alist))))
+
+(define* (json-alist-map proc json-alist)
+  "Map over PROC which takes a key and a value each from each pair of
+json-alist"
+  (map
+   (lambda (x)
+     (match x
+       ((key . val)
+        (proc key val))))
+   (match json-alist
+     ((@ . alist)
+      alist))))
+
+(define* (json-alist-fold proc initial json-alist)
+  "Fold over PROC which takes a key and a value from each from each pair of
+json-alist as well as the previous value"
+  (fold
+   (lambda (x prev)
+     (match x
+       ((key . val)
+        (proc key val prev))))
+   initial
+   (match json-alist
+     ((@ . alist)
+      alist))))
+
+
+;; Hedging our bets on what we're using for javascript objects...
+(define jsmap? json-alist?)
+(define jsmap-null? json-alist-null?)
+(define jsmap-assoc json-assoc)
+(define jsmap-ref json-ref)
+(define jsmap-cons json-acons)
+(define jsmap-map json-alist-map)
+(define jsmap-fold json-alist-fold)
 
 (define (read-json-from-string string)
   (call-with-input-string string
