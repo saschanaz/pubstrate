@@ -36,11 +36,79 @@
   #:use-module (activitystuff json-utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
+  #:use-module (srfi srfi-9 gnu)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 vlist)
   #:use-module (web uri)
   #:export (update-context))
+
+
+;; Special meaning in <active-context>, where 
+(define undefined 'undefined)
+
+(define (undefined? val)
+  "Used to see if some record type fields have been defined yet"
+  (eq? val undefined))
+
+(define (defined? val)
+  "Used to see if some record type fields have been defined yet"
+  (not (undefined? val)))
+
+;; An active context should not be confused with a json-ld @context.
+;;
+;; Instead, it is a transformation of json-ld contexts into a set of
+;; term definitions and other data, the state information from
+;; processing that context.
+
+(define-immutable-record-type <active-context>
+  (make-active-context base mappings inverse language vocab)
+  active-context?
+  ;; Base URI, if any
+  ;;   equiv to "@base" in jsonld.py
+  (base active-context-base)
+  ;; Term mappings, aka a vhash mapped to a term definition
+  ;;   equiv to "mappings" in json-ld.py
+  ;; @@: maybe rename to terms
+  (mappings active-context-mappings)
+  ;; Inverse context I guess?  I don't really know what this is yet
+  ;;   equiv to "inverse" in json-ld.py
+  (inverse active-context-inverse)
+  ;; Default language for this thing
+  ;;   equiv to "@language" in json-ld.py
+  (language active-context-language)
+  ;; Vocabulary mapping
+  ;;   equiv to "@vocab" in json-ld.py
+  (vocab active-context-vocab))
+
+(define initial-active-context
+  (make-active-context #nil vlist-null #nil
+                       undefined undefined))
+
+;; @@: Should we have a make-initial-active-context that looks at
+;;   options (whatever that is) so it might append
+;;   the options' base to the initial-active-context base field?
+
+;; So this is a term definition... it's the information about
+;; various fields we build up in an <active-context> as we
+;; process local contexts.
+
+(define-immutable-record-type <term-def>
+  (make-term-def)
+  term-def?
+  ;; iri mapping
+  ;;   equiv to "@id" in json-ld.py
+  (id term-def-id)
+  ;; boolean flag (TODO: meaning?)
+  ;;   equiv to "reverse" in json-ld.py
+  (reverse term-def-reverse)
+  ;; (optional) type mapping
+  ;;   equiv to "@type" in json-ld.py
+  (type term-def-type)
+  ;; (optional) language mapping
+  ;;   equiv to "@language" in json-ld.py
+  (language term-def-language))
+
 
 
 ;; I mix up IRI, URI, and URL all over this document just like everyone else.
@@ -140,7 +208,11 @@ remaining context information to process from local-context"
       (or (equal? uri1 uri2)
           (equal? uri1 (append-to-base uri2))))
 
-    (if (null? local-context) result
+    ;; Are we done pocessing contexts?
+    (if (null? local-context)
+        ;; then return result immediately
+        result
+        ;; otherwise, process on!
         (let ((context (car local-context))
               (next-contexts (cdr local-context)))
           (match context
