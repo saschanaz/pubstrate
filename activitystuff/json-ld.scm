@@ -238,8 +238,8 @@ remaining context information to process from local-context"
                         #:context context))
              (let ((derefed-context (deref-context context))
                    (remote-contexts (cons context remote-contexts)))
-               (if (not (and (json-alist? derefed-context)
-                             (json-ref derefed-context "@context")))
+               (if (not (and (jsmap? derefed-context)
+                             (jsmap-ref derefed-context "@context")))
                    (throw 'json-ld-error #:code "invalid remote context"
                           #:context context))
                ;; We made it this far, so recurse on the derefed context
@@ -250,7 +250,7 @@ remaining context information to process from local-context"
                                                #:deref-context deref-context)))
                  (loop result next-contexts remote-contexts))))
 
-            ((? json-alist? context)
+            ((? jsmap? context)
              ;; Time to process over a json object of data.  Yay!
              ;; We're really just folding over this object here,
              ;; but three keys are special:
@@ -276,17 +276,17 @@ remaining context information to process from local-context"
                      ;; If it's an absolute URI, let's set that as the result's
                      ;; @base
                      ((? absolute-uri? base-uri)
-                      (json-acons "@base" base-uri result))
+                      (jsmap-cons "@base" base-uri result))
 
                      ;; Otherwise... if it's a string, we assume it's
                      ;; still a relative URI
                      ((? string? relative-base-uri)
                       ;; If the current *result's* base-uri is not null....
                       ;; resolve it against current base URI of result
-                      (if (string? (json-ref result "@base"))
-                          (json-acons "@base"
+                      (if (string? (jsmap-ref result "@base"))
+                          (jsmap-cons "@base"
                                       (maybe-append-uri-to-base
-                                       relative-base-uri (json-ref result "@base"))
+                                       relative-base-uri (jsmap-ref result "@base"))
                                       result)
                           ;; Otherwise, this is an error...
                           ;; "Value of @base in a @context must be an
@@ -314,7 +314,7 @@ remaining context information to process from local-context"
                      ;; @vocab of result is set to context-vocab
                      ((or (absolute-uri? context-vocab)
                           (blank-node? context-vocab))
-                      (json-acons "@type" context-vocab result))
+                      (jsmap-cons "@type" context-vocab result))
                      (else
                       (throw 'json-ld-error #:code "invalid vocab mapping"))))
 
@@ -324,29 +324,29 @@ remaining context information to process from local-context"
                       (remove (lambda (x) (match x (("@language" . _) #t) (_ #f)))
                               result))
                      ((string? context-language)
-                      (json-acons "@language" (string-downcase context-language)
+                      (jsmap-cons "@language" (string-downcase context-language)
                                   result))
                      (else
                       (throw 'json-ld-error #:code "invalid default language"))))
 
              (define (build-result)
                (car
-                (fold
-                 (lambda (x result)
-                   (match x
-                     ((ctx-entry . defined)
-                      (match ctx-entry
-                        (("@base" . ctx-base)
-                         (cons (modify-result-from-base result ctx-base)
+                (jsmap-fold-unique
+                 (lambda (ctx-key ctx-val prev)
+                   (match prev
+                     ((result . defined)
+                      (match ctx-key
+                        ("@base"
+                         (cons (modify-result-from-base result ctx-val)
                                defined))
-                        (("@vocab" . ctx-vocab)
-                         (cons (modify-result-from-vocab result ctx-vocab)
+                        ("@vocab"
+                         (cons (modify-result-from-vocab result ctx-val)
                                defined))
-                        (("@language" . ctx-language)
-                         (cons (modify-result-from-language result ctx-language)
+                        ("@language"
+                         (cons (modify-result-from-language result ctx-val)
                                defined))
-                        ((ctx-key . ctx-val)
-                         ;; Notably we aren't passing ctx-key here because
+                        (_
+                         ;; Notably we aren't passing ctx-ctx-key here because
                          ;; (I suppose) create-term-definition has the whole context
                          ;; and so can look it up anyway...
                          (receive (result defined)
@@ -354,7 +354,7 @@ remaining context information to process from local-context"
                               result context ctx-key defined)
                            (cons result defined)))))))
                  (cons result vlist-null) ;; second value here is "defined"
-                 (cdr context))))
+                 context)))
 
              (loop
               (build-result)
@@ -395,14 +395,14 @@ remaining context information to process from local-context"
            ;; but might it just be overridden?
            (active-context
             (context-mapping-delete term active-context))
-           (value (json-ref local-context term)))
+           (value (jsmap-ref local-context term)))
        (cond
         ;; If value is null or a json object with "@id" mapping to null,
         ;; then mark term as defined and set term in
         ;; resulting context to null
         ((or (null? value)
-             (and (json-alist? value)
-                  (eq? (json-ref value "@id") #nil)))
+             (and (jsmap? value)
+                  (eq? (jsmap-ref value "@id") #nil)))
          (values
           (context-mapping-cons term #nil active-context)
           (vhash-cons term #t defined)))
@@ -410,14 +410,14 @@ remaining context information to process from local-context"
         (else
          (let* ((value (cond ((string? value)
                               `(@ ("@id" . ,value)))
-                             ((json-alist? value)
+                             ((jsmap? value)
                               value)
                              (else
                               (throw 'json-ld-error
                                      #:code "invalid term definition"))))
-                (value-reverse (json-assoc "@reverse" value))
+                (value-reverse (jsmap-assoc "@reverse" value))
                 ;; Initialize definition, and maybe add @type to it
-                (value-type (json-assoc "@type" value))
+                (value-type (jsmap-assoc "@type" value))
                 (definition 
                   (if value-type
                       (begin
@@ -436,7 +436,7 @@ remaining context information to process from local-context"
                                     (cdr value-reverse) #t #f local-context
                                     defined))
                     (new-definition
-                     (json-acons "@id" id-expansion definition)))
+                     (jsmap-cons "@id" id-expansion definition)))
                (if (not (or (absolute-uri? id-expansion)
                             (blank-node? id-expansion)))
                    ;; Uhoh
@@ -452,14 +452,14 @@ remaining context information to process from local-context"
 
            (define (definition-handle-container-reverse definition)
              ;; 11.4
-             (let ((value-container (json-assoc "@container" value)))
+             (let ((value-container (jsmap-assoc "@container" value)))
                (if value-container
                    (begin
                      (if (not (member (cdr value-container)
                                       '("@set" "@index" #nil)))
                          (throw 'json-ld-error
                                 #:code "invalid reverse property"))
-                     (json-acons "@container" (cdr value-container) definition))
+                     (jsmap-cons "@container" (cdr value-container) definition))
                    ;; otherwise return original definition
                    definition)))
 
@@ -470,14 +470,14 @@ remaining context information to process from local-context"
            (define (more-definition-and-active-context-adjustments
                     definition active-context)
              (let ((definition
-                     (json-acons "reverse" #f definition)))
+                     (jsmap-cons "reverse" #f definition)))
                (define (set-iri-mapping-of-def-to-term)
-                 (values (json-acons "@id" term definition)
+                 (values (jsmap-cons "@id" term definition)
                          active-context))
                (cond
                 ;; sec 13
-                ((and (json-assoc "@id" value)
-                      (not (equal? (json-ref value "@id")
+                ((and (jsmap-assoc "@id" value)
+                      (not (equal? (jsmap-ref value "@id")
                                    term)))
                  (values (definition-expand-iri definition #t)
                          active-context))
@@ -498,17 +498,17 @@ remaining context information to process from local-context"
                              active-context local-context
                              prefix defined)
                           (let ((prefix-in-context
-                                 (json-assoc prefix active-context)))
+                                 (jsmap-assoc prefix active-context)))
                             (if prefix-in-context
-                                (values (json-acons
+                                (values (jsmap-cons
                                          "@id"
                                          (string-append
-                                          (json-ref (cdr prefix-in-context) "@id")
+                                          (jsmap-ref (cdr prefix-in-context) "@id")
                                           suffix)
                                          definition))
                                 ;; okay, yeah, it's set-iri-mapping-of-def-to-term
                                 ;; but we want to return the new active-context
-                                (values (json-acons "@id" term definition)
+                                (values (jsmap-cons "@id" term definition)
                                         active-context)))))
                        (_
                         ;; we originally threw an error, but meh...
@@ -516,11 +516,11 @@ remaining context information to process from local-context"
                         (set-iri-mapping-of-def-to-term)))))
 
                 ;; sec 15
-                ((json-assoc "@vocab" active-context)
-                 (values (json-acons
+                ((jsmap-assoc "@vocab" active-context)
+                 (values (jsmap-cons
                           "@id"
                           (string-append
-                           (json-ref active-context "@vocab")
+                           (jsmap-ref active-context "@vocab")
                            term) definition)
                          active-context))
 
@@ -529,7 +529,7 @@ remaining context information to process from local-context"
                         #:code "invalid IRI mapping")))))
 
            (define (definition-handle-container-noreverse definition)
-             (let ((value-container (json-assoc "@container" value)))
+             (let ((value-container (jsmap-assoc "@container" value)))
                (if value-container
                    ;; Make sure container has an appropriate value,
                    ;; set it in the definition
@@ -538,12 +538,12 @@ remaining context information to process from local-context"
                                                   "@index" "@language")))
                          (throw 'json-ld-error
                                 #:code "invalid container mapping"))
-                     (json-acons "@container" container definition))
+                     (jsmap-cons "@container" container definition))
                    ;; otherwise, no adjustment needed apparently
                    definition)))
 
            (define (definition-handle-language definition)
-             (let ((value-language (json-assoc "@language" value)))
+             (let ((value-language (jsmap-assoc "@language" value)))
                (if value-language
                    ;; Make sure language has an appropriate value,
                    ;; set it in the definition
@@ -551,13 +551,13 @@ remaining context information to process from local-context"
                      (if (not (or (null? language) (string? language)))
                          (throw 'json-ld-error
                                 #:code "invalid language mapping"))
-                     (json-acons "@language" language definition))
+                     (jsmap-cons "@language" language definition))
                    ;; otherwise, no adjustment needed apparently
                    definition)))
 
            (if value-reverse
                (begin
-                 (if (json-assoc "@id" value)
+                 (if (jsmap-assoc "@id" value)
                      (throw 'json-ld-error
                             #:code "invalid reverse property"))
                  (if (not (string? (cdr value-reverse)))
@@ -565,11 +565,11 @@ remaining context information to process from local-context"
                             #:code "invalid IRI mapping"))
 
                  (let* ((definition
-                          (json-acons
+                          (jsmap-cons
                            "reverse" #t
                            (definition-handle-container-reverse
                              (definition-expand-iri definition))))
-                        (active-context (json-acons term definition active-context)))
+                        (active-context (jsmap-cons term definition active-context)))
                    (values active-context (vhash-cons term #t defined))))
                (begin
                  ;; naming things is hard, especially when you're implementing
@@ -583,7 +583,7 @@ remaining context information to process from local-context"
                    (let* ((definition
                             (definition-handle-language
                               (definition-handle-container-noreverse definition)))
-                          (active-context (json-acons term definition active-context)))
+                          (active-context (jsmap-cons term definition active-context)))
                      (values active-context (vhash-cons term #t defined)))))))))))))
 
 ;; Yeah, TODO
@@ -597,7 +597,7 @@ remaining context information to process from local-context"
   (define (maybe-update-active-context)
     (let ((context-matching-value (local-context)))
       ;; wow okay this null? stuff totally falls apart for (@) reasons
-      (if (and (not (json-alist-null? local-context))
+      (if (and (not (jsmap-null? local-context))
                )))
     )
 
