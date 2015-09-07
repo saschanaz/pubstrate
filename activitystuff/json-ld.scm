@@ -260,12 +260,12 @@ remaining context information to process from local-context"
              ;;
              ;; Because that's a lot of steps, for readability
              ;; we break these out into functions then do the fold.
-             (define (modify-result-from-base result context-base)
-               (if (and context-base
+             (define (modify-result-from-base result base)
+               (if (and base
                         (null? remote-contexts))
                    ;; In this case we'll adjusting the result's "@base"
                    ;; depending on what this context's @base is
-                   (match context-base
+                   (match base
                      ;; If the @base in this context is null, remove
                      ;; whatever current @base is in the result
                      ((? null? _)
@@ -305,26 +305,26 @@ remaining context information to process from local-context"
                    ;; Otherwise, return unmodified result
                    result))
 
-             (define (modify-result-from-vocab result context-vocab)
-               (cond ((null? context-vocab)
+             (define (modify-result-from-vocab result vocab)
+               (cond ((null? vocab)
                       ;; remove vocabulary mapping from result
                       (remove (lambda (x) (match x (("@vocab" . _) #t) (_ #f)))
                               result))
                      ;; If either an absolute IRI or blank node,
-                     ;; @vocab of result is set to context-vocab
-                     ((or (absolute-uri? context-vocab)
-                          (blank-node? context-vocab))
-                      (jsmap-cons "@type" context-vocab result))
+                     ;; @vocab of result is set to vocab
+                     ((or (absolute-uri? vocab)
+                          (blank-node? vocab))
+                      (jsmap-cons "@type" vocab result))
                      (else
                       (throw 'json-ld-error #:code "invalid vocab mapping"))))
 
-             (define (modify-result-from-language result context-language)
-               (cond ((null? context-language)
+             (define (modify-result-from-language result language)
+               (cond ((null? language)
                       ;; remove vocabulary mapping from result
                       (remove (lambda (x) (match x (("@language" . _) #t) (_ #f)))
                               result))
-                     ((string? context-language)
-                      (jsmap-cons "@language" (string-downcase context-language)
+                     ((string? language)
+                      (jsmap-cons "@language" (string-downcase language)
                                   result))
                      (else
                       (throw 'json-ld-error #:code "invalid default language"))))
