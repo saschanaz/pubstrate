@@ -62,7 +62,7 @@
 ;; processing that context.
 
 (define-immutable-record-type <active-context>
-  (make-active-context base mappings inverse language vocab)
+  (make-active-context base mapping inverse language vocab)
   active-context?
   ;; Base URI, if any
   ;;   equiv to "@base" in jsonld.py
@@ -70,7 +70,7 @@
   ;; Term mappings, aka a vhash mapped to a term definition
   ;;   equiv to "mappings" in json-ld.py
   ;; @@: maybe rename to terms
-  (mappings active-context-mappings)
+  (mapping active-context-mapping)
   ;; Inverse context I guess?  I don't really know what this is yet
   ;;   equiv to "inverse" in json-ld.py
   (inverse active-context-inverse)
@@ -162,28 +162,31 @@ rathr than #t if true (#f of course if false)"
   (member obj json-ld-keywords))
 
 ;; ... helper func
-(define (context-mapping-assoc key context)
-  "Pull key out of a context's mapping"
-  (jsmap-assoc key (jsmap-ref context "mapping")))
+(define (active-context-mapping-assoc key active-context)
+  "Pull key out of a active-context's mapping"
+  (vhash-assoc key (active-context-mapping active-context)))
 
-(define (context-mapping-cons key val context)
-  "Assign key to value in a context's mapping and return new context"
-  (jsmap-cons "mapping"
-              (jsmap-cons key val (jsmap-ref context "mapping"))
-              context))
+(define (active-context-mapping-cons key val active-context)
+  "Assign key to value in a active-context's mapping and return new active-context"
+  (set-field
+   active-context
+   (active-context-mapping)
+   (vhash-cons key val
+               (active-context-mapping active-context))))
 
-(define (context-mapping-delete key context)
-  (jsmap-cons "mapping"
-              (jsmap-delete key (jsmap-ref context "mapping"))
-              context))
+(define (active-context-mapping-delete key active-context)
+  (set-field
+   active-context
+   (active-context-mapping)
+   (vhash-delete key (active-context-mapping active-context))))
 
 ;; Algorithm 6.1
 
 (define* (process-context active-context local-context
-                         #:optional (remote-contexts '())
-                         #:key
-                         (deref-context basic-deref-remote-context)
-                         (base-iri #nil))
+                          #:optional (remote-contexts '())
+                          #:key
+                          (deref-context basic-deref-remote-context)
+                          (base-iri #nil))
   "This function builds up a new active-context based on the
 remaining context information to process from local-context"
   ;; TODO: break this out into process-context-loop
@@ -408,7 +411,7 @@ remaining context information to process from local-context"
         ;; otherwise, possibly convert value and continue...
         (else
          (let* ((value (cond ((string? value)
-                              `(@ ("@id" . ,value)))
+                              (jsmap-cons "@id" value jsmap-nil))
                              ((jsmap? value)
                               value)
                              (else
@@ -423,10 +426,12 @@ remaining context information to process from local-context"
                         (if (not (string? (cdr value-type)))
                             (throw 'json-ld-error
                                    #:code "invalid type mapping"))
-                        `(@ ("@type" . ,(iri-expansion active-context
-                                                       (cdr value-type) #t #f
-                                                       local-context defined))))
-                      '(@))))
+                        (jsmap-cons "@type"
+                                    ,(iri-expansion active-context
+                                                    (cdr value-type) #t #f
+                                                    local-context defined)
+                                    jsmap-nil))
+                      jsmap-nil)))
            (define* (definition-expand-iri definition
                       #:optional ensure-not-equal-context)
              ;; 11.3
@@ -609,4 +614,4 @@ remaining context information to process from local-context"
       (receive (active-context defined)
           (maybe-update-active-context)
         )
-    ))
+      ))
