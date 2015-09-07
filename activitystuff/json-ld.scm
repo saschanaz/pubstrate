@@ -279,6 +279,8 @@ remaining context information to process from local-context"
 
                      ;; Otherwise... if it's a string, we assume it's
                      ;; still a relative URI
+                     ;; @@: Are more precise ways to define a relative URI at
+                     ;;   this point?
                      ((? string? relative-base-uri)
                       ;; If the current *result's* base-uri is not null....
                       ;; resolve it against current base URI of result
@@ -307,24 +309,22 @@ remaining context information to process from local-context"
              (define (modify-result-from-vocab result vocab)
                (cond ((null? vocab)
                       ;; remove vocabulary mapping from result
-                      (remove (lambda (x) (match x (("@vocab" . _) #t) (_ #f)))
-                              result))
+                      (set-field result (active-context-vocab) undefined))
                      ;; If either an absolute IRI or blank node,
                      ;; @vocab of result is set to vocab
                      ((or (absolute-uri? vocab)
                           (blank-node? vocab))
-                      (jsmap-cons "@type" vocab result))
+                      (set-field result (active-context-vocab) vocab))
                      (else
                       (throw 'json-ld-error #:code "invalid vocab mapping"))))
 
              (define (modify-result-from-language result language)
                (cond ((null? language)
                       ;; remove vocabulary mapping from result
-                      (remove (lambda (x) (match x (("@language" . _) #t) (_ #f)))
-                              result))
+                      (set-field result (active-context-language) undefined))
                      ((string? language)
-                      (jsmap-cons "@language" (string-downcase language)
-                                  result))
+                      (set-field result (active-context-language)
+                                 (string-downcase language)))
                      (else
                       (throw 'json-ld-error #:code "invalid default language"))))
 
