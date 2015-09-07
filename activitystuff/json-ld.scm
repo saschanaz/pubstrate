@@ -420,21 +420,29 @@ remaining context information to process from local-context"
                 (value-reverse (jsmap-assoc "@reverse" value))
                 ;; Initialize definition, and maybe add @type to it
                 (value-type (jsmap-assoc "@type" value))
+                ;; We'll expand on this definition below,
+                ;; but might as well handle the "@type" stuff now
                 (definition 
-                  (if value-type
-                      (begin
-                        (if (not (string? (cdr value-type)))
-                            (throw 'json-ld-error
-                                   #:code "invalid type mapping"))
-                        (jsmap-cons "@type"
-                                    ,(iri-expansion active-context
-                                                    (cdr value-type) #t #f
-                                                    local-context defined)
-                                    jsmap-nil))
-                      jsmap-nil)))
+                  (match value-type
+                    ;; Start out with an empty definition if no @type
+                    (#f jsmap-nil)
+                    ;; Otherwise, if it's a string
+                    (("@type" . (? string? type))
+                     ;; @@: alist->jsmap would be more readable but mildly
+                     ;;   less efficient here and elsewhere.  Does it matter?
+                     (jsmap-cons "@type"
+                                 (iri-expansion active-context
+                                                   type #t #f
+                                                   local-context defined)
+                                 jsmap-nil))
+                    ;; Otherwise, that's an error :(
+                    (_
+                     (throw 'json-ld-error
+                                   #:code "invalid type mapping")))))
+           ;; 11.3,
+           ;; but also used in more-definition-and-active-context-adjustments
            (define* (definition-expand-iri definition
                       #:optional ensure-not-equal-context)
-             ;; 11.3
              (let* ((id-expansion
                      (iri-expansion active-context
                                     (cdr value-reverse) #t #f local-context
@@ -456,16 +464,17 @@ remaining context information to process from local-context"
 
            (define (definition-handle-container-reverse definition)
              ;; 11.4
-             (let ((value-container (jsmap-assoc "@container" value)))
-               (if value-container
-                   (begin
-                     (if (not (member (cdr value-container)
-                                      '("@set" "@index" #nil)))
-                         (throw 'json-ld-error
-                                #:code "invalid reverse property"))
-                     (jsmap-cons "@container" (cdr value-container) definition))
-                   ;; otherwise return original definition
-                   definition)))
+             (match (jsmap-assoc "@container" value)
+               ;; just return original efinition if no @container
+               (#f definition)
+               ;; Otherwise make sure it's @set or @index or @nil
+               ;; and set @container to this
+               ((_ . (? (cut member <> '("@set" "@index" #nil)) container))
+                (jsmap-cons "@container" container definition))
+               ;; Uhoh, looks like that wasn't valid...
+               (_
+                (throw 'json-ld-error
+                                #:code "invalid reverse property"))))
 
            ;; This one is an adjustment deluxe, it does a significant
            ;; amount of adjustments to the definition and builds
@@ -569,11 +578,16 @@ remaining context information to process from local-context"
                             #:code "invalid IRI mapping"))
 
                  (let* ((definition
+                          ;; 11.5, set the definition's reverse property to true
                           (jsmap-cons
                            "reverse" #t
+                           ;; 11.4
                            (definition-handle-container-reverse
+                             ;; 11.3 goes into here...
                              (definition-expand-iri definition))))
+                        ;; Set term definition of term in active-context to definition
                         (active-context (jsmap-cons term definition active-context)))
+                   ;; return active-context and defined with term marked as #t
                    (values active-context (vhash-cons term #t defined))))
                (begin
                  ;; naming things is hard, especially when you're implementing
