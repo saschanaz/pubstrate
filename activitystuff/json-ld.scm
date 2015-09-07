@@ -270,13 +270,12 @@ remaining context information to process from local-context"
                      ;; whatever current @base is in the result
                      ((? null? _)
                       ;; Remove base iri from result
-                      (remove (lambda (x) (match x (("@base" . _) #t) (_ #f)))
-                              result))
+                      (set-field result (active-context-base) undefined))
 
                      ;; If it's an absolute URI, let's set that as the result's
                      ;; @base
                      ((? absolute-uri? base-uri)
-                      (jsmap-cons "@base" base-uri result))
+                      (set-field result (active-context-base) base-uri))
 
                      ;; Otherwise... if it's a string, we assume it's
                      ;; still a relative URI
@@ -284,10 +283,10 @@ remaining context information to process from local-context"
                       ;; If the current *result's* base-uri is not null....
                       ;; resolve it against current base URI of result
                       (if (string? (jsmap-ref result "@base"))
-                          (jsmap-cons "@base"
-                                      (maybe-append-uri-to-base
-                                       relative-base-uri (jsmap-ref result "@base"))
-                                      result)
+                          (set-field result
+                                     (active-context-base)
+                                     (maybe-append-uri-to-base
+                                      relative-base-uri (active-context-base result)))
                           ;; Otherwise, this is an error...
                           ;; "Value of @base in a @context must be an
                           ;;  absolute IRI or empty string."
