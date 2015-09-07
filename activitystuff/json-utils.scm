@@ -28,6 +28,7 @@
             json-alist-map json-alist-fold
             json-alist->alist
             alist->json-alist
+            jsmap-fold-unique
 
             ;; Abstracting and hedging our bets
             ;; on json object representation
@@ -113,6 +114,21 @@ json-alist as well as the previous value"
 (define jsmap-fold json-alist-fold)
 (define jsmap->alist json-alist->alist)
 (define alist->jsmap alist->json-alist)
+(define (jsmap-fold-unique proc init jsmap)
+  "Like jsmap-fold, but skip keys that we've already seen"
+  ;; Uses mutation under the hood, but still
+  ;; referentially transparent
+  (let* ((seen (make-hash-table))
+         (see! (lambda (key) (hash-set! seen key #t)))
+         (seen? (lambda (key) (hash-ref seen key))))     
+    (jsmap-fold
+     (lambda (key val prev)
+       (if (seen? key) 
+           prev
+           (begin
+             (see! key)
+             (proc key val prev))))
+     init jsmap)))
 
 ;; Simpler json reading and writing functions
 
