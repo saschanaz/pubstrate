@@ -140,7 +140,7 @@ This might not be the best way to do it, further reading into
   http://tools.ietf.org/html/rfc3986#section-5.1
 should be done.
 
-NOTE: It loooks like the correct version of this is done in jsonld.py
+TODO: It loooks like the correct version of this is done in jsonld.py
 "
   (if (and (string? base)
            (not (absolute-uri? uri)))
@@ -186,6 +186,9 @@ rathr than #t if true (#f of course if false)"
                          (base-iri #nil))
   "This function builds up a new active-context based on the
 remaining context information to process from local-context"
+  ;; TODO: break this out into process-context-loop
+  ;; TODO: "result" is just "active-context", so just
+  ;;   replace with that once we have the algorithm working?
   (let loop ((result active-context)
              ;; contexts to process, basically...
              ;; @@: Maybe should be called remaining-contexts?
@@ -197,11 +200,13 @@ remaining context information to process from local-context"
                   (list local-context)))
              (remote-contexts remote-contexts))
     ;; Some helper functions...
+    ;; (the variables these reference get overriden
+    ;; with let later, but we only use this early on)
     (define (append-to-base uri)
       "Append to the current base (if appropriate)"
       ;; Not useful if this is the first invocation of result,
       ;; but we don't use it there, so no biggie
-      (maybe-append-uri-to-base uri (json-ref result "@base")))
+      (maybe-append-uri-to-base uri (active-context-base result)))
 
     (define (equal-including-checking-base? uri1 uri2)
       "A check method to see if A matches B, or B with base apended"
@@ -218,10 +223,12 @@ remaining context information to process from local-context"
           (match context
             ;; If null, result is a newly-initialized active context 
             (#nil
-             (loop `(@ ("@base" . ,base-iri)
-                       ("mappings" . ,jsmap-nil)
-                       ("inverse" . #nil))
-                   next-contexts remote-contexts))
+             (loop
+              ;; new active context based on initial-active-context
+              ;; but setting base-iri
+              (set-field initial-active-context
+                         (active-context-base) base-iri)
+              next-contexts remote-contexts))
 
             ;; Okay it's a string, great, that means it's an iri
             ((? string? (= append-to-base context))
@@ -229,7 +236,8 @@ remaining context information to process from local-context"
                  (throw 'json-ld-error
                         #:code "recursive context inclusion"
                         #:context context))
-             (let ((derefed-context (deref-context context)))
+             (let ((derefed-context (deref-context context))
+                   (remote-contexts (cons context remote-contexts)))
                (if (not (and (json-alist? derefed-context)
                              (json-ref derefed-context "@context")))
                    (throw 'json-ld-error #:code "invalid remote context"
@@ -238,7 +246,7 @@ remaining context information to process from local-context"
                ;; then continue with that updated result
                (let* ((context derefed-context)
                       (result (process-context result context
-                                               (cons context remote-contexts)
+                                               remote-contexts
                                                #:deref-context deref-context)))
                  (loop result next-contexts remote-contexts))))
 
