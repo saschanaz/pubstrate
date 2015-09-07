@@ -218,7 +218,7 @@ remaining context information to process from local-context"
           (match context
             ;; If null, result is a newly-initialized active context 
             (#nil
-             (loop `(@ ("@base" . ,base-ir)
+             (loop `(@ ("@base" . ,base-iri)
                        ("mappings" . ,jsmap-nil)
                        ("inverse" . #nil))
                    next-contexts remote-contexts))
