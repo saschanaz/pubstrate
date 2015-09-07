@@ -208,7 +208,7 @@ remaining context information to process from local-context"
       (or (equal? uri1 uri2)
           (equal? uri1 (append-to-base uri2))))
 
-    ;; Are we done pocessing contexts?
+    ;; Are we done processing contexts?
     (if (null? local-context)
         ;; then return result immediately
         result
