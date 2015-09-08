@@ -196,6 +196,46 @@ rathr than #t if true (#f of course if false)"
    (active-context-mapping)
    (vhash-delete key (active-context-mapping active-context))))
 
+
+
+(define-syntax-rule (chain-value-calls proc1 proc2 ...)
+  "Chain procedures which accept and multi-value-return the
+same number of values/args together.
+
+The chained function expects a producer function.
+
+Example:
+
+  (let ((proc1 (lambda (animals foods)
+                 (values (cons 'hippos animals) (cons 'pizza foods))))
+        (proc2 (lambda (animals foods)
+                 (values (cons 'tigers animals) (cons 'seitan foods))))
+        (proc3 (lambda (animals foods)
+                 (values (cons 'rats animals) (cons 'mints foods)))))
+    ((chain-value-calls proc1 proc2 proc3)
+     (lambda () (values '(cats dogs) '(tofu cookies)))))"
+  (lambda (producer)
+    (call-with-values 
+        (lambda () 
+          (call-with-values producer proc1))
+      proc2) ...))
+
+(define-syntax-rule (chain-values-with-input (proc1 proc2 ...) input ...)
+  "Chain procedures together, but then call with input
+
+Example:
+
+  (let ((proc1 (lambda (animals foods)
+                 (values (cons 'hippos animals) (cons 'pizza foods))))
+        (proc2 (lambda (animals foods)
+                 (values (cons 'tigers animals) (cons 'seitan foods))))
+        (proc3 (lambda (animals foods)
+                 (values (cons 'rats animals) (cons 'mints foods)))))
+    (chain-values-with-input (proc1 proc2 proc3)
+     '(cats dogs) '(tofu cookies)))"
+  ((chain-value-calls proc1 proc2 ...)
+   (lambda () (values input ...))))
+
 ;; Algorithm 6.1
 
 (define* (process-context active-context local-context
