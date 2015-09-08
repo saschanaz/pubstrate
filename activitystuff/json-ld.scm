@@ -752,6 +752,80 @@ remaining context information to process from local-context"
     ((expanded-array . active-context)
      (values expanded-array active-context))))
 
+(define (expand-json-object active-context active-property jsmap)
+  (define (process-pair key value result active-context)
+    (receive (expanded-property active-context)
+        (iri-expansion active-context key #f #t)
+      (cond
+       ;; 7.4... get ready for a doosy
+       ((or (eq? #nil expanded-property)
+            (not (string-index expanded-property #\:))
+            (not (keyword? expanded-property)))
+        ;; carry on to the next key
+        result)
+       ((keyword? expanded-property)
+        (if (equal? active-property "@reverse")
+            (throw 'json-ld-error
+                   #:code "invalid reverse property map"))
+        ;; already defined, uhoh
+        (if (jsmap-assoc expanded-property result)
+            (throw 'json-ld-error
+                   #:code "colliding keywords"))
+
+        (if (and (equal? expanded-property "@id")
+                 (not (string? value)))
+            (throw 'json-ld-error
+                   #:code "invalid @id value"))
+        ;; 7.4.3 and 7.4.4 are confusing the eff out of me here.
+        ;; why run iri-expansion twice?
+        ;; OH:
+        ;;   <dlongley_> but 3 will only run if expanded property is @id  
+        ;;   <dlongley_> and 4 will only run if expanded property is @type
+        ;;   <dlongley_> (can't be both)
+        ;;   <dlongley_> it should be understood as "if expanded property is @id..." then   
+        ;;               do something, else do nothing
+        ;; yeah that language was not clear
+
+        (let ((expanded-value (iri-expansion active-context value #t)))
+          
+          )
+        )
+       )))
+  
+
+  (define (build-result active-context)
+    (fold
+     (lambda (x result)
+       (match x
+         ;; Skip anything with @context
+         (("@context" . _)
+          prev)
+         ((key . val)
+          (process-pair key value result active-context))))
+     jsmap-nil
+     ;; This won't be super fast...
+     ;; as a hack, this is sorted in REVERSE!
+     ;; This way we can use normal fold instead of fold right.
+     ;; Mwahahaha!
+     (sort
+      (delete-duplicates (jsmap->alist jsmap)
+                         (lambda (x y)
+                           (equal? (car x) (car y))))
+      (lambda (x y) (string>? (car x) (car y))))))
+
+  (let* ((jsmap-context (jsmap-assoc "@context" jsmap))
+         (active-context
+          (if jsmap-context
+              (process-context active-context (cdr jsmap-context))
+              active-context))
+         (result (build-result))
+         )
+    ;; Should we move this into the let? ;)
+    
+    
+
+    ))
+
 (define (expand-element active-context active-property element)
   (match element
     ((? null? _)
