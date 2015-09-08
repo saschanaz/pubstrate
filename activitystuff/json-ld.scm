@@ -610,6 +610,8 @@ remaining context information to process from local-context"
 ;; TODO: We have to redefine *ALL* entries that call iri-expansion
 ;;   to accept multiple value binding where the second value is defined
 ;;   because this function itself may call (create-term-definition)!
+;;   ... maybe a good time to refactor the end of (create-term-definition)
+;;   to be a bit more compose-y
 
 ;; Algorithm 6.1
 (define* (iri-expansion active-context value
