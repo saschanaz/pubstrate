@@ -93,21 +93,23 @@
 ;; various fields we build up in an <active-context> as we
 ;; process local contexts.
 
-(define-immutable-record-type <term-def>
-  (make-term-def)
-  term-def?
-  ;; iri mapping
-  ;;   equiv to "@id" in json-ld.py
-  (id term-def-id)
-  ;; boolean flag (TODO: meaning?)
-  ;;   equiv to "reverse" in json-ld.py
-  (reverse term-def-reverse)
-  ;; (optional) type mapping
-  ;;   equiv to "@type" in json-ld.py
-  (type term-def-type)
-  ;; (optional) language mapping
-  ;;   equiv to "@language" in json-ld.py
-  (language term-def-language))
+;; However, our code isn't *using* this one yet...
+
+;; (define-immutable-record-type <term-def>
+;;   (make-term-def id reverse type)
+;;   term-def?
+;;   ;; iri mapping
+;;   ;;   equiv to "@id" in json-ld.py
+;;   (id term-def-id)
+;;   ;; boolean flag (TODO: meaning?)
+;;   ;;   equiv to "reverse" in json-ld.py
+;;   (reverse term-def-reverse)
+;;   ;; (optional) type mapping
+;;   ;;   equiv to "@type" in json-ld.py
+;;   (type term-def-type)
+;;   ;; (optional) language mapping
+;;   ;;   equiv to "@language" in json-ld.py
+;;   (language term-def-language))
 
 
 
@@ -130,6 +132,11 @@
   (and (string? obj)
        (> (string-length obj) 2)
        (string-startswith? obj "_:")))
+
+(define (json-ld-list-object? obj)
+  "A list object is a JSON object that has a @list member"
+  (and (jsmap? obj)
+       (jsmap-assoc "@list" obj)))
 
 
 (define (maybe-append-uri-to-base uri base)
@@ -163,6 +170,12 @@ TODO: It loooks like the correct version of this is done in jsonld.py
 As a mild speed optimization, returns the remainder of json-ld-keywords
 rathr than #t if true (#f of course if false)"
   (member obj json-ld-keywords))
+
+(define (scalar? obj)
+  (or (eq? obj #t)
+      (eq? obj #f)
+      (number? obj)
+      (string? obj)))
 
 ;; ... helper func
 (define (active-context-mapping-assoc key active-context)
@@ -425,6 +438,8 @@ remaining context information to process from local-context"
                 (value-type (jsmap-assoc "@type" value))
                 ;; We'll expand on this definition below,
                 ;; but might as well handle the "@type" stuff now
+                ;; @@: we could refactor here and use the commented out
+                ;;   term-definition...
                 (definition 
                   (match value-type
                     ;; Start out with an empty definition if no @type
@@ -645,7 +660,7 @@ remaining context information to process from local-context"
          ((and (eq? vocab #t)
                (active-context-mapping-assoc value active-context))
           (values
-           (term-def-id (cdr (active-context-mapping-assoc value active-context)))
+           (jsmap-ref (cdr (active-context-mapping-assoc value active-context)) "@id")
            defined))
          ;; 4
          ((string-index value #\:)
@@ -673,7 +688,7 @@ remaining context information to process from local-context"
                     ((_ . prefix-term-def)
                      (values
                       (string-concatenate
-                       (list (term-def-id prefix-term-def) suffix))
+                       (list (jsmap-ref prefix-term-def "@id") suffix))
                       defined))
                     ;; otherwise, return the value; it's already an absolute IRI!
                     (_ (values value defined)))))))
@@ -693,3 +708,67 @@ remaining context information to process from local-context"
 
          ;; 7
          (else (values value defined))))))
+
+
+;; 7.1, expansion algorithm
+
+;; Oh boy....
+
+(define (expand-json-array active-context active-property json-array)
+  (define (expand-items)
+    (fold-right
+     (lambda (item prev)
+       (match prev
+         ((result . active-context)
+          (receive (expanded-item active-context)
+              (expand-element active-context active-property item)
+            (let ((active-property-term-result
+                   (active-context-mapping-assoc active-property active-context)))
+              ;; Boo, it's sad that json-ld prevents lists of lists.
+              ;; ... but we're doing as the spec says :\
+              (if (and (or (equal? active-property "@list")
+                           (and active-property-term-result
+                                (equal?
+                                 (jsmap-ref (cdr active-property-term-result)
+                                            "@container")
+                                 "@list")))
+                       (or (json-array? expanded-item)
+                           (json-ld-list-object? expanded-item)))
+                  (throw 'json-error
+                         #:code "list of lists"))
+
+              (match expanded-item
+                ((? json-array? _)
+                 (cons (append expanded-item result)
+                       active-context))
+                ((? null? _)
+                 (cons #nil active-context))
+                (_
+                 (cons (cons expanded-item result) active-context))))))))
+     (cons '() active-context)
+     json-array))
+
+  (match (expand-items)
+    ((expanded-array . active-context)
+     (values expanded-array active-context))))
+
+(define (expand-element active-context active-property element)
+  (match element
+    ((? null? _)
+     (values #nil active-context))
+    ((? scalar? _)
+     (if (member active-property '(#nil "@graph"))
+         (values #nil active-context)
+         ;; Note that value-expansion should also do a multi-value return
+         ;; with active-context... in theory...
+         (value-expansion active-context active-property element)))
+    ((? json-array? _)
+     ;; Does a multi-value return with active context
+     (expand-json-array active-context active-property element))
+    ((? jsmap? _)
+     (expand-json-object active-context active-property element))))
+
+(define (expand vjson)
+  ;; TODO: convert all jsmap to vjson so we don't have this (v?)
+  "Expand (v?)json using json-ld processing algorithms"
+  (expand-element initial-active-context #nil vjson))
