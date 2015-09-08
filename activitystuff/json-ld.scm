@@ -121,12 +121,15 @@
 ;; This is effectively a check to see if something's an asbolute uri anyway...
 (define absolute-uri? string->uri)
 
+(define (string-startswith? string start-string)
+  "Does STRING start with START-STRING ?"
+  (string-contains string start-string 0))
 
 (define (blank-node? obj)
   "See if OBJ is a blank node (a string that starts with \"_:\")"
   (and (string? obj)
        (> (string-length obj) 2)
-       (equal? (substring obj 0 2) "_:")))
+       (string-startswith? obj "_:")))
 
 
 (define (maybe-append-uri-to-base uri base)
@@ -495,7 +498,7 @@ remaining context information to process from local-context"
                  (values (definition-expand-iri definition #t)
                          active-context))
                 ;; sec 14
-                ((string-contains term ":")
+                ((string-index term #\:)
                  ;; we cop out and go this route enough so
                  (if (or (absolute-uri? term)
                          (blank-node? term))
@@ -505,7 +508,7 @@ remaining context information to process from local-context"
                      ;; we'll recurse into this function to build up
                      ;; a new active context
                      (match (string-split term #\:)
-                       ((prefix suffix)
+                       ((prefix suffix-list ...)
                         (receive (active-context defined)
                             (create-term-definition
                              active-context local-context
@@ -517,7 +520,7 @@ remaining context information to process from local-context"
                                          "@id"
                                          (string-append
                                           (jsmap-ref (cdr prefix-in-context) "@id")
-                                          suffix)
+                                          (string-join suffix-list ":"))
                                          definition))
                                 ;; okay, yeah, it's set-iri-mapping-of-def-to-term
                                 ;; but we want to return the new active-context
@@ -604,7 +607,11 @@ remaining context information to process from local-context"
                           (active-context (jsmap-cons term definition active-context)))
                      (values active-context (vhash-cons term #t defined)))))))))))))
 
-;; Yeah, TODO
+;; TODO: We have to redefine *ALL* entries that call iri-expansion
+;;   to accept multiple value binding where the second value is defined
+;;   because this function itself may call (create-term-definition)!
+
+;; Algorithm 6.1
 (define* (iri-expansion active-context value
                         #:optional
                         (document-relative #f) (vocab #f)
@@ -613,19 +620,74 @@ remaining context information to process from local-context"
                         ;;   vlist-null seems to make more sense in our case
                         (defined vlist-null))
   (define (maybe-update-active-context)
-    (let ((context-matching-value (local-context)))
-      ;; wow okay this null? stuff totally falls apart for (@) reasons
-      (if (and (not (jsmap-null? local-context))
-               )))
-    )
+    (let ((context-matching-value (jsmap-assoc value local-context)))
+      (if (and (not (null? local-context))       ; would jsmap? be better?
+               context-matching-value
+               (not (eq? (cdr context-matching-value)
+                         #t)))
+          ;; Okay, we're updating the context even further...
+          (create-term-definition active-context local-context value defined)
+          ;; nope, return as-is
+          (values active-context defined))))
 
-  (if (or (? null? value)
-          (? json-ld-keyword? value))
+  (if (or (null? value)
+          (json-ld-keyword? value))
       ;; keywords / null are just returned as-is
-      value
+      (values value defined)
       ;; Otherwise, see if we need to update the active context
       ;; and continue with expansion...
       (receive (active-context defined)
           (maybe-update-active-context)
-        )
-      ))
+        (cond
+         ;; 3
+         ((and (eq? vocab #t)
+               (active-context-mapping-assoc value active-context))
+          (values
+           (term-def-id (cdr (active-context-mapping-assoc value active-context)))
+           defined))
+         ;; 4
+         ((string-index value #\:)
+          (let* ((split-string (string-split value #\:))
+                 (prefix (car split-string))
+                 (suffix (string-join prefix ":")))
+            (if (or (equal? prefix "_")
+                    (string-startswith? suffix "//"))
+                ;; It's a blank node or absolute IRI, return!
+                (values value defined)
+                ;; otherwise, carry on to 4.3...
+                (receive (active-context defined)
+                    (if (and (not (null? local-context))
+                             (jsmap-assoc prefix local-context)
+                             (not (eq? (jsmap-ref local-context prefix))))
+                        ;; ok, update active-context and defined
+                        (create-term-definition active-context local-context
+                                                prefix defined)
+                        ;; nah leave them as-is
+                        (values active-context defined))
+                  (match (active-context-mapping-assoc prefix active-context)
+                    ;; We've got a match, which means we're returning
+                    ;; the term definition uri for prefix concatenated
+                    ;; with the suffix
+                    ((_ . prefix-term-def)
+                     (values
+                      (string-concatenate
+                       (list (term-def-id prefix-term-def) suffix))
+                      defined))
+                    ;; otherwise, return the value; it's already an absolute IRI!
+                    (_ (values value defined)))))))
+         ;; 5
+         ((and (eq? vocab #t)
+               (defined? (active-context-vocab active-context)))
+          (values
+           (string-concatenate
+            (list (active-context-vocab active-context) value))
+           defined))
+         ;; 6
+         ((eq? document-relative #t)
+          (values
+           (maybe-append-uri-to-base
+            value (active-context-base active-context))
+           defined))
+
+         ;; 7
+         (else (values value defined))))))
