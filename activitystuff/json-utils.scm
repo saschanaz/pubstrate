@@ -23,12 +23,12 @@
   #:use-module (ice-9 vlist)
   #:export (json-alist?
             json-alist-null? json-alist-nil
-            json-assoc json-ref json-acons
+            json-alist-assoc json-alist-ref json-alist-acons
             json-alist-delete
             json-alist-map json-alist-fold
             json-alist->alist
             alist->json-alist
-            jsmap-fold-unique
+            sjson-array?
 
             ;; Abstracting and hedging our bets
             ;; on json object representation
@@ -38,6 +38,8 @@
             jsmap-delete
             jsmap-map jsmap-fold
             jsmap->alist alist->jsmap
+            jsmap-fold-unique
+            json-array?
 
             read-json-from-string write-json-to-string
             vhash-ref
@@ -56,14 +58,14 @@
 
 (define json-alist-nil '(@))
 
-(define (json-assoc key json-alist)
+(define (json-alist-assoc key json-alist)
   (assoc key (cdr json-alist)))
 
-(define (json-ref json-alist key)
+(define (json-alist-ref json-alist key)
   "Like assoc-ref for a json-alist"
   (assoc-ref (cdr json-alist) key))
 
-(define (json-acons key value json-alist)
+(define (json-alist-acons key value json-alist)
   (cons '@ (acons key value (cdr json-alist))))
 
 (define (json-alist-delete key json-alist)
@@ -99,6 +101,11 @@ json-alist as well as the previous value"
     ((@ . alist)
      alist)))
 
+(define (sjson-array? elt)
+  (or (eq? elt '())
+      (and (pair? elt)
+           (not (eq? (car elt) '@)))))
+
 (define (alist->json-alist alist)
   (cons '@ alist))
 
@@ -106,9 +113,9 @@ json-alist as well as the previous value"
 (define jsmap? json-alist?)
 (define jsmap-null? json-alist-null?)
 (define jsmap-nil json-alist-nil)
-(define jsmap-assoc json-assoc)
-(define jsmap-ref json-ref)
-(define jsmap-cons json-acons)
+(define jsmap-assoc json-alist-assoc)
+(define jsmap-ref json-alist-ref)
+(define jsmap-cons json-alist-acons)
 (define jsmap-delete json-alist-delete)
 (define jsmap-map json-alist-map)
 (define jsmap-fold json-alist-fold)
@@ -129,6 +136,11 @@ json-alist as well as the previous value"
              (see! key)
              (proc key val prev))))
      init jsmap)))
+(define json-array? sjson-array?)
+
+(define (vjson-array? elt)
+  (or (eq? elt '())
+      (pair? elt)))
 
 ;; Simpler json reading and writing functions
 
