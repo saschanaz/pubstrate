@@ -42,6 +42,8 @@
             json-array?
             jsmap->sorted-unique-alist
 
+            vjson-array?
+
             read-json-from-string write-json-to-string
             vhash-ref
             sjson->vjson vjson->sjson))
@@ -137,11 +139,10 @@ json-alist as well as the previous value"
              (see! key)
              (proc key val prev))))
      init jsmap)))
+
 (define json-array? sjson-array?)
 
-(define (vjson-array? elt)
-  (or (eq? elt '())
-      (pair? elt)))
+(define vjson-array? list?)
 
 (define* (jsmap->sorted-unique-alist jsmap #:optional (compare string<?))
   "Return a unique and sorted alist
