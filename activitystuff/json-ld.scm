@@ -804,243 +804,321 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
 (define (expand-json-object active-context active-property jsmap)
   (define (process-pair key value result active-context)
-    (call/ec
-     (lambda (return-pair)
-       (let* ((term-mapping
-               (delay (active-context-mapping-assoc key active-context)))
-              (container-mapping
-               (delay
-                 (if (and (force term-mapping)
-                          (jsmap-ref (cdr (force term-mapping))
-                                     "@container"))))))
-         (receive (expanded-property active-context)
-             (iri-expansion active-context key #:vocab #t)
-           (cond
-            ;; 7.4... get ready for a doosy
-            ((or (eq? #nil expanded-property)
-                 (not (string-index expanded-property #\:))
-                 (not (keyword? expanded-property)))
-             ;; carry on to the next key
-             (values result active-context))
-            ((keyword? expanded-property)
-             (if (equal? active-property "@reverse")
-                 (throw 'json-ld-error
-                        #:code "invalid reverse property map"))
-             ;; already defined, uhoh
-             (if (jsmap-assoc expanded-property result)
-                 (throw 'json-ld-error
-                        #:code "colliding keywords"))
+    "Process a KEY VALUE pair, building up from RESULT within ACTIVE-CONTEXT"
+    (let* ((term-mapping
+            (delay (active-context-mapping-assoc key active-context)))
+           (container-mapping
+            (delay
+              (if (and (force term-mapping)
+                       (jsmap-ref (cdr (force term-mapping))
+                                  "@container"))))))
+      (define (get-expanded-value return-with-pair)
+        "Get expanded value; return-with-pair is a prompt to bail out early"
+        (receive (expanded-property active-context)
+            (iri-expansion active-context key #:vocab #t)
+          (cond
+           ;; 7.4... get ready for a doosy
+           ((or (eq? #nil expanded-property)
+                (not (string-index expanded-property #\:))
+                (not (keyword? expanded-property)))
+            ;; carry on to the next key
+            (return-with-pair result active-context))
+           ((keyword? expanded-property)
+            (if (equal? active-property "@reverse")
+                (throw 'json-ld-error
+                       #:code "invalid reverse property map"))
+            ;; already defined, uhoh
+            (if (jsmap-assoc expanded-property result)
+                (throw 'json-ld-error
+                       #:code "colliding keywords"))
 
-             (receive (expanded-value active-context)
-                 (match expanded-property
-                   ;; 7.4.3
-                   ("@id"
-                    (if (not (string? value))
-                        (throw 'json-ld-error
-                               #:code "invalid @id value"))
-                    ;; calls to iri-expansion also multi-value-return "defined"
-                    ;; as well, but as the third argument, that's ignored by our receive
-                    (iri-expansion active-context value
-                                   #:document-relative #t))
-                   ;; 7.4.4
-                   ("@type"
-                    (match value
-                      ((? string? _)
-                       (iri-expansion active-context value
-                                      #:vocab #t #:document-relative #t))
-                      (((? string? _) ...)
-                       (match 
-                         (fold-right
-                          (lambda (item prev)
-                            (match prev
-                              ((array-result . active-context)
-                               (receive (active-context expanded)
-                                   (iri-expansion active-context item
-                                                  #:document-relative #t)
-                                 (cons (cons expanded array-result) active-context)))))
-                          (cons '() active-context)
-                          value)
-                         ((array-result . active-context)
-                          (values array-result active-context))))
-                      (_ (throw 'json-ld-error #:code "invalid type value"))))
+            (receive (expanded-value active-context)
+                (match expanded-property
+                  ;; 7.4.3
+                  ("@id"
+                   (if (not (string? value))
+                       (throw 'json-ld-error
+                              #:code "invalid @id value"))
+                   ;; calls to iri-expansion also multi-value-return "defined"
+                   ;; as well, but as the third argument, that's ignored by our receive
+                   (iri-expansion active-context value
+                                  #:document-relative #t))
+                  ;; 7.4.4
+                  ("@type"
+                   (match value
+                     ((? string? _)
+                      (iri-expansion active-context value
+                                     #:vocab #t #:document-relative #t))
+                     (((? string? _) ...)
+                      (match 
+                        (fold-right
+                         (lambda (item prev)
+                           (match prev
+                             ((array-result . active-context)
+                              (receive (active-context expanded)
+                                  (iri-expansion active-context item
+                                                 #:document-relative #t)
+                                (cons (cons expanded array-result) active-context)))))
+                         (cons '() active-context)
+                         value)
+                        ((array-result . active-context)
+                         (values array-result active-context))))
+                     (_ (throw 'json-ld-error #:code "invalid type value"))))
 
-                   ;; 7.4.5
-                   ("@graph"
-                    (expand-element active-context "@graph" value))
+                  ;; 7.4.5
+                  ("@graph"
+                   (expand-element active-context "@graph" value))
 
-                   ;; 7.4.6
-                   ("@value"
-                    (match value
-                      ((? null? _)
-                       ;; jump out of processing this pair
-                       (return-pair (jsmap-cons "@value" #nil result)
-                                    active-context))
-                      ;; otherwise, expanded value *is* value!
-                      ((? scalar? _)
-                       (values value active-context))
-                      (_ (throw 'json-ld-error #:code "invalid value object"))))
+                  ;; 7.4.6
+                  ("@value"
+                   (match value
+                     ((? null? _)
+                      ;; jump out of processing this pair
+                      (return-with-pair (jsmap-cons "@value" #nil result)
+                                        active-context))
+                     ;; otherwise, expanded value *is* value!
+                     ((? scalar? _)
+                      (values value active-context))
+                     (_ (throw 'json-ld-error #:code "invalid value object"))))
 
-                   ;; 7.4.7
-                   ("@language"
-                    (match value
-                      ((? string? _)
-                       (values (string-downcase value) active-context))
-                      (_ (throw 'json-ld-error #:code "invalid language-tagged string"))))
+                  ;; 7.4.7
+                  ("@language"
+                   (match value
+                     ((? string? _)
+                      (values (string-downcase value) active-context))
+                     (_ (throw 'json-ld-error #:code "invalid language-tagged string"))))
 
-                   ;; 7.4.8
-                   ("@index"
-                    (match value
-                      ((? string? _)
-                       (values value active-context))
-                      (_ (throw 'json-ld-error #:code "invalid @index value"))))
+                  ;; 7.4.8
+                  ("@index"
+                   (match value
+                     ((? string? _)
+                      (values value active-context))
+                     (_ (throw 'json-ld-error #:code "invalid @index value"))))
 
-                   ;; 7.4.9
-                   ("@list"
-                    ;; Bail out early if null or @graph to remove free-floating list
-                    (if (member active-property '(#nil "@graph"))
-                        (return-pair result active-context))
-                    (receive (expanded-value active-context)
-                        (expand-element active-context active-property value)
-                      ;; oops!  no lists of lists
-                      (if (list-object? expanded-value)
-                          (throw 'json-ld-error #:code "list of lists"))
-                      ;; otherwise, continue with this as expanded value
-                      (values expanded-value active-context)))
+                  ;; 7.4.9
+                  ("@list"
+                   ;; Bail out early if null or @graph to remove free-floating list
+                   (if (member active-property '(#nil "@graph"))
+                       (return-with-pair result active-context))
+                   (receive (expanded-value active-context)
+                       (expand-element active-context active-property value)
+                     ;; oops!  no lists of lists
+                     (if (list-object? expanded-value)
+                         (throw 'json-ld-error #:code "list of lists"))
+                     ;; otherwise, continue with this as expanded value
+                     (values expanded-value active-context)))
 
-                   ;; 7.4.10
-                   ("@set"
-                    (expand-element active-context active-property element))
+                  ;; 7.4.10
+                  ("@set"
+                   (expand-element active-context active-property element))
 
-                   ;; 7.4.11
-                   ;; I'm so sorry this is so complicated
-                   ("@reverse"
-                    (if (not (jsmap? value))
-                        (throw 'json-ld-error "invalid @reverse value"))
+                  ;; 7.4.11
+                  ;; I'm so sorry this is so complicated
+                  ("@reverse"
+                   (if (not (jsmap? value))
+                       (throw 'json-ld-error "invalid @reverse value"))
 
-                    (receive (expanded-value active-context)
-                        (expand-elment active-context "@reverse" value)
-                      (return-pair
-                       ;; here might be a great place to break out
-                       ;; another function
-                       (cond
-                        ((jsmap-assoc "@reverse" expanded-value)
-                         (jsmap-fold-unique
-                          (lambda (property item result)
-                            (let ((property-in-result
-                                   (jsmap-assoc result property)))
-                              (jsmap-cons
-                               property
-                               (if property-in-result
-                                   (cons item (cdr property-in-result))
-                                   (list item))
-                               result)))
-                          result
-                          (jsmap-ref expanded-value "@reverse")))
-                        ((pair? expanded-value)
-                         (jsmap-fold-unique
-                          (lambda (property items result)
-                            (if (equal? property "@reverse")
-                                ;; skip this one
-                                result
-                                ;; otherwise, continue
-                                (fold
-                                 (lambda (item result)
-                                   (let ((reverse-map (jsmap-ref result "@reverse")))
-                                     (if (or (value-object? item)
-                                             (list-object? item))
-                                         (throw 'json-ld-error
-                                                #:code "invalid reverse property value"))
+                   (receive (expanded-value active-context)
+                       (expand-elment active-context "@reverse" value)
+                     (return-with-pair
+                      ;; here might be a great place to break out
+                      ;; another function
+                      (cond
+                       ((jsmap-assoc "@reverse" expanded-value)
+                        (jsmap-fold-unique
+                         (lambda (property item result)
+                           (let ((property-in-result
+                                  (jsmap-assoc result property)))
+                             (jsmap-cons
+                              property
+                              (if property-in-result
+                                  (cons item (cdr property-in-result))
+                                  (list item))
+                              result)))
+                         result
+                         (jsmap-ref expanded-value "@reverse")))
+                       ((pair? expanded-value)
+                        (jsmap-fold-unique
+                         (lambda (property items result)
+                           (if (equal? property "@reverse")
+                               ;; skip this one
+                               result
+                               ;; otherwise, continue
+                               (fold
+                                (lambda (item result)
+                                  (let ((reverse-map (jsmap-ref result "@reverse")))
+                                    (if (or (value-object? item)
+                                            (list-object? item))
+                                        (throw 'json-ld-error
+                                               #:code "invalid reverse property value"))
+                                    (jsmap-cons
+                                     "@reverse"
                                      (jsmap-cons
-                                      "@reverse"
-                                      (jsmap-cons
-                                       key
-                                       (cons item
-                                             (if (jsmap-assoc property reverse-map)
-                                                 (jsmap-ref property reverse-map)
-                                                 '()))
-                                       reverse-map)
-                                      result)))
-                                 result
-                                 items)))
-                          (if (jsmap-assoc "@reverse" result)
-                              result
-                              (jsmap-cons "@reverse" jsmap-nil))
-                          expanded-value))
-                        (else result))
-                       active-context))))
-               (values
-                (if (eq? expanded-value #nil)
-                    ;; return as-is
-                    result
-                    ;; otherwise, set expanded-property member of result
-                    ;; to expanded-value
-                    (jsmap-cons expanded-property expanded-value result))
-                active-context)))
+                                      key
+                                      (cons item
+                                            (if (jsmap-assoc property reverse-map)
+                                                (jsmap-ref property reverse-map)
+                                                '()))
+                                      reverse-map)
+                                     result)))
+                                result
+                                items)))
+                         (if (jsmap-assoc "@reverse" result)
+                             result
+                             (jsmap-cons "@reverse" jsmap-nil))
+                         expanded-value))
+                       (else result))
+                      active-context))))
+              (values
+               (if (eq? expanded-value #nil)
+                   ;; return as-is
+                   result
+                   ;; otherwise, set expanded-property member of result
+                   ;; to expanded-value
+                   (jsmap-cons expanded-property expanded-value result))
+               active-context)))
 
-            ;; 7.5
-            ;; If key's container mapping in active-context is @language and
-            ;; value is a jsmap then value is expanded from a language map
-            ((and (equal? (force container-mapping) "@language")
-                  (jsmap? value))
-             (values
-              (fold
-               (lambda (x expanded-value)
-                 (match x
-                   ((language . language-value)
-                    (fold-right
-                     (lambda (item expanded-value)
-                       (if (not (string? item))
-                           (throw 'json-ld-error #:code "invalid language map value"))
-                       (cons
-                        (alist->jsmap
-                         `(("@value" . ,item)
-                           ("@language" . ,(string-downcase language))))
-                        expanded-value))
-                     expanded-value
-                     (if (json-array? language-value)
-                         language-value
-                         (list language-value))))))
-               '()
-               ;; As a hack, this is sorted in REVERSE!
-               ;; This way we can use normal fold instead of fold right.
-               ;; Mwahahaha!
-               (jsmap->sorted-unique-alist value string>?))
-              active-context))
+           ;; 7.5
+           ;; If key's container mapping in active-context is @language and
+           ;; value is a jsmap then value is expanded from a language map
+           ((and (equal? (force container-mapping) "@language")
+                 (jsmap? value))
+            (values
+             (fold
+              (lambda (x expanded-value)
+                (match x
+                  ((language . language-value)
+                   (fold-right
+                    (lambda (item expanded-value)
+                      (if (not (string? item))
+                          (throw 'json-ld-error #:code "invalid language map value"))
+                      (cons
+                       (alist->jsmap
+                        `(("@value" . ,item)
+                          ("@language" . ,(string-downcase language))))
+                       expanded-value))
+                    expanded-value
+                    (if (json-array? language-value)
+                        language-value
+                        (list language-value))))))
+              '()
+              ;; As a hack, this is sorted in REVERSE!
+              ;; This way we can use normal fold instead of fold right.
+              ;; Mwahahaha!
+              (jsmap->sorted-unique-alist value string>?))
+             active-context))
 
+           
+           ;; 7.6
+           ((and (equal? (force container-mapping) "@index")
+                 (jsmap? value))
+            ;; @@: In reality the code here is very similar to 
+            ;;   in 7.5, but I think this is much more readable...
+            (let loop ((l (jsmap->sorted-unique-alist value string>?))
+                       (active-context active-context)
+                       (result result))
+              (match l
+                ('()
+                 (values result active-context))
+                (((index . index-value) rest ...)
+                 (receive (index-value active-context)
+                     (expand-element active-context key
+                                     (if (json-array? index-value)
+                                         index-value
+                                         (list index-value)))
+                   (loop rest active-context
+                         (fold-right
+                          (lambda (item expanded-value)
+                            (cons
+                             (if (jsmap-assoc "@index" item)
+                                 item
+                                 (jsmap-cons "@index" index item))
+                             (alist->jsmap
+                              `(("@value" . ,item)
+                                ("@language" . ,(string-downcase language))))
+                             expanded-value))
+                          expanded-value
+                          index-value)))))))
+           
+           ;; 7.7
+           (else
+            (expand-element active-context key value)))))
+      (call/ec
+       (lambda (return-with-pair)
+         (receive (expanded-value active-context)
+             (get-expanded-value return-with-pair)
+           ;; 7.8
+           ;; if expanded value is null, ignore key by continuing
+           ;; @@: could just be in the cond, right?
+           (if (eq? expanded-value #nil)
+               (return-with-pair result active-context))
+           
+           ;; Augh, these 7.9-7.11 sections are frustrating
+           ;; continue with line 1927 in jsonld.py
+           ;; # convert expanded value to @list if container specifies it
+           
+           (let* ((expanded-value
+                   (cond
+                    ;; 7.9
+                    ((and (equal? (force container-mapping) "@list")
+                          (not (list-object? expanded-value)))
+                     (alist->jsmap
+                      `(("@list" . ,(if (json-array? expanded-value)
+                                        expanded-value
+                                        (list expanded-value))))))
+                    ;; 7.10
+                    ;; Looks like a reverse property?
+                    ((and (force term-mapping)
+                          (jsmap-ref (cdr (force term-mapping)) "reverse"))
+                     (let* ((result (if (jsmap-assoc "@reverse" result)
+                                        result
+                                        (jsmap-cons "@reverse" '() result)))
+                            (reverse-map (jsmap-ref result "@reverse"))
+                            (expanded-value (if (json-array? expanded-value)
+                                                expanded-value
+                                                (list expanded-value))))
+                       
+                       ;; nyah nyah, bailing out early!
+                       (return-with-pair
+                        (fold
+                         (lambda (item result)
+                           (if (or (value-object? item)
+                                   (list-object? item))
+                               (throw 'json-ld-error #:code "invalid reverse property value"))
+                           (let ((result (if (jsmap-assoc expanded-property)))))
+                           )
+                         result
+                         expanded-value)
+
+                        active-context)
+                       
+                       )
+
+                     
+                     
+                     )
+
+
+                    (else expanded-value))))
+
+             )
+           
+
+           (cond
+            ;; 7.9
+            ()
+            ;; 7.10
             
-            ;; 7.6
-            ((and (equal? (force container-mapping) "@index")
-                  (jsmap? value))
-             ;; @@: In reality the code here is very similar to 
-             ;;   in 7.5, but I think this is much more readable...
-             (let loop ((l (jsmap->sorted-unique-alist value string>?))
-                        (active-context active-context)
-                        (result result))
-               (match l
-                 ('()
-                  (values result active-context))
-                 (((index . index-value) rest ...)
-                  (receive (index-value active-context)
-                      (expand-element active-context key
-                                      (if (json-array? index-value)
-                                          index-value
-                                          (list index-value)))
-                    (loop rest active-context
-                          (fold-right
-                           (lambda (item expanded-value)
-                             (cons
-                              (if (jsmap-assoc "@index" item)
-                                  item
-                                  (jsmap-cons "@index" index item))
-                              (alist->jsmap
-                               `(("@value" . ,item)
-                                 ("@language" . ,(string-downcase language))))
-                              expanded-value))
-                           expanded-value
-                           index-value)))))))
 
-            
-            ))))))
+            ;; 7.11
+            ()
+            )
+           
+           
+
+           )
+         
+         ))))
   
 
   ;; TODO: build up active context too
