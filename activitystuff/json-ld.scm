@@ -138,6 +138,10 @@
   (and (jsmap? obj)
        (jsmap-assoc "@list" obj)))
 
+(define (value-object? obj)
+  "A value object is a JSON object that has a @value member"
+  (and (jsmap? obj)
+       (jsmap-assoc "@value" obj)))
 
 (define (maybe-append-uri-to-base uri base)
   "A sorta-correct way to join a URI to BASE, assuming there is a BASE,
