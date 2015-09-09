@@ -40,7 +40,9 @@
             jsmap->alist alist->jsmap
             jsmap-fold-unique
             json-array?
+            jsmap->unique-alist
             jsmap->sorted-unique-alist
+            jsmap-num-pairs
 
             vjson-array?
 
@@ -144,16 +146,27 @@ json-alist as well as the previous value"
 
 (define vjson-array? list?)
 
+(define (jsmap->unique-alist jsmap)
+  "Return an alist with only unique key-value pairs"
+  (delete-duplicates (jsmap->alist jsmap)
+                      (lambda (x y)
+                        (equal? (car x) (car y)))))
+
 (define* (jsmap->sorted-unique-alist jsmap #:optional (compare string<?))
   "Return a unique and sorted alist
 
 Protip: change compare to string>? if you want to
 fold instead of fold-right >:)"
   (sort
-   (delete-duplicates (jsmap->alist jsmap)
-                      (lambda (x y)
-                        (equal? (car x) (car y))))
+   (jsmap->unique-alist jsmap)
    (lambda (x y) (compare (car x) (car y)))))
+
+(define (jsmap-num-pairs jsmap)
+  "Find the number of pairs in a jsmap
+
+This is O(n) (twice over!) so beware"
+  (length (jsmap->unique-alist jsmap)))
+
 
 ;; Simpler json reading and writing functions
 
