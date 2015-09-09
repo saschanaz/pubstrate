@@ -143,6 +143,11 @@
   (and (jsmap? obj)
        (jsmap-assoc "@value" obj)))
 
+(define (set-object? obj)
+  "A set object is a JSON object that has a @set member"
+  (and (jsmap? obj)
+       (jsmap-assoc "@set" obj)))
+
 (define (maybe-append-uri-to-base uri base)
   "A sorta-correct way to join a URI to BASE, assuming there is a BASE,
 and assuming URI isn't a URI on its own.
