@@ -236,6 +236,12 @@ Example:
   ((chain-value-calls proc1 proc2 ...)
    (lambda () (values input ...))))
 
+
+(define-syntax-rule (compose-forward func1 func2 ...)
+  "Like compose, but run arguments first to last"
+  (apply compose
+         (reverse (list func1 func2 ...))))
+
 ;; Algorithm 6.1
 
 (define* (process-context active-context local-context
@@ -1141,13 +1147,48 @@ Does a multi-value-return of (expanded-iri active-context defined)"
           (if jsmap-context
               (process-context active-context (cdr jsmap-context))
               active-context))
-         (result (build-result))
-         )
-    ;; Should we move this into the let? ;)
-    
-    
+         (permitted-value-results '("@value" "@language" "@type" "@index")))
+    (receive (result active-context)
+        (build-result)
+      ;; receive expands to a lambda so we can get away with a define here...
+      ;; sec 8 to 10
+      (define (adjust-result-1 result)
+        (cond
+         ((jsmap-assoc "@value" result)
+          ;; 8.1, make sure result does not contain keys outside
+          ;;   of permitted set
+          (if (or (not (match (jsmap->alist result)
+                         ((((? (cut member <> permitted-value-results)
+                               key) . val) ...)
+                          #t)
+                         (_ #f)))
+                  (and (jsmap-assoc "@language" result)
+                       (jsmap-assoc "@type" result)))
+              (throw 'json-ld-error #:code "invalid value object"))
 
-    ))
+          (let ((result-value (jsmap-ref result "@value")))
+            (cond ((eq? result-value #nil)
+                   #nil)
+                  ((and (not (string? result-value))
+                        (jsmap-assoc "@language" result))
+                   (throw 'json-ld-error #:code "invalid typed value"))
+                  ;; TODO: resume here at 8.4
+                  ((and (jsmap-assoc "@type" result)
+                        (not (absolute-uri? (jsmap-ref result "@type"))))
+                   (throw 'json-ld-error #:code "invalid typed value"))
+                  (else result))))))
+      ;; sec 12
+      (define (adjust-result-2 result)
+        
+
+        )
+      ;; sec 13
+      (define (adjust-result-3 result))
+
+      (values
+       ((compose-forward adjust-result-1 adjust-result-2 adjust-result-3)
+        result)
+       active-context))))
 
 ;; TODO: adjust to pass back active-context?
 (define (expand-element active-context active-property element)
@@ -1169,4 +1210,5 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 (define (expand vjson)
   ;; TODO: convert all jsmap to vjson so we don't have this (v?)
   "Expand (v?)json using json-ld processing algorithms"
+  ;; TODO: Final expansion here
   (expand-element initial-active-context #nil vjson))
