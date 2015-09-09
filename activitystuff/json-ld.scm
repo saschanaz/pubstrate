@@ -916,7 +916,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
                   ;; 7.4.10
                   ("@set"
-                   (expand-element active-context active-property element))
+                   (expand-element active-context active-property value))
 
                   ;; 7.4.11
                   ;; I'm so sorry this is so complicated
@@ -925,7 +925,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                        (throw 'json-ld-error "invalid @reverse value"))
 
                    (receive (expanded-value active-context)
-                       (expand-elment active-context "@reverse" value)
+                       (expand-element active-context "@reverse" value)
                      (return
                       ;; here might be a great place to break out
                       ;; another function
@@ -1024,7 +1024,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
             ;;   in 7.5, but I think this is much more readable...
             (let loop ((l (jsmap->sorted-unique-alist value string>?))
                        (active-context active-context)
-                       (result result))
+                       (expanded-value '()))
               (match l
                 ('()
                  (values result active-property active-context))
