@@ -1151,9 +1151,10 @@ Does a multi-value-return of (expanded-iri active-context defined)"
     (receive (result active-context)
         (build-result)
       ;; receive expands to a lambda so we can get away with a define here...
-      ;; sec 8 to 10
+      ;; secs 8 to 10
       (define (adjust-result-1 result)
         (cond
+         ;; sec 8
          ((jsmap-assoc "@value" result)
           ;; 8.1, make sure result does not contain keys outside
           ;;   of permitted set
@@ -1176,13 +1177,41 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                   ((and (jsmap-assoc "@type" result)
                         (not (absolute-uri? (jsmap-ref result "@type"))))
                    (throw 'json-ld-error #:code "invalid typed value"))
-                  (else result))))))
-      ;; sec 12
+                  (else result))))
+         ;; sec 9
+         ;; @@: unnecessarily pulling type out of result several times,
+         ;;   we could do it just once... maybe with a (delay) at top
+         ;;   of cond?
+         ((and (jsmap-assoc "@type" result)
+               (json-array? (jsmap-ref result "@type")))
+          (jsmap-cons "@type" (jsmap-ref result "@type" result) result))
+
+         ;; sec 10
+         ((or (jsmap-assoc "@set" result)
+              (jsmap-assoc "@list" result))
+          ;; @@: Hacky
+          (let* ((unique-alist-result
+                  (delete-duplicates (jsmap->alist result)
+                                     (lambda (x y)
+                                       (equal? (car x) (car y)))))
+                 (num-members (length unique-alist-result)))
+            ;; 10.1
+            (if (not (or (eq? num-members 1)
+                         (and (jsmap-assoc "@index" result)
+                              (eq? num-members 2))))
+                (throw 'json-ld-error #:code "invalid set or list object"))
+
+            ;; 10.2
+            (let ((set-mapping (jsmap-assoc "@set" result)))
+              (if set-mapping
+                  (cdr set-mapping)
+                  result))))))
+      ;; sec 11
       (define (adjust-result-2 result)
         
 
         )
-      ;; sec 13
+      ;; sec 12
       (define (adjust-result-3 result))
 
       (values
