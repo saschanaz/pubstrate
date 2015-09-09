@@ -982,7 +982,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
           ;; value is a jsmap then value is expanded from a language map
           ((and (equal? (force container-mapping) "@language")
                 (jsmap? value))
-           (jsmap-fold-unique
+           (fold
             (lambda (x expanded-value)
               (match x
                 ((language . language-value)
@@ -1004,6 +1004,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
             ;; This way we can use normal fold instead of fold right.
             ;; Mwahahaha!
             (jsmap->sorted-unique-alist value string>?)))
+
 
           
           )))))
