@@ -976,6 +976,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                    ;; otherwise, set expanded-property member of result
                    ;; to expanded-value
                    (jsmap-cons expanded-property expanded-value result))
+               expanded-property
                active-context)))
 
            ;; 7.5
@@ -1006,8 +1007,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
               ;; This way we can use normal fold instead of fold right.
               ;; Mwahahaha!
               (jsmap->sorted-unique-alist value string>?))
+             expanded-property
              active-context))
-
            
            ;; 7.6
            ((and (equal? (force container-mapping) "@index")
@@ -1019,7 +1020,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                        (result result))
               (match l
                 ('()
-                 (values result active-context))
+                 (values result active-property active-context))
                 (((index . index-value) rest ...)
                  (receive (index-value active-context)
                      (expand-element active-context key
@@ -1042,10 +1043,13 @@ Does a multi-value-return of (expanded-iri active-context defined)"
            
            ;; 7.7
            (else
-            (expand-element active-context key value)))))
+            (receive (expanded-value active-context)
+                (expand-element active-context key value)
+              (values expandec-value expanded-property active-context))))))
+
       (call/ec
        (lambda (return-with-pair)
-         (receive (expanded-value active-context)
+         (receive (expanded-value expanded-property active-context)
              (get-expanded-value return-with-pair)
            ;; 7.8
            ;; if expanded value is null, ignore key by continuing
