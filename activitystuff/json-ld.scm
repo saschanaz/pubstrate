@@ -1040,9 +1040,6 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                              (if (jsmap-assoc "@index" item)
                                  item
                                  (jsmap-cons "@index" index item))
-                             (alist->jsmap
-                              `(("@value" . ,item)
-                                ("@language" . ,(string-downcase language))))
                              expanded-value))
                           expanded-value
                           index-value)))))))
@@ -1150,91 +1147,91 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          (permitted-value-results '("@value" "@language" "@type" "@index")))
     (receive (result active-context)
         (build-result active-context)
-      ;; receive expands to a lambda so we can get away with a define here...
-      ;; secs 8 to 10
-      (define (adjust-result-1 result)
-        (cond
-         ;; sec 8
-         ((jsmap-assoc "@value" result)
-          ;; 8.1, make sure result does not contain keys outside
-          ;;   of permitted set
-          (if (or (not (match (jsmap->alist result)
-                         ((((? (cut member <> permitted-value-results)
-                               key) . val) ...)
-                          #t)
-                         (_ #f)))
-                  (and (jsmap-assoc "@language" result)
-                       (jsmap-assoc "@type" result)))
-              (throw 'json-ld-error #:code "invalid value object"))
+      (call/ec
+       (lambda (return)
+         (define (adjust-result-1 result)
+           (cond
+            ;; sec 8
+            ((jsmap-assoc "@value" result)
+             ;; 8.1, make sure result does not contain keys outside
+             ;;   of permitted set
+             (if (or (not (match (jsmap->alist result)
+                            ((((? (cut member <> permitted-value-results)
+                                  key) . val) ...)
+                             #t)
+                            (_ #f)))
+                     (and (jsmap-assoc "@language" result)
+                          (jsmap-assoc "@type" result)))
+                 (throw 'json-ld-error #:code "invalid value object"))
 
-          (let ((result-value (jsmap-ref result "@value")))
-            (cond ((eq? result-value #nil)
-                   (return #nil active-context))
-                  ((and (not (string? result-value))
-                        (jsmap-assoc "@language" result))
-                   (throw 'json-ld-error #:code "invalid typed value"))
-                  ;; TODO: resume here at 8.4
-                  ((and (jsmap-assoc "@type" result)
-                        (not (absolute-uri? (jsmap-ref result "@type"))))
-                   (throw 'json-ld-error #:code "invalid typed value"))
-                  (else result))))
-         ;; sec 9
-         ;; @@: unnecessarily pulling type out of result several times,
-         ;;   we could do it just once... maybe with a (delay) at top
-         ;;   of cond?
-         ((and (jsmap-assoc "@type" result)
-               (json-array? (jsmap-ref result "@type")))
-          (jsmap-cons "@type" (jsmap-ref result "@type" result) result))
+             (let ((result-value (jsmap-ref result "@value")))
+               (cond ((eq? result-value #nil)
+                      (return #nil active-context))
+                     ((and (not (string? result-value))
+                           (jsmap-assoc "@language" result))
+                      (throw 'json-ld-error #:code "invalid typed value"))
+                     ;; TODO: resume here at 8.4
+                     ((and (jsmap-assoc "@type" result)
+                           (not (absolute-uri? (jsmap-ref result "@type"))))
+                      (throw 'json-ld-error #:code "invalid typed value"))
+                     (else result))))
+            ;; sec 9
+            ;; @@: unnecessarily pulling type out of result several times,
+            ;;   we could do it just once... maybe with a (delay) at top
+            ;;   of cond?
+            ((and (jsmap-assoc "@type" result)
+                  (json-array? (jsmap-ref result "@type")))
+             (jsmap-cons "@type" (jsmap-ref result "@type" result) result))
 
-         ;; sec 10
-         ((or (jsmap-assoc "@set" result)
-              (jsmap-assoc "@list" result))
-          ;; @@: Hacky
-          (let* ((num-members (jsmap-length result)))
-            ;; 10.1
-            (if (not (or (eq? num-members 1)
-                         (and (jsmap-assoc "@index" result)
-                              (eq? num-members 2))))
-                (throw 'json-ld-error #:code "invalid set or list object"))
+            ;; sec 10
+            ((or (jsmap-assoc "@set" result)
+                 (jsmap-assoc "@list" result))
+             ;; @@: Hacky
+             (let* ((num-members (jsmap-length result)))
+               ;; 10.1
+               (if (not (or (eq? num-members 1)
+                            (and (jsmap-assoc "@index" result)
+                                 (eq? num-members 2))))
+                   (throw 'json-ld-error #:code "invalid set or list object"))
 
-            ;; 10.2
-            (let ((set-mapping (jsmap-assoc "@set" result)))
-              (if set-mapping
-                  (cdr set-mapping)
-                  result))))))
+               ;; 10.2
+               (let ((set-mapping (jsmap-assoc "@set" result)))
+                 (if set-mapping
+                     (cdr set-mapping)
+                     result))))))
 
-      ;; sec 11
-      (define (adjust-result-2 result)
-        (if (and (jsmap-assoc "@language" result)
-                 (eq? (jsmap-length result) 1))
-            (return #nil active-context)
-            result))
+         ;; sec 11
+         (define (adjust-result-2 result)
+           (if (and (jsmap-assoc "@language" result)
+                    (eq? (jsmap-length result) 1))
+               (return #nil active-context)
+               result))
 
-      ;; sec 12
-      (define (adjust-result-3 result)
-        ;; Graph adjustments...
-        (if (member active-property '(#nil "@graph"))
-            ;; drop free-floating values
-            (cond ((or (eq? (jsmap-length result) 0)
-                       (jsmap-assoc "@value" result)
-                       (jsmap-assoc "@list" result))
-                   (return #nil active-context))
-                  ;; @@: Do we need to check jsmap? at this point?
-                  ;;   I think the only other thing result becomes is #nil
-                  ;;   and we return it explicitly in such a case
-                  ((and (jsmap-assoc "@id" result)
-                        (eq? (jsmap-length result 1)))
-                   (return #nil active-context))
+         ;; sec 12
+         (define (adjust-result-3 result)
+           ;; Graph adjustments...
+           (if (member active-property '(#nil "@graph"))
+               ;; drop free-floating values
+               (cond ((or (eq? (jsmap-length result) 0)
+                          (jsmap-assoc "@value" result)
+                          (jsmap-assoc "@list" result))
+                      (return #nil active-context))
+                     ;; @@: Do we need to check jsmap? at this point?
+                     ;;   I think the only other thing result becomes is #nil
+                     ;;   and we return it explicitly in such a case
+                     ((and (jsmap-assoc "@id" result)
+                           (eq? 1 (jsmap-length result)))
+                      (return #nil active-context))
 
-                  (else result))
-            ;; otherwise, do nothing
-            result))
+                     (else result))
+               ;; otherwise, do nothing
+               result))
 
-      ;; sec 13
-      (values
-       ((compose-forward adjust-result-1 adjust-result-2 adjust-result-3)
-        result)
-       active-context))))
+         ;; sec 13
+         (values
+          ((compose-forward adjust-result-1 adjust-result-2 adjust-result-3)
+           result)
+          active-context))))))
 
 (define (expand-element active-context active-property element)
   (match element
