@@ -1051,6 +1051,15 @@ Does a multi-value-return of (expanded-iri active-context defined)"
        (lambda (return-with-pair)
          (receive (expanded-value expanded-property active-context)
              (get-expanded-value return-with-pair)
+           (define (append-prop-val-to-result expanded-property expanded-value
+                                              result)
+             (jsmap-cons
+              expanded-property
+              (cons expanded-value
+                    (if (jsmap-assoc expanded-property result)
+                        (jsmap-ref result expanded-property)
+                        '()))))
+
            ;; 7.8
            ;; if expanded value is null, ignore key by continuing
            ;; @@: could just be in the cond, right?
@@ -1061,69 +1070,55 @@ Does a multi-value-return of (expanded-iri active-context defined)"
            ;; continue with line 1927 in jsonld.py
            ;; # convert expanded value to @list if container specifies it
            
-           (let* ((expanded-value
-                   (cond
-                    ;; 7.9
-                    ((and (equal? (force container-mapping) "@list")
-                          (not (list-object? expanded-value)))
-                     (alist->jsmap
-                      `(("@list" . ,(if (json-array? expanded-value)
-                                        expanded-value
-                                        (list expanded-value))))))
-                    ;; 7.10
-                    ;; Looks like a reverse property?
-                    ((and (force term-mapping)
-                          (jsmap-ref (cdr (force term-mapping)) "reverse"))
-                     (let* ((result (if (jsmap-assoc "@reverse" result)
-                                        result
-                                        (jsmap-cons "@reverse" '() result)))
-                            (reverse-map (jsmap-ref result "@reverse"))
-                            (expanded-value (if (json-array? expanded-value)
-                                                expanded-value
-                                                (list expanded-value))))
-                       
-                       ;; nyah nyah, bailing out early!
-                       (return-with-pair
-                        (fold
-                         (lambda (item result)
-                           (if (or (value-object? item)
-                                   (list-object? item))
-                               (throw 'json-ld-error #:code "invalid reverse property value"))
-                           (let ((result (if (jsmap-assoc expanded-property)))))
-                           )
-                         result
-                         expanded-value)
-
-                        active-context)
-                       
-                       )
-
-                     
-                     
-                     )
-
-
-                    (else expanded-value))))
-
-             )
-           
-
            (cond
             ;; 7.9
-            ()
+            ((and (equal? (force container-mapping) "@list")
+                  (not (list-object? expanded-value)))
+             (values
+              (append-prop-val-to-result
+               expanded-property
+               (alist->jsmap
+                `(("@list" . ,(if (json-array? expanded-value)
+                                  expanded-value
+                                  (list expanded-value)))))
+               result)
+              active-context))
+
             ;; 7.10
-            
+            ;; Looks like a reverse property?
+            ((and (force term-mapping)
+                  (jsmap-ref (cdr (force term-mapping)) "reverse"))
+             (let* ((result (if (jsmap-assoc "@reverse" result)
+                                result
+                                (jsmap-cons "@reverse" '() result)))
+                    (reverse-map (jsmap-ref result "@reverse"))
+                    (expanded-value (if (json-array? expanded-value)
+                                        expanded-value
+                                        (list expanded-value))))
+               
+               (values
+                (fold
+                 (lambda (item result)
+                   (if (or (value-object? item)
+                           (list-object? item))
+                       (throw 'json-ld-error #:code "invalid reverse property value"))
+                   (jsmap-cons "@reverse"
+                               (jsmap-cons expanded-property
+                                           (cons item
+                                                 (if (jsmap-assoc expanded-property reverse-map)
+                                                     (jsmap-ref reverse-map expanded-property)
+                                                     '()))
+                                           reverse-map)
+                               result))
+                 result
+                 expanded-value)
+                active-context)))
 
             ;; 7.11
-            ()
-            )
-           
-           
-
-           )
-         
-         ))))
-  
+            (else
+             (values (append-prop-val-to-result
+                      expanded-property expanded-value result)
+                     active-context))))))))
 
   ;; TODO: build up active context too
   (define (build-result active-context)
