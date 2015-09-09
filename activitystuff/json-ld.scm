@@ -981,33 +981,48 @@ Does a multi-value-return of (expanded-iri active-context defined)"
              (and (equal? container-mapping "@language")
                   (jsmap? value)))
            (jsmap-fold-unique
-            (lambda (language language-value result)
-              )
+            (lambda (x expanded-value)
+              (match x
+                ((language . language-value)
+                 (fold
+                  (lambda (item expanded-value)
+                    (if (not (string? item))
+                        (throw 'json-ld-error #:code "invalid language map value"))
+                    (cons
+                     (alist->jsmap
+                      `(("@value" . ,item)
+                        ("@language" . ,(string-downcase language))))
+                     expanded-value))
+                  expanded-value
+                  (if (pair? language-value)
+                      language-value
+                      (list language-value))))))
+            '()
+            ;; As a hack, this is sorted in REVERSE!
+            ;; This way we can use normal fold instead of fold right.
+            ;; Mwahahaha!
+            (jsmap->sorted-unique-alist value string>?)))
 
-            ))
+          
           )))))
   
 
   ;; TODO: build up active context too
   (define (build-result active-context)
-    (fold
-     (lambda (key result)
-       (if (equal? x "@context")
-           ;; Skip anything with @context
-           result
-           ;; Otherwise, process on!
-           (let ((val (jsmap-ref jsmap key)))
-             (process-pair key value result active-context))))
-     jsmap-nil
-     ;; This won't be super fast...
-     ;; as a hack, this is sorted in REVERSE!
-     ;; This way we can use normal fold instead of fold right.
-     ;; Mwahahaha!
-     (sort
-      (delete-duplicates (jsmap->alist jsmap)
-                         (lambda (x y)
-                           (equal? (car x) (car y))))
-      (lambda (x y) (string>? (car x) (car y))))))
+    (reverse
+     (fold
+      (lambda (x result)
+        (match x
+          ;; Skip anything with @context
+          (("@context" . _)
+           prev)
+          ((key . val)
+           (process-pair key value result active-context))))
+      jsmap-nil
+      ;; We don't do the reverse hack here as above because of the
+      ;; (admittedly unlikely?) chance that builing up the active-context
+      ;; in the other order would be wrong?
+      (jsmap->sorted-unique-alist jsmap))))
 
   (let* ((jsmap-context (jsmap-assoc "@context" jsmap))
          (active-context
