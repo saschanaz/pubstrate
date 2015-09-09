@@ -1236,7 +1236,6 @@ Does a multi-value-return of (expanded-iri active-context defined)"
         result)
        active-context))))
 
-;; TODO: adjust to pass back active-context?
 (define (expand-element active-context active-property element)
   (match element
     ((? null? _)
@@ -1256,5 +1255,22 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 (define (expand vjson)
   ;; TODO: convert all jsmap to vjson so we don't have this (v?)
   "Expand (v?)json using json-ld processing algorithms"
-  ;; TODO: Final expansion here
-  (expand-element initial-active-context #nil vjson))
+  (receive (expanded-result active-context)
+      (expand-element initial-active-context #nil vjson)
+    ;; final other than arrayify that is!
+    (define (final-adjustments expanded-result)
+      (cond ((and (jsmap? expanded-result)
+                 (eq? 1 (jsmap-length expanded-result))
+                 (jsmap-assoc "@graph" expanded-result))
+            (jsmap-ref "@graph" expanded-result))
+           ((eq? expanded-result #nil)
+            '())
+           (else expanded-result)))
+    (define (arrayify expanded-result)
+      (if (json-array? expanded-result)
+          expanded-result
+          (list expanded-result)))
+    (values
+     ((compose-forward final-adjustments arrayify)
+      expanded-result)
+     active-context)))
