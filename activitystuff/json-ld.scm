@@ -1169,7 +1169,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
           (let ((result-value (jsmap-ref result "@value")))
             (cond ((eq? result-value #nil)
-                   #nil)
+                   (return-with-pair #nil active-context))
                   ((and (not (string? result-value))
                         (jsmap-assoc "@language" result))
                    (throw 'json-ld-error #:code "invalid typed value"))
@@ -1190,11 +1190,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          ((or (jsmap-assoc "@set" result)
               (jsmap-assoc "@list" result))
           ;; @@: Hacky
-          (let* ((unique-alist-result
-                  (delete-duplicates (jsmap->alist result)
-                                     (lambda (x y)
-                                       (equal? (car x) (car y)))))
-                 (num-members (length unique-alist-result)))
+          (let* ((num-members (jsmap-length result)))
             ;; 10.1
             (if (not (or (eq? num-members 1)
                          (and (jsmap-assoc "@index" result)
@@ -1206,11 +1202,14 @@ Does a multi-value-return of (expanded-iri active-context defined)"
               (if set-mapping
                   (cdr set-mapping)
                   result))))))
+
       ;; sec 11
       (define (adjust-result-2 result)
-        
+        (if (and (jsmap-assoc "@language" result)
+                 (eq? (jsmap-length result) 1))
+            (return-with-pair #nil active-context)
+            result))
 
-        )
       ;; sec 12
       (define (adjust-result-3 result))
 
