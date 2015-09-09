@@ -42,7 +42,7 @@
             json-array?
             jsmap->unique-alist
             jsmap->sorted-unique-alist
-            jsmap-num-pairs
+            jsmap-length
 
             vjson-array?
 
@@ -161,7 +161,7 @@ fold instead of fold-right >:)"
    (jsmap->unique-alist jsmap)
    (lambda (x y) (compare (car x) (car y)))))
 
-(define (jsmap-num-pairs jsmap)
+(define (jsmap-length jsmap)
   "Find the number of pairs in a jsmap
 
 This is O(n) (twice over!) so beware"
