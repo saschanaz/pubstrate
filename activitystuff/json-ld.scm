@@ -971,7 +971,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                                 items)))
                          (if (jsmap-assoc "@reverse" result)
                              result
-                             (jsmap-cons "@reverse" jsmap-nil))
+                             ;; TODO: fix this
+                             (jsmap-cons "@reverse" jsmap-nil result))
                          expanded-value))
                        (else result))
                       active-context))))
@@ -1061,7 +1062,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
               (cons expanded-value
                     (if (jsmap-assoc expanded-property result)
                         (jsmap-ref result expanded-property)
-                        '()))))
+                        '()))
+              result))
 
            ;; 7.8
            ;; if expanded value is null, ignore key by continuing
@@ -1181,7 +1183,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
             ;;   of cond?
             ((and (jsmap-assoc "@type" result)
                   (json-array? (jsmap-ref result "@type")))
-             (jsmap-cons "@type" (jsmap-ref result "@type" result) result))
+             (jsmap-cons "@type" (jsmap-ref result "@type") result))
 
             ;; sec 10
             ((or (jsmap-assoc "@set" result)
