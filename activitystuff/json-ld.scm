@@ -815,9 +815,9 @@ Does a multi-value-return of (expanded-iri active-context defined)"
             (delay (active-context-mapping-assoc key active-context)))
            (container-mapping
             (delay
-              (if (and (force term-mapping)
-                       (jsmap-ref (cdr (force term-mapping))
-                                  "@container"))))))
+              (if (force term-mapping)
+                  (jsmap-ref (cdr (force term-mapping))
+                             "@container")))))
       (define (get-expanded-value return)
         "Get expanded value; return is a prompt to bail out early"
         (receive (expanded-property active-context)
@@ -1149,7 +1149,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
               active-context))
          (permitted-value-results '("@value" "@language" "@type" "@index")))
     (receive (result active-context)
-        (build-result)
+        (build-result active-context)
       ;; receive expands to a lambda so we can get away with a define here...
       ;; secs 8 to 10
       (define (adjust-result-1 result)
@@ -1274,3 +1274,10 @@ Does a multi-value-return of (expanded-iri active-context defined)"
      ((compose-forward final-adjustments arrayify)
       expanded-result)
      active-context)))
+
+
+;; Algorithm 7.2
+
+(define (value-expansion active-context active-property value)
+  #f
+  )
