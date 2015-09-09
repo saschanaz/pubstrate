@@ -40,6 +40,7 @@
             jsmap->alist alist->jsmap
             jsmap-fold-unique
             json-array?
+            jsmap->sorted-unique-alist
 
             read-json-from-string write-json-to-string
             vhash-ref
@@ -141,6 +142,17 @@ json-alist as well as the previous value"
 (define (vjson-array? elt)
   (or (eq? elt '())
       (pair? elt)))
+
+(define* (jsmap->sorted-unique-alist jsmap #:optional (compare string<?))
+  "Return a unique and sorted alist
+
+Protip: change compare to string>? if you want to
+fold instead of fold-right >:)"
+  (sort
+   (delete-duplicates (jsmap->alist jsmap)
+                      (lambda (x y)
+                        (equal? (car x) (car y))))
+   (lambda (x y) (compare (car x) (car y)))))
 
 ;; Simpler json reading and writing functions
 
