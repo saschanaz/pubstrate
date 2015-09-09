@@ -818,8 +818,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
               (if (and (force term-mapping)
                        (jsmap-ref (cdr (force term-mapping))
                                   "@container"))))))
-      (define (get-expanded-value return-with-pair)
-        "Get expanded value; return-with-pair is a prompt to bail out early"
+      (define (get-expanded-value return)
+        "Get expanded value; return is a prompt to bail out early"
         (receive (expanded-property active-context)
             (iri-expansion active-context key #:vocab #t)
           (cond
@@ -828,7 +828,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                 (not (string-index expanded-property #\:))
                 (not (keyword? expanded-property)))
             ;; carry on to the next key
-            (return-with-pair result active-context))
+            (return result active-context))
            ((keyword? expanded-property)
             (if (equal? active-property "@reverse")
                 (throw 'json-ld-error
@@ -880,8 +880,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                    (match value
                      ((? null? _)
                       ;; jump out of processing this pair
-                      (return-with-pair (jsmap-cons "@value" #nil result)
-                                        active-context))
+                      (return (jsmap-cons "@value" #nil result)
+                              active-context))
                      ;; otherwise, expanded value *is* value!
                      ((? scalar? _)
                       (values value active-context))
@@ -905,7 +905,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                   ("@list"
                    ;; Bail out early if null or @graph to remove free-floating list
                    (if (member active-property '(#nil "@graph"))
-                       (return-with-pair result active-context))
+                       (return result active-context))
                    (receive (expanded-value active-context)
                        (expand-element active-context active-property value)
                      ;; oops!  no lists of lists
@@ -926,7 +926,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
                    (receive (expanded-value active-context)
                        (expand-elment active-context "@reverse" value)
-                     (return-with-pair
+                     (return
                       ;; here might be a great place to break out
                       ;; another function
                       (cond
@@ -1054,9 +1054,9 @@ Does a multi-value-return of (expanded-iri active-context defined)"
               (values expanded-value expanded-property active-context))))))
 
       (call/ec
-       (lambda (return-with-pair)
+       (lambda (return)
          (receive (expanded-value expanded-property active-context)
-             (get-expanded-value return-with-pair)
+             (get-expanded-value return)
            (define (append-prop-val-to-result expanded-property expanded-value
                                               result)
              (jsmap-cons
@@ -1070,7 +1070,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
            ;; if expanded value is null, ignore key by continuing
            ;; @@: could just be in the cond, right?
            (if (eq? expanded-value #nil)
-               (return-with-pair result active-context))
+               (return result active-context))
            
            ;; Augh, these 7.9-7.11 sections are frustrating
            ;; continue with line 1927 in jsonld.py
@@ -1169,7 +1169,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
           (let ((result-value (jsmap-ref result "@value")))
             (cond ((eq? result-value #nil)
-                   (return-with-pair #nil active-context))
+                   (return #nil active-context))
                   ((and (not (string? result-value))
                         (jsmap-assoc "@language" result))
                    (throw 'json-ld-error #:code "invalid typed value"))
@@ -1207,7 +1207,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
       (define (adjust-result-2 result)
         (if (and (jsmap-assoc "@language" result)
                  (eq? (jsmap-length result) 1))
-            (return-with-pair #nil active-context)
+            (return #nil active-context)
             result))
 
       ;; sec 12
