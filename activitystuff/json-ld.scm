@@ -1211,8 +1211,26 @@ Does a multi-value-return of (expanded-iri active-context defined)"
             result))
 
       ;; sec 12
-      (define (adjust-result-3 result))
+      (define (adjust-result-3 result)
+        ;; Graph adjustments...
+        (if (member active-property '(#nil "@graph"))
+            ;; drop free-floating values
+            (cond ((or (eq? (jsmap-length result) 0)
+                       (jsmap-assoc "@value" result)
+                       (jsmap-assoc "@list" result))
+                   (return #nil active-context))
+                  ;; @@: Do we need to check jsmap? at this point?
+                  ;;   I think the only other thing result becomes is #nil
+                  ;;   and we return it explicitly in such a case
+                  ((and (jsmap-assoc "@id" result)
+                        (eq? (jsmap-length result 1)))
+                   (return #nil active-context))
 
+                  (else result))
+            ;; otherwise, do nothing
+            result))
+
+      ;; sec 13
       (values
        ((compose-forward adjust-result-1 adjust-result-2 adjust-result-3)
         result)
