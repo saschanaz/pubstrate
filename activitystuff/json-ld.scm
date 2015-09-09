@@ -814,7 +814,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                (not (string-index expanded-property #\:))
                (not (keyword? expanded-property)))
            ;; carry on to the next key
-           result)
+           (values result active-context))
           ((keyword? expanded-property)
            (if (equal? active-property "@reverse")
                (throw 'json-ld-error
@@ -968,19 +968,36 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                   ;; otherwise, set expanded-property member of result
                   ;; to expanded-value
                   (jsmap-cons expanded-property expanded-value result))
-              active-context))))))))
+              active-context)))
+
+          ;; 7.5
+          ;; If key's container mapping in active-context is @language and
+          ;; value is a jsmap then value is expanded from a language map
+          ((let* ((term-mapping (active-context-mapping-assoc key active-context))
+                  (container-mapping
+                   (if (and term-mapping
+                            (jsmap-ref (cdr term-mapping)
+                                       "@container")))))
+             (and (equal? container-mapping "@language")
+                  (jsmap? value)))
+           (jsmap-fold-unique
+            (lambda (language language-value result)
+              )
+
+            ))
+          )))))
   
 
   ;; TODO: build up active context too
   (define (build-result active-context)
     (fold
-     (lambda (x result)
-       (match x
-         ;; Skip anything with @context
-         (("@context" . _)
-          prev)
-         ((key . val)
-          (process-pair key value result active-context))))
+     (lambda (key result)
+       (if (equal? x "@context")
+           ;; Skip anything with @context
+           result
+           ;; Otherwise, process on!
+           (let ((val (jsmap-ref jsmap key)))
+             (process-pair key value result active-context))))
      jsmap-nil
      ;; This won't be super fast...
      ;; as a hack, this is sorted in REVERSE!
