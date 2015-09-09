@@ -982,29 +982,62 @@ Does a multi-value-return of (expanded-iri active-context defined)"
           ;; value is a jsmap then value is expanded from a language map
           ((and (equal? (force container-mapping) "@language")
                 (jsmap? value))
-           (fold
-            (lambda (x expanded-value)
-              (match x
-                ((language . language-value)
-                 (fold
-                  (lambda (item expanded-value)
-                    (if (not (string? item))
-                        (throw 'json-ld-error #:code "invalid language map value"))
-                    (cons
-                     (alist->jsmap
-                      `(("@value" . ,item)
-                        ("@language" . ,(string-downcase language))))
-                     expanded-value))
-                  expanded-value
-                  (if (pair? language-value)
-                      language-value
-                      (list language-value))))))
-            '()
-            ;; As a hack, this is sorted in REVERSE!
-            ;; This way we can use normal fold instead of fold right.
-            ;; Mwahahaha!
-            (jsmap->sorted-unique-alist value string>?)))
+           (values
+            (fold
+             (lambda (x expanded-value)
+               (match x
+                 ((language . language-value)
+                  (fold-right
+                   (lambda (item expanded-value)
+                     (if (not (string? item))
+                         (throw 'json-ld-error #:code "invalid language map value"))
+                     (cons
+                      (alist->jsmap
+                       `(("@value" . ,item)
+                         ("@language" . ,(string-downcase language))))
+                      expanded-value))
+                   expanded-value
+                   (if (json-array? language-value)
+                       language-value
+                       (list language-value))))))
+             '()
+             ;; As a hack, this is sorted in REVERSE!
+             ;; This way we can use normal fold instead of fold right.
+             ;; Mwahahaha!
+             (jsmap->sorted-unique-alist value string>?))
+            active-context))
 
+          
+          ;; 7.6
+          ((and (equal? (force container-mapping) "@index")
+                (jsmap? value))
+           ;; @@: In reality the code here is very similar to 
+           ;;   in 7.5, but I think this is much more readable...
+           (let loop ((l (jsmap->sorted-unique-alist value string>?))
+                      (active-context active-context)
+                      (result result))
+             (match l
+               ('()
+                (values result active-context))
+               (((index . index-value) rest ...)
+                (receive (index-value active-context)
+                    (expand-element active-context key
+                                    (if (json-array? index-value)
+                                        index-value
+                                        (list index-value)))
+                  (loop rest active-context
+                        (fold-right
+                         (lambda (item expanded-value)
+                           (cons
+                            (if (jsmap-assoc "@index" item)
+                                item
+                                (jsmap-cons "@index" index item))
+                            (alist->jsmap
+                             `(("@value" . ,item)
+                               ("@language" . ,(string-downcase language))))
+                            expanded-value))
+                         expanded-value
+                         index-value)))))))
 
           
           )))))
