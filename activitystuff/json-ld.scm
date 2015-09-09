@@ -806,6 +806,13 @@ Does a multi-value-return of (expanded-iri active-context defined)"
   (define (process-pair key value result active-context)
     (call/ec
      (lambda (return-pair)
+       (let* ((term-mapping
+               (delay (active-context-mapping-assoc key active-context)))
+              (container-mapping
+               (delay
+                 (if (and (force term-mapping)
+                          (jsmap-ref (cdr (force term-mapping))
+                                     "@container")))))))
        (receive (expanded-property active-context)
            (iri-expansion active-context key #:vocab #t)
          (cond
@@ -973,13 +980,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
           ;; 7.5
           ;; If key's container mapping in active-context is @language and
           ;; value is a jsmap then value is expanded from a language map
-          ((let* ((term-mapping (active-context-mapping-assoc key active-context))
-                  (container-mapping
-                   (if (and term-mapping
-                            (jsmap-ref (cdr term-mapping)
-                                       "@container")))))
-             (and (equal? container-mapping "@language")
-                  (jsmap? value)))
+          ((and (equal? (force container-mapping) "@language")
+                (jsmap? value))
            (jsmap-fold-unique
             (lambda (x expanded-value)
               (match x
