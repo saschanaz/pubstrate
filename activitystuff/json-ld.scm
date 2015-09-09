@@ -1045,7 +1045,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
            (else
             (receive (expanded-value active-context)
                 (expand-element active-context key value)
-              (values expandec-value expanded-property active-context))))))
+              (values expanded-value expanded-property active-context))))))
 
       (call/ec
        (lambda (return-with-pair)
