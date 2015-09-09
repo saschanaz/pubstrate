@@ -1287,5 +1287,65 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 ;; Algorithm 7.2
 
 (define (value-expansion active-context active-property value)
-  #f
-  )
+  (call/ec
+   (lambda (return)
+     (let* ((term-mapping (active-context-mapping-assoc active-property active-context))
+            (type-mapping
+             (if term-mapping
+                 (jsmap-assoc "@type" (cdr term-mapping))
+                 #f)))
+       (define (id-or-vocab-return expansion-thunk)
+         (receive (result active-context)
+             (expansion-thunk)
+           (return
+            (alist->jsmap
+             `(("@id" . ,result)))
+            active-context)))
+
+       ;; sec 1
+       (if (and type-mapping (eq? (cdr type-mapping) "@id"))
+           (id-or-vocab-return
+            (lambda ()
+              (iri-expansion active-context value
+                             #:document-relative #t))))
+
+       ;; sec 2
+       (if (and type-mapping (eq? (cdr type-mapping) "@vocab"))
+           (id-or-vocab-return
+            (lambda ()
+              (iri-expansion active-context value
+                             #:vocab #t
+                             #:document-relative #t))))
+
+       ;; sec 3
+       (let ((result (alist->jsmap `(("@value" . ,value)))))
+         (cond
+          ;; sec 4
+          (type-mapping
+           (values
+            (jsmap-cons "@type" (cdr type-mapping) result)
+            active-context))
+          ;; sec 5
+          ((string? value)
+           (let ((language-mapping
+                  (if term-mapping
+                      (jsmap-assoc "@language" (cdr term-mapping))
+                      #f)))
+             (match language-mapping
+               ;; if no mapping, or the mapping value is nil,
+               ;; return as-is
+               ((_ . #nil)
+                (values result active-context))
+               ;; Otherwise if there's a match add @language to result
+               ((_ . language)
+                (values
+                 (jsmap-cons "@language" language result)
+                 active-context))
+               ;; otherwise...
+               (_
+                (let ((default-language (active-context-language active-context)))
+                  (if (defined? default-language)
+                      (values (jsmap-cons "@language" default-language result)
+                              active-context)
+                      (values result active-context)))))))
+          (else (values result active-context))))))))
