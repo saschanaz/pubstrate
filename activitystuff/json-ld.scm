@@ -251,6 +251,7 @@ Example:
   (apply compose
          (reverse (list func1 func2 ...))))
 
+
 ;; Algorithm 6.1
 
 (define* (process-context active-context local-context
@@ -260,183 +261,192 @@ Example:
                           (base-iri #nil))
   "This function builds up a new active-context based on the
 remaining context information to process from local-context"
-  ;; TODO: break this out into process-context-loop
-  ;; TODO: "result" is just "active-context", so just
-  ;;   replace with that once we have the algorithm working?
-  (let loop ((result active-context)
-             ;; contexts to process, basically...
-             ;; @@: Maybe should be called remaining-contexts?
-             (local-context
-              ;; If local-context is not in a sequence,
-              ;; make it the only element in one
-              (if (pair? local-context)
-                  local-context
-                  (list local-context)))
-             (remote-contexts remote-contexts))
-    ;; Some helper functions...
-    ;; (the variables these reference get overriden
-    ;; with let later, but we only use this early on)
-    (define (append-to-base uri)
-      "Append to the current base (if appropriate)"
-      ;; Not useful if this is the first invocation of result,
-      ;; but we don't use it there, so no biggie
-      (maybe-append-uri-to-base uri (active-context-base result)))
+  (process-context-loop active-context
+                        (if (pair? local-context)
+                            local-context
+                            (list local-context))
+                        remote-contexts
+                        #:deref-context deref-context
+                        #:base-iri base-iri))
 
-    (define (equal-including-checking-base? uri1 uri2)
-      "A check method to see if A matches B, or B with base apended"
-      (or (equal? uri1 uri2)
-          (equal? uri1 (append-to-base uri2))))
+(define* (process-context-loop result local-context remote-contexts
+                               #:key
+                               (deref-context basic-deref-remote-context)
+                               (base-iri #nil))
+  ;; call ourselves, but with the key defaults also
+  (define* (loop result local-context remote-contexts
+                 #:key
+                 (deref-context deref-context)
+                 (base-iri base-iri))
+    (process-context-loop result local-context remote-contexts
+                          #:deref-context deref-context
+                          #:base-iri base-iri))
 
-    ;; Are we done processing contexts?
-    (if (null? local-context)
-        ;; then return result immediately
-        result
-        ;; otherwise, process on!
-        (let ((context (car local-context))
-              (next-contexts (cdr local-context)))
-          (match context
-            ;; If null, result is a newly-initialized active context 
-            (#nil
-             (loop
-              ;; new active context based on initial-active-context
-              ;; but setting base-iri
-              (set-field initial-active-context
-                         (active-context-base) base-iri)
-              next-contexts remote-contexts))
+  ;; Some helper functions...
+  ;; (the variables these reference get overriden
+  ;; with let later, but we only use this early on)
+  (define (append-to-base uri)
+    "Append to the current base (if appropriate)"
+    ;; Not useful if this is the first invocation of result,
+    ;; but we don't use it there, so no biggie
+    (maybe-append-uri-to-base uri (active-context-base result)))
 
-            ;; Okay it's a string, great, that means it's an iri
-            ((? string? (= append-to-base context))
-             (if (member context remote-contexts equal-including-checking-base?)
-                 (throw 'json-ld-error
-                        #:code "recursive context inclusion"
+  (define (equal-including-checking-base? uri1 uri2)
+    "A check method to see if A matches B, or B with base apended"
+    (or (equal? uri1 uri2)
+        (equal? uri1 (append-to-base uri2))))
+
+  ;; Are we done processing contexts?
+  (if (null? local-context)
+      ;; then return result immediately
+      result
+      ;; otherwise, process on!
+      (let ((context (car local-context))
+            (next-contexts (cdr local-context)))
+        (match context
+          ;; If null, result is a newly-initialized active context 
+          (#nil
+           (loop
+            ;; new active context based on initial-active-context
+            ;; but setting base-iri
+            (set-field initial-active-context
+                       (active-context-base) base-iri)
+            next-contexts remote-contexts))
+
+          ;; Okay it's a string, great, that means it's an iri
+          ((? string? (= append-to-base context))
+           (if (member context remote-contexts equal-including-checking-base?)
+               (throw 'json-ld-error
+                      #:code "recursive context inclusion"
+                      #:context context))
+           (let ((derefed-context (deref-context context))
+                 (remote-contexts (cons context remote-contexts)))
+             (if (not (and (jsmap? derefed-context)
+                           (jsmap-ref derefed-context "@context")))
+                 (throw 'json-ld-error #:code "invalid remote context"
                         #:context context))
-             (let ((derefed-context (deref-context context))
-                   (remote-contexts (cons context remote-contexts)))
-               (if (not (and (jsmap? derefed-context)
-                             (jsmap-ref derefed-context "@context")))
-                   (throw 'json-ld-error #:code "invalid remote context"
-                          #:context context))
-               ;; We made it this far, so recurse on the derefed context
-               ;; then continue with that updated result
-               (let* ((context derefed-context)
-                      (result (process-context result context
-                                               remote-contexts
-                                               #:deref-context deref-context)))
-                 (loop result next-contexts remote-contexts))))
+             ;; We made it this far, so recurse on the derefed context
+             ;; then continue with that updated result
+             (let* ((context derefed-context)
+                    (result (process-context result context
+                                             remote-contexts
+                                             #:deref-context deref-context)))
+               (loop result next-contexts remote-contexts))))
 
-            ((? jsmap? context)
-             ;; Time to process over a json object of data.  Yay!
-             ;; We're really just folding over this object here,
-             ;; but three keys are special:
-             ;; "@base", "@vocab", and "@language".
-             ;; Otherwise, we process using the "Create term definition"
-             ;; algorithm.
-             ;;
-             ;; Because that's a lot of steps, for readability
-             ;; we break these out into functions then do the fold.
-             (define (modify-result-from-base result base)
-               (if (and base
-                        (null? remote-contexts))
-                   ;; In this case we'll adjusting the result's "@base"
-                   ;; depending on what this context's @base is
-                   (match base
-                     ;; If the @base in this context is null, remove
-                     ;; whatever current @base is in the result
-                     ((? null? _)
-                      ;; Remove base iri from result
-                      (set-field result (active-context-base) undefined))
+          ((? jsmap? context)
+           ;; Time to process over a json object of data.  Yay!
+           ;; We're really just folding over this object here,
+           ;; but three keys are special:
+           ;; "@base", "@vocab", and "@language".
+           ;; Otherwise, we process using the "Create term definition"
+           ;; algorithm.
+           ;;
+           ;; Because that's a lot of steps, for readability
+           ;; we break these out into functions then do the fold.
+           (define (modify-result-from-base result base)
+             (if (and base
+                      (null? remote-contexts))
+                 ;; In this case we'll adjusting the result's "@base"
+                 ;; depending on what this context's @base is
+                 (match base
+                   ;; If the @base in this context is null, remove
+                   ;; whatever current @base is in the result
+                   ((? null? _)
+                    ;; Remove base iri from result
+                    (set-field result (active-context-base) undefined))
 
-                     ;; If it's an absolute URI, let's set that as the result's
-                     ;; @base
-                     ((? absolute-uri? base-uri)
-                      (set-field result (active-context-base) base-uri))
+                   ;; If it's an absolute URI, let's set that as the result's
+                   ;; @base
+                   ((? absolute-uri? base-uri)
+                    (set-field result (active-context-base) base-uri))
 
-                     ;; Otherwise... if it's a string, we assume it's
-                     ;; still a relative URI
-                     ;; @@: Are more precise ways to define a relative URI at
-                     ;;   this point?
-                     ((? string? relative-base-uri)
-                      ;; If the current *result's* base-uri is not null....
-                      ;; resolve it against current base URI of result
-                      (if (string? (jsmap-ref result "@base"))
-                          (set-field result
-                                     (active-context-base)
-                                     (maybe-append-uri-to-base
-                                      relative-base-uri (active-context-base result)))
-                          ;; Otherwise, this is an error...
-                          ;; "Value of @base in a @context must be an
-                          ;;  absolute IRI or empty string."
-                          (throw 'json-ld-error
-                                 ;; @@: context vs result seems kinda vague
-                                 ;;   to a user through this whole function, maybe
-                                 #:code "invalid base IRI"
-                                 #:context context
-                                 #:result result
-                                 #:base-iri relative-base-uri)))
-                     (invalid-base-value
-                      (throw 'json-ld-error
-                             #:code "invalid base IRI"
-                             #:base-iri invalid-base-value)))
-                   ;; Otherwise, return unmodified result
-                   result))
+                   ;; Otherwise... if it's a string, we assume it's
+                   ;; still a relative URI
+                   ;; @@: Are more precise ways to define a relative URI at
+                   ;;   this point?
+                   ((? string? relative-base-uri)
+                    ;; If the current *result's* base-uri is not null....
+                    ;; resolve it against current base URI of result
+                    (if (string? (jsmap-ref result "@base"))
+                        (set-field result
+                                   (active-context-base)
+                                   (maybe-append-uri-to-base
+                                    relative-base-uri (active-context-base result)))
+                        ;; Otherwise, this is an error...
+                        ;; "Value of @base in a @context must be an
+                        ;;  absolute IRI or empty string."
+                        (throw 'json-ld-error
+                               ;; @@: context vs result seems kinda vague
+                               ;;   to a user through this whole function, maybe
+                               #:code "invalid base IRI"
+                               #:context context
+                               #:result result
+                               #:base-iri relative-base-uri)))
+                   (invalid-base-value
+                    (throw 'json-ld-error
+                           #:code "invalid base IRI"
+                           #:base-iri invalid-base-value)))
+                 ;; Otherwise, return unmodified result
+                 result))
 
-             (define (modify-result-from-vocab result vocab)
-               (cond ((null? vocab)
-                      ;; remove vocabulary mapping from result
-                      (set-field result (active-context-vocab) undefined))
-                     ;; If either an absolute IRI or blank node,
-                     ;; @vocab of result is set to vocab
-                     ((or (absolute-uri? vocab)
-                          (blank-node? vocab))
-                      (set-field result (active-context-vocab) vocab))
-                     (else
-                      (throw 'json-ld-error #:code "invalid vocab mapping"))))
+           (define (modify-result-from-vocab result vocab)
+             (cond ((null? vocab)
+                    ;; remove vocabulary mapping from result
+                    (set-field result (active-context-vocab) undefined))
+                   ;; If either an absolute IRI or blank node,
+                   ;; @vocab of result is set to vocab
+                   ((or (absolute-uri? vocab)
+                        (blank-node? vocab))
+                    (set-field result (active-context-vocab) vocab))
+                   (else
+                    (throw 'json-ld-error #:code "invalid vocab mapping"))))
 
-             (define (modify-result-from-language result language)
-               (cond ((null? language)
-                      ;; remove vocabulary mapping from result
-                      (set-field result (active-context-language) undefined))
-                     ((string? language)
-                      (set-field result (active-context-language)
-                                 (string-downcase language)))
-                     (else
-                      (throw 'json-ld-error #:code "invalid default language"))))
+           (define (modify-result-from-language result language)
+             (cond ((null? language)
+                    ;; remove vocabulary mapping from result
+                    (set-field result (active-context-language) undefined))
+                   ((string? language)
+                    (set-field result (active-context-language)
+                               (string-downcase language)))
+                   (else
+                    (throw 'json-ld-error #:code "invalid default language"))))
 
-             (define (build-result)
-               (car
-                (jsmap-fold-unique
-                 (lambda (ctx-key ctx-val prev)
-                   (match prev
-                     ((result . defined)
-                      (match ctx-key
-                        ("@base"
-                         (cons (modify-result-from-base result ctx-val)
-                               defined))
-                        ("@vocab"
-                         (cons (modify-result-from-vocab result ctx-val)
-                               defined))
-                        ("@language"
-                         (cons (modify-result-from-language result ctx-val)
-                               defined))
-                        (_
-                         ;; Notably we aren't passing ctx-ctx-key here because
-                         ;; (I suppose) create-term-definition has the whole context
-                         ;; and so can look it up anyway...
-                         (receive (result defined)
-                             (create-term-definition
-                              result context ctx-key defined)
-                           (cons result defined)))))))
-                 (cons result vlist-null) ;; second value here is "defined"
-                 context)))
+           (define (build-result)
+             (car
+              (jsmap-fold-unique
+               (lambda (ctx-key ctx-val prev)
+                 (match prev
+                   ((result . defined)
+                    (match ctx-key
+                      ("@base"
+                       (cons (modify-result-from-base result ctx-val)
+                             defined))
+                      ("@vocab"
+                       (cons (modify-result-from-vocab result ctx-val)
+                             defined))
+                      ("@language"
+                       (cons (modify-result-from-language result ctx-val)
+                             defined))
+                      (_
+                       ;; Notably we aren't passing ctx-ctx-key here because
+                       ;; (I suppose) create-term-definition has the whole context
+                       ;; and so can look it up anyway...
+                       (receive (result defined)
+                           (create-term-definition
+                            result context ctx-key defined)
+                         (cons result defined)))))))
+               (cons result vlist-null) ;; second value here is "defined"
+               context)))
 
-             (loop
-              (build-result)
-              next-contexts remote-contexts))
+           (loop
+            (build-result)
+            next-contexts remote-contexts))
 
-            ;; 3.3: Anything else at this point is an error...
-            (_ (throw 'json-ld-error
-                      #:code "invalid local context"
-                      #:context context)))))))
+          ;; 3.3: Anything else at this point is an error...
+          (_ (throw 'json-ld-error
+                    #:code "invalid local context"
+                    #:context context))))))
+
 
 ;; Algorithm 6.2
 ;; -------------
