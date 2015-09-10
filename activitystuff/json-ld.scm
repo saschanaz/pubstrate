@@ -37,6 +37,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-9 gnu)
+  #:use-module (ice-9 control)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 vlist)
