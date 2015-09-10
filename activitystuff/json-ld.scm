@@ -696,7 +696,7 @@ remaining context information to process from local-context"
                    (let* ((definition
                             (definition-handle-language
                               (definition-handle-container-noreverse definition)))
-                          (active-context (jsmap-cons term definition active-context)))
+                          (active-context (active-context-mapping-cons term definition active-context)))
                      (values active-context (vhash-cons term #t defined)))))))))))))
 
 ;; TODO: We have to redefine *ALL* entries that call iri-expansion
@@ -747,7 +747,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          ((string-index value #\:)
           (let* ((split-string (string-split value #\:))
                  (prefix (car split-string))
-                 (suffix (string-join prefix ":")))
+                 (suffix (string-join (cdr split-string) ":")))
             (if (or (equal? prefix "_")
                     (string-startswith? suffix "//"))
                 ;; It's a blank node or absolute IRI, return!
