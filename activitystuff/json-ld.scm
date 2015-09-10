@@ -122,7 +122,9 @@
 
 
 ;; This is effectively a check to see if something's an asbolute uri anyway...
-(define absolute-uri? string->uri)
+(define (absolute-uri? obj)
+  (and (string? obj)
+       (string->uri obj)))
 
 (define (string-startswith? string start-string)
   "Does STRING start with START-STRING ?"
@@ -850,16 +852,20 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                            "@container")))))
     (define (get-expanded-value return)
       "Get expanded value; return is a prompt to bail out early"
+      ;; 7.4.1, if key is @context, continue to next key
+      (if (equal? key "@context")
+          (return result active-context))
+      ;; otherwise, on to 7.4.3
       (receive (expanded-property active-context)
           (iri-expansion active-context key #:vocab #t)
         (cond
          ;; 7.4... get ready for a doosy
          ((or (eq? #nil expanded-property)
-              (not (string-index expanded-property #\:))
-              (not (keyword? expanded-property)))
+              (not (or (string-index expanded-property #\:)
+                       (json-ld-keyword? expanded-property))))
           ;; carry on to the next key
           (return result active-context))
-         ((keyword? expanded-property)
+         ((json-ld-keyword? expanded-property)
           (if (equal? active-property "@reverse")
               (throw 'json-ld-error
                      #:code "invalid reverse property map"))
@@ -1160,12 +1166,13 @@ Does a multi-value-return of (expanded-iri active-context defined)"
     ;; We don't do the reverse hack here as above because of the
     ;; (admittedly unlikely?) chance that builing up the active-context
     ;; in the other order would be wrong?
+    ;; TODO: except we CAN'T do reverse if this becomes a vhash!
     (let loop ((l (jsmap->sorted-unique-alist jsmap))
                (active-context active-context)
                (result jsmap-nil))
       (match l
         ('()
-         (values (reverse result) active-context))
+         (values result active-context))
         (((key . val) rest ...)
          (receive (result active-context)
              (expand-json-object-pair key val result active-context active-property)
