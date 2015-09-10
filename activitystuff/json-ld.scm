@@ -820,11 +820,13 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                   (throw 'json-error
                          #:code "list of lists"))
 
+              ;; TODO: this seems super wrong
               (match expanded-item
                 ((? json-array? _)
                  (cons (append expanded-item result)
                        active-context))
-                ((? null? _)
+                ;; TODO: Is this right?  Shouldn't we just skip if null?
+                (#nil
                  (cons #nil active-context))
                 (_
                  (cons (cons expanded-item result) active-context))))))))
@@ -905,7 +907,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                   ;; 7.4.6
                   ("@value"
                    (match value
-                     ((? null? _)
+                     (#nil
                       ;; jump out of processing this pair
                       (return (jsmap-cons "@value" #nil result)
                               active-context))
@@ -1264,7 +1266,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
 (define (expand-element active-context active-property element)
   (match element
-    ((? null? _)
+    (#nil
      (values #nil active-context))
     ((? scalar? _)
      (if (member active-property '(#nil "@graph"))
