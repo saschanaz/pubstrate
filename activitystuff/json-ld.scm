@@ -338,13 +338,13 @@ remaining context information to process from local-context"
        ;; we break these out into functions then do the fold.
        (define (modify-result-from-base result base)
          (if (and base
-                  (null? remote-contexts))
+                  (eq? remote-contexts #nil))
              ;; In this case we'll adjusting the result's "@base"
              ;; depending on what this context's @base is
              (match base
                ;; If the @base in this context is null, remove
                ;; whatever current @base is in the result
-               ((? null? _)
+               (#nil
                 ;; Remove base iri from result
                 (set-field result (active-context-base) undefined))
 
@@ -383,7 +383,7 @@ remaining context information to process from local-context"
              result))
 
        (define (modify-result-from-vocab result vocab)
-         (cond ((null? vocab)
+         (cond ((eq? vocab #nil)
                 ;; remove vocabulary mapping from result
                 (set-field result (active-context-vocab) undefined))
                ;; If either an absolute IRI or blank node,
@@ -395,7 +395,7 @@ remaining context information to process from local-context"
                 (throw 'json-ld-error #:code "invalid vocab mapping"))))
 
        (define (modify-result-from-language result language)
-         (cond ((null? language)
+         (cond ((eq? language #nil)
                 ;; remove vocabulary mapping from result
                 (set-field result (active-context-language) undefined))
                ((string? language)
@@ -491,7 +491,7 @@ remaining context information to process from local-context"
         ;; If value is null or a json object with "@id" mapping to null,
         ;; then mark term as defined and set term in
         ;; resulting context to null
-        ((or (null? value)
+        ((or (eq? value #nil)
              (and (jsmap? value)
                   (eq? (jsmap-ref value "@id") #nil)))
          (values
@@ -656,7 +656,7 @@ remaining context information to process from local-context"
                    ;; Make sure language has an appropriate value,
                    ;; set it in the definition
                    (let ((language (cdr value-language)))
-                     (if (not (or (null? language) (string? language)))
+                     (if (not (or (eq? language #nil) (string? language)))
                          (throw 'json-ld-error
                                 #:code "invalid language mapping"))
                      (jsmap-cons "@language" language definition))
