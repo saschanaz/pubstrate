@@ -161,6 +161,10 @@ fold instead of fold-right >:)"
    (jsmap->unique-alist jsmap)
    (lambda (x y) (compare (car x) (car y)))))
 
+;; @@: In a future time maybe we can make jsmap a record
+;;   (it's abstract enough at this point) and memoize
+;;   values like this with delay/force
+
 (define (jsmap-length jsmap)
   "Find the number of pairs in a jsmap
 
