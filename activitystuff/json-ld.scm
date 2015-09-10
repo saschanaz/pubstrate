@@ -1228,7 +1228,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                (let ((set-mapping (jsmap-assoc "@set" result)))
                  (if set-mapping
                      (cdr set-mapping)
-                     result))))))
+                     result))))
+            (else result)))
 
          ;; sec 11
          (define (adjust-result-2 result)
