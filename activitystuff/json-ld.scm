@@ -534,10 +534,10 @@ remaining context information to process from local-context"
                                    #:code "invalid type mapping")))))
            ;; 11.3,
            ;; but also used in more-definition-and-active-context-adjustments
-           (define* (definition-expand-iri definition
+           (define* (definition-expand-iri definition val-to-expand
                       #:optional ensure-not-equal-context)
              (let* ((id-expansion
-                     (iri-expansion active-context (cdr value-reverse)
+                     (iri-expansion active-context val-to-expand
                                     #:document-relative #t #:vocab #f
                                     #:local-context local-context
                                     #:defined defined))
@@ -586,7 +586,8 @@ remaining context information to process from local-context"
                 ((and (jsmap-assoc "@id" value)
                       (not (equal? (jsmap-ref value "@id")
                                    term)))
-                 (values (definition-expand-iri definition #t)
+                 (values (definition-expand-iri
+                           definition (jsmap-ref value "@id") #t)
                          active-context))
                 ;; sec 14
                 ((string-index term #\:)
@@ -678,7 +679,7 @@ remaining context information to process from local-context"
                            ;; 11.4
                            (definition-handle-container-reverse
                              ;; 11.3 goes into here...
-                             (definition-expand-iri definition))))
+                             (definition-expand-iri definition (cdr value-reverse)))))
                         ;; Set term definition of term in active-context to definition
                         (active-context (jsmap-cons term definition active-context)))
                    ;; return active-context and defined with term marked as #t
