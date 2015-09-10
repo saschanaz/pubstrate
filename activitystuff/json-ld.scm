@@ -717,15 +717,14 @@ remaining context information to process from local-context"
 
 Does a multi-value-return of (expanded-iri active-context defined)"
   (define (maybe-update-active-context)
-    (let ((context-matching-value (jsmap-assoc value local-context)))
-      (if (and (not (null? local-context))       ; would jsmap? be better?
-               context-matching-value
-               (not (eq? (cdr context-matching-value)
-                         #t)))
-          ;; Okay, we're updating the context even further...
-          (create-term-definition active-context local-context value defined)
-          ;; nope, return as-is
-          (values active-context defined))))
+    (if (and (not (null? local-context))       ; would jsmap? be better?
+             (jsmap-assoc value local-context)
+             (not (eq? (jsmap-ref local-context value)
+                       #t)))
+        ;; Okay, we're updating the context even further...
+        (create-term-definition active-context local-context value defined)
+        ;; nope, return as-is
+        (values active-context defined)))
 
   (if (or (null? value)
           (json-ld-keyword? value))
