@@ -484,7 +484,7 @@ remaining context information to process from local-context"
            ;; definition for term in active context?  The spec says so,
            ;; but might it just be overridden?
            (active-context
-            (context-mapping-delete term active-context))
+            (active-context-mapping-delete term active-context))
            (value (jsmap-ref local-context term)))
        (cond
         ;; If value is null or a json object with "@id" mapping to null,
@@ -494,7 +494,7 @@ remaining context information to process from local-context"
              (and (jsmap? value)
                   (eq? (jsmap-ref value "@id") #nil)))
          (values
-          (context-mapping-cons term #nil active-context)
+          (active-context-mapping-cons term #nil active-context)
           (vhash-cons term #t defined)))
         ;; otherwise, possibly convert value and continue...
         (else
