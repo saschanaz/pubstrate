@@ -839,7 +839,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
 
 ;; helper method for expand-json-object
-(define (process-pair key value result active-context active-property)
+(define (expand-json-object-pair key value result active-context active-property)
   "Process a KEY VALUE pair, building up from RESULT within ACTIVE-CONTEXT"
   (let* ((term-mapping
           (delay (active-context-mapping-assoc key active-context)))
@@ -1168,7 +1168,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          (values (reverse result) active-context))
         (((key . val) rest ...)
          (receive (result active-context)
-             (process-pair key val result active-context active-property)
+             (expand-json-object-pair key val result active-context active-property)
            (loop rest active-context result))))))
 
   (let* ((jsmap-context (jsmap-assoc "@context" jsmap))
