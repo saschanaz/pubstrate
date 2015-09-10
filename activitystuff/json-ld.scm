@@ -262,9 +262,7 @@ Example:
   "This function builds up a new active-context based on the
 remaining context information to process from local-context"
   (process-context-loop active-context
-                        (if (json-array? local-context)
-                            local-context
-                            (list local-context))
+                        local-context
                         remote-contexts
                         #:deref-context deref-context
                         #:base-iri base-iri))
