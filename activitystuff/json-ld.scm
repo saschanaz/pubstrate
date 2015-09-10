@@ -1155,20 +1155,19 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                      active-context))))))))
 
   (define (build-result active-context)
-    (reverse
-     ;; We don't do the reverse hack here as above because of the
-     ;; (admittedly unlikely?) chance that builing up the active-context
-     ;; in the other order would be wrong?
-     (let loop ((l (jsmap->sorted-unique-alist jsmap))
-                (active-context active-context)
-                (result jsmap-nil))
-       (match l
-         ('()
-          (values result active-context))
-         (((key . val) rest ...)
-          (receive (result active-context)
-              (process-pair key val result active-context)
-            (loop rest active-context result)))))))
+    ;; We don't do the reverse hack here as above because of the
+    ;; (admittedly unlikely?) chance that builing up the active-context
+    ;; in the other order would be wrong?
+    (let loop ((l (jsmap->sorted-unique-alist jsmap))
+               (active-context active-context)
+               (result jsmap-nil))
+      (match l
+        ('()
+         (values (reverse result) active-context))
+        (((key . val) rest ...)
+         (receive (result active-context)
+             (process-pair key val result active-context)
+           (loop rest active-context result))))))
 
   (let* ((jsmap-context (jsmap-assoc "@context" jsmap))
          (active-context
