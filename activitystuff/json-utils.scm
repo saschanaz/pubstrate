@@ -50,7 +50,9 @@
 
             read-json-from-string write-json-to-string
             vhash-ref
-            sjson->vjson vjson->sjson))
+            sjson->vjson vjson->sjson
+
+            pprint-json))
 
 ;; JSON helper procedures
 
