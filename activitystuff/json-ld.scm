@@ -1012,7 +1012,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                        expanded-value))
                      (else result))
                     active-context))))
-            (values
+            (return
              (if (eq? expanded-value #nil)
                  ;; return as-is
                  result
@@ -1110,7 +1110,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          ;; Augh, these 7.9-7.11 sections are frustrating
          ;; continue with line 1927 in jsonld.py
          ;; # convert expanded value to @list if container specifies it
-         
+
          (cond
           ;; 7.9
           ((and (equal? (force container-mapping) "@list")
