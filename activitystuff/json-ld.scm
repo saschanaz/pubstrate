@@ -1019,7 +1019,6 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                  ;; otherwise, set expanded-property member of result
                  ;; to expanded-value
                  (jsmap-cons expanded-property expanded-value result))
-             expanded-property
              active-context)))
 
          ;; 7.5
