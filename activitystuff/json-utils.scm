@@ -1,4 +1,6 @@
 ;; Copyright (C) 2015 Christopher Allan Webber <cwebber@dustycloud.org>
+;; Copyright (C) 2015 Free Software Foundation, Inc.
+;; (Borrows code from David Thompson's json library, submitted to Guile)
 
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -248,3 +250,114 @@ The opposite of sjson->vjson!"
       (anything-else anything-else)))
 
   (convert-json vjson))
+
+
+;;;
+;;; Pretty-printer
+;;;   ... adapted from David Thompson's contrib/json.scm
+;;;
+
+(define* (write-padding indent level port
+                        #:optional opening)
+  "Write (* INDENT LEVEL) level of whitespace to PORT"
+  (if (not (and (or (eq? indent 0) (eq? level 0))
+                opening))
+      (newline port))
+
+  (for-each (lambda _ (display " " port))
+            (iota (* indent level))))
+
+(define (write-string str port)
+  "Write STR to PORT in JSON string format."
+  (define (escape-char char)
+    (display (match char
+               (#\" "\\\"")
+               (#\\ "\\\\")
+               ;; (#\/ "\\/")
+               (#\backspace "\\b")
+               (#\page "\\f")
+               (#\newline "\\n")
+               (#\return "\\r")
+               (#\tab "\\t")
+               (_ char))
+             port))
+
+  (display "\"" port)
+  (string-for-each escape-char str)
+  (display "\"" port))
+
+(define* (pprint-object alist port
+                        #:key (indent 2) (level 0))
+  "Write ALIST to PORT in JSON object format."
+  (define next-level (1+ level))
+
+  ;; Keys may be strings or symbols.
+  (define key->string
+    (match-lambda
+     ((? string? key) key)
+     ((? symbol? key) (symbol->string key))))
+
+  (define (write-pair pair)
+    (match pair
+      ((key . value)
+       (write-padding indent next-level port)
+       (write-string (key->string key) port)
+       (display ": " port)
+       (pprint-json value port
+                    #:indent indent
+                    #:level next-level))))
+
+  (write-padding indent level port #t)
+  (display "{" port)
+  (match alist
+    (() #f)
+    ((front ... end)
+     (for-each (lambda (pair)
+                 (write-pair pair)
+                 (display "," port))
+          front)
+     (write-pair end)))
+  (write-padding indent level port)
+  (display "}" port))
+
+(define* (pprint-array lst port
+                       #:key (indent 2) (level 0))
+  "Write LST to PORT in JSON array format."
+  (define next-level (1+ level))
+
+  (write-padding indent level port #t)
+  (display "[" port)
+  (match lst
+    (() #f)
+    ((front ... end)
+     (for-each (lambda (val)
+                 (write-padding indent next-level port)
+                 (pprint-json val port
+                              #:indent indent
+                              #:level next-level)
+                 (display "," port))
+               front)
+     (pprint-json end port
+                  #:indent indent
+                  #:level next-level)))
+  (write-padding indent level port)
+  (display "]" port))
+
+(define* (pprint-json exp port
+                      #:key (indent 2) (level 0))
+  "Write EXP to PORT in JSON format."
+  (define next-level (1+ level))
+
+  (match exp
+    (#t (display "true" port))
+    (#f (display "false" port))
+    ;; Differentiate #nil from '().
+    ((and (? boolean? ) #nil) (display "null" port))
+    ((? string? s) (write-string s port))
+    ((? real? n) (display n port))
+    (('@ . alist) (pprint-object alist port
+                                 #:indent indent
+                                 #:level level))
+    ((vals ...) (pprint-array vals port
+                              #:indent indent
+                              #:level level))))
