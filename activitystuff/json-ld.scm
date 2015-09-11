@@ -31,6 +31,9 @@
 ;;
 ;; So in the future we might move this into more efficient
 ;; datastructures ;P
+;;
+;; NOTE on the above, moving to vhashes should be very easy now,
+;; just a matter of switching out the jsmap calls in json-utils
 
 (define-module (activitystuff json-ld)
   #:use-module (activitystuff json-utils)
@@ -63,15 +66,14 @@
 ;; processing that context.
 
 (define-immutable-record-type <active-context>
-  (make-active-context base mapping inverse language vocab)
+  (make-active-context base terms inverse language vocab)
   active-context?
   ;; Base URI, if any
   ;;   equiv to "@base" in jsonld.py
   (base active-context-base)
   ;; Term mappings, aka a vhash mapped to a term definition
   ;;   equiv to "mappings" in json-ld.py
-  ;; @@: maybe rename to terms
-  (mapping active-context-mapping)
+  (terms active-context-terms)
   ;; Inverse context I guess?  I don't really know what this is yet
   ;;   equiv to "inverse" in json-ld.py
   (inverse active-context-inverse)
@@ -190,23 +192,23 @@ rathr than #t if true (#f of course if false)"
       (string? obj)))
 
 ;; ... helper func
-(define (active-context-mapping-assoc key active-context)
+(define (active-context-terms-assoc key active-context)
   "Pull key out of a active-context's mapping"
-  (vhash-assoc key (active-context-mapping active-context)))
+  (vhash-assoc key (active-context-terms active-context)))
 
-(define (active-context-mapping-cons key val active-context)
+(define (active-context-terms-cons key val active-context)
   "Assign key to value in a active-context's mapping and return new active-context"
   (set-field
    active-context
-   (active-context-mapping)
+   (active-context-terms)
    (vhash-cons key val
-               (active-context-mapping active-context))))
+               (active-context-terms active-context))))
 
-(define (active-context-mapping-delete key active-context)
+(define (active-context-terms-delete key active-context)
   (set-field
    active-context
-   (active-context-mapping)
-   (vhash-delete key (active-context-mapping active-context))))
+   (active-context-terms)
+   (vhash-delete key (active-context-terms active-context))))
 
 
 
@@ -487,7 +489,7 @@ remaining context information to process from local-context"
            ;; definition for term in active context?  The spec says so,
            ;; but might it just be overridden?
            (active-context
-            (active-context-mapping-delete term active-context))
+            (active-context-terms-delete term active-context))
            (value (jsmap-ref local-context term)))
        (cond
         ;; If value is null or a json object with "@id" mapping to null,
@@ -497,7 +499,7 @@ remaining context information to process from local-context"
              (and (jsmap? value)
                   (eq? (jsmap-ref value "@id") #nil)))
          (values
-          (active-context-mapping-cons term #nil active-context)
+          (active-context-terms-cons term #nil active-context)
           (vhash-cons term #t defined)))
         ;; otherwise, possibly convert value and continue...
         (else
@@ -698,7 +700,7 @@ remaining context information to process from local-context"
                    (let* ((definition
                             (definition-handle-language
                               (definition-handle-container-noreverse definition)))
-                          (active-context (active-context-mapping-cons term definition active-context)))
+                          (active-context (active-context-terms-cons term definition active-context)))
                      (values active-context (vhash-cons term #t defined)))))))))))))
 
 ;; TODO: We have to redefine *ALL* entries that call iri-expansion
@@ -739,9 +741,9 @@ Does a multi-value-return of (expanded-iri active-context defined)"
         (cond
          ;; 3
          ((and (eq? vocab #t)
-               (active-context-mapping-assoc value active-context))
+               (active-context-terms-assoc value active-context))
           (values
-           (jsmap-ref (cdr (active-context-mapping-assoc value active-context)) "@id")
+           (jsmap-ref (cdr (active-context-terms-assoc value active-context)) "@id")
            active-context
            defined))
          ;; 4
@@ -763,7 +765,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                                                 prefix defined)
                         ;; nah leave them as-is
                         (values active-context defined))
-                  (match (active-context-mapping-assoc prefix active-context)
+                  (match (active-context-terms-assoc prefix active-context)
                     ;; We've got a match, which means we're returning
                     ;; the term definition uri for prefix concatenated
                     ;; with the suffix
@@ -808,7 +810,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
           (receive (expanded-item active-context)
               (expand-element active-context active-property item)
             (let ((active-property-term-result
-                   (active-context-mapping-assoc active-property active-context)))
+                   (active-context-terms-assoc active-property active-context)))
               ;; Boo, it's sad that json-ld prevents lists of lists.
               ;; ... but we're doing as the spec says :\
               (if (and (or (equal? active-property "@list")
@@ -844,7 +846,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 (define (expand-json-object-pair key value result active-context active-property)
   "Process a KEY VALUE pair, building up from RESULT within ACTIVE-CONTEXT"
   (let* ((term-mapping
-          (delay (active-context-mapping-assoc key active-context)))
+          (delay (active-context-terms-assoc key active-context)))
          (container-mapping
           (delay
             (if (force term-mapping)
@@ -1162,11 +1164,10 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
 (define (expand-json-object active-context active-property jsmap)
   (define (build-result active-context)
-    ;; We don't do the reverse hack here as above because of the
-    ;; (admittedly unlikely?) chance that builing up the active-context
-    ;; in the other order would be wrong?
-    ;; TODO: except we CAN'T do reverse if this becomes a vhash!
-    (let loop ((l (jsmap->sorted-unique-alist jsmap))
+    ;; Thaere's a (admittedly unlikely?) chance that builing up the
+    ;; active-context this way could result in things being wrong?
+    ;; we're consing in the other direction, so...
+    (let loop ((l (jsmap->sorted-unique-alist jsmap string>?))
                (active-context active-context)
                (result jsmap-nil))
       (match l
@@ -1208,7 +1209,6 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                      ((and (not (string? result-value))
                            (jsmap-assoc "@language" result))
                       (throw 'json-ld-error #:code "invalid typed value"))
-                     ;; TODO: resume here at 8.4
                      ((and (jsmap-assoc "@type" result)
                            (not (absolute-uri? (jsmap-ref result "@type"))))
                       (throw 'json-ld-error #:code "invalid typed value"))
@@ -1317,7 +1317,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 (define (value-expansion active-context active-property value)
   (call/ec
    (lambda (return)
-     (let* ((term-mapping (active-context-mapping-assoc active-property active-context))
+     (let* ((term-mapping (active-context-terms-assoc active-property active-context))
             (type-mapping
              (if term-mapping
                  (jsmap-assoc "@type" (cdr term-mapping))
