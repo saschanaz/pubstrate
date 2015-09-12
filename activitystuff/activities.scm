@@ -26,13 +26,13 @@
             vjson->activity
             string->activity
 
-            activity-valid?
-
             activity?
 
             activity-implicit-contexts
             activity-sjson activity-vjson
             activity-type activity-expanded
+
+            activity-valid?
 
             activity-pprint
             activity-pprint-to-string
