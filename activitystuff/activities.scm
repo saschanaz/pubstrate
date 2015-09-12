@@ -19,7 +19,10 @@
   #:use-module (activitystuff json-utils)
   #:use-module (activitystuff contrib json)
   #:use-module (srfi srfi-9)
-  #:export (update-context))
+  #:export (activity?
+            activity-implicit-contexts
+            activity-get-sjson activity-get-vjson
+            activity-get-expanded))
 
 
 ;; Also todo :)
@@ -29,8 +32,8 @@
 
 (define-record-type <activity>
   (make-activity-internal implicit-contexts
-                          get-type get-sjson get-vjson
-                          get-expanded)
+                          get-sjson get-vjson
+                          get-type get-expanded)
   activity?
   (implicit-contexts activity-implicit-contexts)
   ;; none of the rest of these are exposed to users, they're
@@ -52,26 +55,32 @@
 (define (activity-expanded activity)
   (force (activity-get-expanded activity)))
 
-(define (activity-pretty-print activity #:key (indent 2))
-  (pprint-json (activity-sjson activity)))
+(define* (activity-pretty-print activity port
+                                #:key (indent default-pprint-indent))
+  (pprint-json (activity-sjson activity) port #:indent indent))
 
 (define (common-make-activity implicit-contexts
                               get-sjson get-vjson)
-  ;; TODO ;)
-  (let* ((get-expanded (delay 'todo))
-         (get-type (delay 'todo)))
+  (let ((get-expanded (delay 'todo)))
+    (define (simple-get-type)
+      ;; @@: Should we use (get-vjson) instead?
+      ;;   Ah well it only happens once
+      (assoc-ref (force get-sjson) "@type"))
+    (define get-type
+      ;; TODO: also check get-expanded if simple-get-type is not enough
+      (delay (simple-get-type)))
     (make-activity-internal implicit-contexts
-                            get-type get-sjson get-vjson
-                            get-expanded)))
+                            get-sjson get-vjson
+                            get-type get-expanded)))
 
-(define (vjson->activity vjson
+(define* (vjson->activity vjson
                          #:key
                          (implicit-contexts default-implicit-contexts))
   (let ((get-vjson (delay vjson))
         (get-sjson (delay (sjson->vjson vjson))))
     (common-make-activity implicit-contexts get-vjson get-sjson)))
 
-(define (sjson->activity sjson
+(define* (sjson->activity sjson
                          #:key
                          (implicit-contexts default-implicit-contexts))
   (let ((get-sjson (delay sjson))
