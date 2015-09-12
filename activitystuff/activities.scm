@@ -19,10 +19,11 @@
   #:use-module (activitystuff json-utils)
   #:use-module (activitystuff contrib json)
   #:use-module (srfi srfi-9)
-  #:export (activity?
+  #:export (default-implicit-contexts
+            activity?
             activity-implicit-contexts
-            activity-get-sjson activity-get-vjson
-            activity-get-expanded))
+            activity-sjson activity-vjson
+            activity-type activity-expanded))
 
 
 ;; Also todo :)
@@ -38,26 +39,44 @@
   (implicit-contexts activity-implicit-contexts)
   ;; none of the rest of these are exposed to users, they're
   ;; all promises
-  (get-type activity-get-type)
   (get-sjson activity-get-sjson)
   (get-vjson activity-get-vjson)
+  (get-type activity-get-type activity-get-json-set!)
   (get-expanded activity-get-expanded))
 
 (define (activity-type activity)
+  "Get the ACTIVITY's @type"
   (force (activity-get-type activity)))
 
 (define (activity-sjson activity)
+  "Get the sjson representation of ACTIVITY"
   (force (activity-get-sjson activity)))
 
 (define (activity-vjson activity)
+  "Get the vjson representation of ACTIVITY"
   (force (activity-get-vjson activity)))
 
 (define (activity-expanded activity)
+  "Get the json-ld expanded version of ACTIVITY"
   (force (activity-get-expanded activity)))
 
-(define* (activity-pretty-print activity port
-                                #:key (indent default-pprint-indent))
+(define* (activity-pprint activity port
+                          #:key (indent default-pprint-indent))
+  "Pretty print ACTIVITY to PORT
+
+Optionally takes an INDENT level as a key"
   (pprint-json (activity-sjson activity) port #:indent indent))
+
+(define* (activity-pprint-to-string activity
+                                    #:key (indent default-pprint-indent))
+  "Pretty print ACTIVITY to string"
+  (call-with-output-string
+   (lambda (p) (activity-pprint activity p #:indent indent))))
+
+(define* (pp-activity activity #:optional (indent default-pprint-indent))
+  "Pretty print and display activity"
+  (activity-pprint activity (current-output-port) #:indent indent)
+  (newline))
 
 (define (common-make-activity implicit-contexts
                               get-sjson get-vjson)
@@ -74,19 +93,24 @@
                             get-type get-expanded)))
 
 (define* (vjson->activity vjson
-                         #:key
-                         (implicit-contexts default-implicit-contexts))
+                          #:key
+                          (implicit-contexts default-implicit-contexts))
+  "Take a VJSON object, convert to an <activity>"
   (let ((get-vjson (delay vjson))
-        (get-sjson (delay (sjson->vjson vjson))))
+        (get-sjson (delay (vjson->sjson vjson))))
     (common-make-activity implicit-contexts get-vjson get-sjson)))
 
 (define* (sjson->activity sjson
-                         #:key
-                         (implicit-contexts default-implicit-contexts))
+                          #:key
+                          (implicit-contexts default-implicit-contexts))
+  "Take an SJSON object, convert to an <activity>"
   (let ((get-sjson (delay sjson))
-        (get-vjson (delay (vjson->sjson sjson))))
-    (common-make-activity implicit-contexts get-vjson get-sjson)))
+        (get-vjson (delay (sjson->vjson sjson))))
+    (common-make-activity implicit-contexts get-sjson get-vjson)))
 
+(define* (string->activity string)
+  "Take a STRING, convert to an <activity>"
+  (sjson->activity (read-json-from-string string)))
 
 (define (activity-valid? activity)
   ;; maybe check that @type is valid, and stuff
