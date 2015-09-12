@@ -20,10 +20,23 @@
   #:use-module (activitystuff contrib json)
   #:use-module (srfi srfi-9)
   #:export (default-implicit-contexts
+
+            ;; creation functions
+            sjson->activity
+            vjson->activity
+            string->activity
+
+            activity-valid?
+
             activity?
+
             activity-implicit-contexts
             activity-sjson activity-vjson
-            activity-type activity-expanded))
+            activity-type activity-expanded
+
+            activity-pprint
+            activity-pprint-to-string
+            pp-activity))
 
 
 ;; Also todo :)
