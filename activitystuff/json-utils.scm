@@ -52,6 +52,7 @@
             vhash-ref
             sjson->vjson vjson->sjson
 
+            default-pprint-indent
             pprint-json))
 
 ;; JSON helper procedures
@@ -259,6 +260,8 @@ The opposite of sjson->vjson!"
 ;;;   ... adapted from David Thompson's contrib/json.scm
 ;;;
 
+(define default-pprint-indent 2)
+
 (define* (write-padding indent level port
                         #:optional opening)
   "Write (* INDENT LEVEL) level of whitespace to PORT"
@@ -289,7 +292,7 @@ The opposite of sjson->vjson!"
   (display "\"" port))
 
 (define* (pprint-object alist port
-                        #:key (indent 2) (level 0))
+                        #:key (indent default-pprint-indent) (level 0))
   "Write ALIST to PORT in JSON object format."
   (define next-level (1+ level))
 
@@ -323,7 +326,7 @@ The opposite of sjson->vjson!"
   (display "}" port))
 
 (define* (pprint-array lst port
-                       #:key (indent 2) (level 0))
+                       #:key (indent default-pprint-indent) (level 0))
   "Write LST to PORT in JSON array format."
   (define next-level (1+ level))
 
@@ -346,7 +349,7 @@ The opposite of sjson->vjson!"
   (display "]" port))
 
 (define* (pprint-json exp port
-                      #:key (indent 2) (level 0))
+                      #:key (indent default-pprint-indent) (level 0))
   "Write EXP to PORT in JSON format."
   (define next-level (1+ level))
 
