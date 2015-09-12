@@ -41,16 +41,16 @@
   (get-expanded activity-get-expanded))
 
 (define (activity-type activity)
-  ((activity-get-type activity)))
+  (force (activity-get-type activity)))
 
 (define (activity-sjson activity)
-  ((activity-get-sjson activity)))
+  (force (activity-get-sjson activity)))
 
 (define (activity-vjson activity)
-  ((activity-get-vjson activity)))
+  (force (activity-get-vjson activity)))
 
 (define (activity-expanded activity)
-  ((activity-get-expanded activity)))
+  (force (activity-get-expanded activity)))
 
 (define (activity-pretty-print activity #:key (indent 2))
   (pprint-json (activity-sjson activity)))
