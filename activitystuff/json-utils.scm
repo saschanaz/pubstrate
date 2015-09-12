@@ -342,6 +342,7 @@ The opposite of sjson->vjson!"
                               #:level next-level)
                  (display "," port))
                front)
+     (write-padding indent next-level port)
      (pprint-json end port
                   #:indent indent
                   #:level next-level)))
