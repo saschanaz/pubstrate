@@ -1,0 +1,85 @@
+;; Copyright (C) 2015 Christopher Allan Webber <cwebber@dustycloud.org>
+
+;; This library is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU Lesser General Public
+;; License as published by the Free Software Foundation; either
+;; version 3 of the License, or (at your option) any later version.
+;;
+;; This library is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; Lesser General Public License for more details.
+;;
+;; You should have received a copy of the GNU Lesser General Public
+;; License along with this library; if not, write to the Free Software
+;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+;; 02110-1301 USA
+
+(define-module (activitystuff activities)
+  #:use-module (activitystuff json-utils)
+  #:use-module (activitystuff contrib json)
+  #:use-module (srfi srfi-9)
+  #:export (update-context))
+
+
+;; Also todo :)
+(define activity-context 'todo)
+(define default-implicit-contexts (list activity-context))
+
+
+(define-record-type <activity>
+  (make-activity-internal implicit-contexts
+                          get-type get-sjson get-vjson
+                          get-expanded)
+  activity?
+  (implicit-contexts activity-implicit-contexts)
+  ;; none of the rest of these are exposed to users, they're
+  ;; all promises
+  (get-type activity-get-type)
+  (get-sjson activity-get-sjson)
+  (get-vjson activity-get-vjson)
+  (get-expanded activity-get-expanded))
+
+(define (activity-type activity)
+  ((activity-get-type activity)))
+
+(define (activity-sjson activity)
+  ((activity-get-sjson activity)))
+
+(define (activity-vjson activity)
+  ((activity-get-vjson activity)))
+
+(define (activity-expanded activity)
+  ((activity-get-expanded activity)))
+
+(define (activity-pretty-print activity #:key (indent 2))
+  (pprint-json (activity-sjson activity)))
+
+(define (common-make-activity implicit-contexts
+                              get-sjson get-vjson)
+  ;; TODO ;)
+  (let* ((get-expanded (delay 'todo))
+         (get-type (delay 'todo)))
+    (make-activity-internal implicit-contexts
+                            get-type get-sjson get-vjson
+                            get-expanded)))
+
+(define (vjson->activity vjson
+                         #:key
+                         (implicit-contexts default-implicit-contexts))
+  (let ((get-vjson (delay vjson))
+        (get-sjson (delay (sjson->vjson vjson))))
+    (common-make-activity implicit-contexts get-vjson get-sjson)))
+
+(define (sjson->activity sjson
+                         #:key
+                         (implicit-contexts default-implicit-contexts))
+  (let ((get-sjson (delay sjson))
+        (get-vjson (delay (vjson->sjson sjson))))
+    (common-make-activity implicit-contexts get-vjson get-sjson)))
+
+
+(define (activity-valid? activity)
+  ;; maybe check that @type is valid, and stuff
+  'todo)
+
