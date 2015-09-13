@@ -538,6 +538,7 @@ remaining context information to process from local-context"
                     (_
                      (throw 'json-ld-error
                                    #:code "invalid type mapping")))))
+
            ;; 11.3,
            ;; but also used in more-definition-and-active-context-adjustments
            (define* (definition-expand-iri definition val-to-expand
@@ -863,12 +864,13 @@ Does a multi-value-return of (expanded-iri active-context defined)"
       (receive (expanded-property active-context)
           (iri-expansion active-context key #:vocab #t)
         (cond
-         ;; 7.4... get ready for a doosy
+         ;; 7.3
          ((or (eq? #nil expanded-property)
               (not (or (string-index expanded-property #\:)
                        (json-ld-keyword? expanded-property))))
           ;; carry on to the next key
           (return result active-context))
+         ;; 7.4... get ready for a doosy
          ((json-ld-keyword? expanded-property)
           (if (equal? active-property "@reverse")
               (throw 'json-ld-error
