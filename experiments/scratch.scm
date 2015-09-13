@@ -45,3 +45,17 @@
      \"content\": \"Up for some root beer floats?\"}}")
 
 ;; Convert it back: (json->as-obj json-root-beer-note)
+
+
+(pprint-json (expand (read-json-from-string "{
+  \"@context\": {
+    \"ical\": \"http://www.w3.org/2002/12/cal/ical#\",
+    \"xsd\": \"http://www.w3.org/2001/XMLSchema#\",
+    \"ical:dtstart\": {
+      \"@type\": \"xsd:dateTime\"
+    }
+  },
+  \"ical:summary\": \"Lady Gaga Concert\",
+  \"ical:location\": \"New Orleans Arena, New Orleans, Louisiana, USA\",
+  \"ical:dtstart\": \"2011-04-09T20:00Z\"
+}")) (current-output-port))
