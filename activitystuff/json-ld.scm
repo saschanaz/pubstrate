@@ -211,6 +211,8 @@ rathr than #t if true (#f of course if false)"
    (vhash-delete key (active-context-terms active-context))))
 
 
+;; @@: We may not need these two next macros...
+;;  remove soon if not used
 
 (define-syntax-rule (chain-value-calls proc1 proc2 ...)
   "Chain procedures which accept and multi-value-return the
