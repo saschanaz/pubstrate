@@ -712,7 +712,7 @@ remaining context information to process from local-context"
 ;;   ... maybe a good time to refactor the end of (create-term-definition)
 ;;   to be a bit more compose-y
 
-;; Algorithm 6.1
+;; Algorithm 6.3
 (define* (iri-expansion active-context value
                         #:key
                         (document-relative #f) (vocab #f)
