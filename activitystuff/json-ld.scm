@@ -124,6 +124,8 @@
 
 
 ;; This is effectively a check to see if something's an asbolute uri anyway...
+;; TODO: in pyld this is much simpler, basically just (string-index obj #:\)
+;;       ... is that good enough for us too?  Would be faster...
 (define (absolute-uri? obj)
   (and (string? obj)
        (string->uri obj)))
@@ -511,200 +513,208 @@ remaining context information to process from local-context"
                               value)
                              (else
                               (throw 'json-ld-error
-                                     #:code "invalid term definition"))))
-                (value-reverse (jsmap-assoc "@reverse" value))
-                ;; Initialize definition, and maybe add @type to it
-                (value-type (jsmap-assoc "@type" value))
-                ;; We'll expand on this definition below,
-                ;; but might as well handle the "@type" stuff now
-                ;; @@: we could refactor here and use the commented out
-                ;;   term-definition...
-                (definition 
-                  (match value-type
-                    ;; Start out with an empty definition if no @type
-                    (#f jsmap-nil)
-                    ;; Otherwise, if it's a string
-                    (("@type" . (? string? type))
-                     ;; @@: alist->jsmap would be more readable but mildly
-                     ;;   less efficient here and elsewhere.  Does it matter?
-                     (jsmap-cons "@type"
-                                 (iri-expansion active-context type
-                                                #:document-relative #t
-                                                #:vocab #f
-                                                #:local-context local-context
-                                                #:defined defined)
-                                 jsmap-nil))
-                    ;; Otherwise, that's an error :(
-                    (_
-                     (throw 'json-ld-error
-                                   #:code "invalid type mapping")))))
-
-           ;; 11.3,
-           ;; but also used in more-definition-and-active-context-adjustments
-           (define* (definition-expand-iri definition val-to-expand
-                      #:optional ensure-not-equal-context)
-             (let* ((id-expansion
-                     (iri-expansion active-context val-to-expand
-                                    #:document-relative #t #:vocab #f
-                                    #:local-context local-context
-                                    #:defined defined))
-                    (new-definition
-                     (jsmap-cons "@id" id-expansion definition)))
-               (if (not (or (absolute-uri? id-expansion)
-                            (blank-node? id-expansion)))
-                   ;; Uhoh
+                                     #:code "invalid term definition")))))
+           (call/ec
+            (lambda (return)
+              (define (definition-handle-type definition active-context defined)
+                (match (jsmap-assoc "@type" value)
+                  ;; no match, return definition as-is
+                  (#f (values definition active-context defined))
+                  ;; type value must be a string
+                  ((_ . (? string? type-prop))
+                   (receive (expanded-iri active-context)
+                       (iri-expansion active-context type-prop
+                                      #:vocab #t
+                                      #:document-relative #f
+                                      #:local-context local-context
+                                      #:defined defined)
+                     (values
+                      (jsmap-cons "@type"
+                                  expanded-iri
+                                  definition)
+                      active-context defined)))
+                  ;; Otherwise, it's an error!
+                  (_
                    (throw 'json-ld-error
-                          #:code "invalid IRI mapping"))
-               (if (and ensure-not-equal-context
-                        (equal? id-expansion "@context"))
-                   ;; also uhoh
+                          #:code "invalid type mapping"))))
+
+              ;; sec 11
+              (define (definition-handle-reverse definition active-context defined)
+                (match (jsmap-assoc "@reverse" value)
+                  ;; no match, carry on!
+                  (#f (values definition active-context defined))
+                  ;; value must be a string
+                  ((_ . (? string? reverse-prop))
+                   (if (jsmap-assoc "@id" value)
+                       (throw 'json-ld-error
+                              #:code "invalid reverse property"))
+
+                   (receive (expanded-iri active-context)
+                       (iri-expansion active-context reverse-prop
+                                      #:vocab #t #:document-relative #f
+                                      #:local-context local-context
+                                      #:defined defined)
+                     (if (not (string-index expanded-iri #\:))
+                         ;; Uhoh
+                         (throw 'json-ld-error
+                                #:code "invalid IRI mapping"))
+
+                     (let ((definition
+                             (jsmap-cons
+                              "reverse" #t
+                              ;; 11.4
+                              (%definition-handle-container-reverse
+                                definition))))
+                       ;; return early with new active context
+                       ;; w/ term definition and defined
+                       (return
+                        (active-context-terms-cons
+                         term definition active-context)
+                        (vhash-cons term #t defined)))))
+                  (_
                    (throw 'json-ld-error
-                          #:code "invalid keyword alias"))
-               ;; oh okay!
-               new-definition))
+                          #:code "invalid IRI mapping"))))
 
-           (define (definition-handle-container-reverse definition)
-             ;; 11.4
-             (match (jsmap-assoc "@container" value)
-               ;; just return original efinition if no @container
-               (#f definition)
-               ;; Otherwise make sure it's @set or @index or @nil
-               ;; and set @container to this
-               ((_ . (? (cut member <> '("@set" "@index" #nil)) container))
-                (jsmap-cons "@container" container definition))
-               ;; Uhoh, looks like that wasn't valid...
-               (_
-                (throw 'json-ld-error
-                                #:code "invalid reverse property"))))
+              ;; Helper method for 11
+              (define (%definition-handle-container-reverse definition)
+                ;; 11.4
+                (match (jsmap-assoc "@container" value)
+                  ;; just return original efinition if no @container
+                  (#f definition)
+                  ;; Otherwise make sure it's @set or @index or @nil
+                  ;; and set @container to this
+                  ((_ . (? (cut member <> '("@set" "@index" #nil)) container))
+                   (jsmap-cons "@container" container definition))
+                  ;; Uhoh, looks like that wasn't valid...
+                  (_
+                   (throw 'json-ld-error
+                          #:code "invalid reverse property"))))
 
-           ;; This one is an adjustment deluxe, it does a significant
-           ;; amount of adjustments to the definition and builds
-           ;; up an active context to be used as well.
-           ;; @@: I wish I had a better name for this.
-           (define (more-definition-and-active-context-adjustments
-                    definition active-context)
-             (let ((definition
-                     (jsmap-cons "reverse" #f definition)))
-               (define (set-iri-mapping-of-def-to-term)
-                 (values (jsmap-cons "@id" term definition)
-                         active-context))
-               (cond
-                ;; sec 13
-                ((and (jsmap-assoc "@id" value)
-                      (not (equal? (jsmap-ref value "@id")
-                                   term)))
-                 (values (definition-expand-iri
-                           definition (jsmap-ref value "@id") #t)
-                         active-context))
-                ;; sec 14
-                ((string-index term #\:)
-                 ;; we cop out and go this route enough so
-                 (if (or (absolute-uri? term)
-                         (blank-node? term))
-                     ;; set iri mapping of definition to term
-                     (set-iri-mapping-of-def-to-term)
-                     ;; otherwise, we've entered compact uri territory
-                     ;; we'll recurse into this function to build up
-                     ;; a new active context
-                     (match (string-split term #\:)
-                       ((prefix suffix-list ...)
-                        (receive (active-context defined)
-                            (create-term-definition
-                             active-context local-context
-                             prefix defined)
-                          (let ((prefix-in-context
-                                 (jsmap-assoc prefix active-context)))
-                            (if prefix-in-context
-                                (values (jsmap-cons
-                                         "@id"
-                                         (string-append
-                                          (jsmap-ref (cdr prefix-in-context) "@id")
-                                          (string-join suffix-list ":"))
-                                         definition))
-                                ;; okay, yeah, it's set-iri-mapping-of-def-to-term
-                                ;; but we want to return the new active-context
-                                (values (jsmap-cons "@id" term definition)
-                                        active-context)))))
-                       (_
-                        ;; we originally threw an error, but meh...
-                        ;; anyway, must not have been a compact uri after all...
-                        (set-iri-mapping-of-def-to-term)))))
+              ;; 12
+              (define (definition-set-reverse-to-false definition active-context defined)
+                (values (jsmap-cons "reverse" #f definition) active-context defined))
 
-                ;; sec 15
-                ((jsmap-assoc "@vocab" active-context)
-                 (values (jsmap-cons
-                          "@id"
-                          (string-append
-                           (jsmap-ref active-context "@vocab")
-                           term) definition)
-                         active-context))
+              ;; This one is an adjustment deluxe, it does a significant
+              ;; amount of adjustments to the definition and builds
+              ;; up an active context to be used as well.
+              ;; @@: I wish I had a better name for this.
+              (define (more-definition-adjustments
+                       definition active-context defined)
+                (cond
+                 ;; sec 13
+                 ((and (jsmap-assoc "@id" value)
+                       (not (equal? (jsmap-ref value "@id")
+                                    term)))
+                  (let ((id-val (jsmap-ref value "@id")))
+                    (if (not (string? id-val))
+                        (throw 'json-ld-error
+                               #:code "invalid IRI mapping"))
 
-                (else
-                 (throw 'json-ld-error
-                        #:code "invalid IRI mapping")))))
+                    (receive (expanded-iri active-context)
+                        (iri-expansion active-context id-val
+                                       #:vocab #t #:document-relative #f
+                                       #:local-context local-context
+                                       #:defined defined)
+                      (if (not (or (keyword? expanded-iri)
+                                   (absolute-uri? expanded-iri)
+                                   (blank-node? expanded-iri)))
+                          (throw 'json-ld-error
+                                 #:code "invalid IRI mapping"))
+                      (if (equal? expanded-iri "@context")
+                          (throw 'json-ld-error
+                                 #:code "invalid keyword alias"))
 
-           (define (definition-handle-container-noreverse definition)
-             (let ((value-container (jsmap-assoc "@container" value)))
-               (if value-container
-                   ;; Make sure container has an appropriate value,
-                   ;; set it in the definition
-                   (let ((container (cdr value-container)))
-                     (if (not (member container '("@list" "@set"
-                                                  "@index" "@language")))
-                         (throw 'json-ld-error
-                                #:code "invalid container mapping"))
-                     (jsmap-cons "@container" container definition))
-                   ;; otherwise, no adjustment needed apparently
-                   definition)))
+                      ;; otherwise, onwards and upwards
+                      (values (jsmap-cons "@id" expanded-iri definition)
+                              active-context defined))))
 
-           (define (definition-handle-language definition)
-             (let ((value-language (jsmap-assoc "@language" value)))
-               (if value-language
-                   ;; Make sure language has an appropriate value,
-                   ;; set it in the definition
-                   (let ((language (cdr value-language)))
-                     (if (not (or (eq? language #nil) (string? language)))
-                         (throw 'json-ld-error
-                                #:code "invalid language mapping"))
-                     (jsmap-cons "@language" language definition))
-                   ;; otherwise, no adjustment needed apparently
-                   definition)))
+                 ;; sec 14
+                 ((string-index term #\:)
+                  ;; Check for compact iri
+                  (match (string-split term #\:)
+                    ((prefix suffix-list ...)
+                     (receive (active-context defined)
+                         ;; see if we should update the context...
+                         (if (jsmap-assoc term local-context)
+                             ;; It's in the local context...
+                             ;; so we should update the active context so we can
+                             ;; match against it!
+                             (create-term-definition
+                              active-context local-context
+                              prefix defined)
+                             ;; oh okay don't update in that case
+                             (values active-context defined))
+                       (let ((prefix-in-context
+                              (active-context-terms-assoc prefix active-context)))
+                         (if prefix-in-context
+                             (values (jsmap-cons
+                                      "@id"
+                                      (string-append
+                                       (jsmap-ref (cdr prefix-in-context) "@id")
+                                       (string-join suffix-list ":"))
+                                      definition)
+                                     active-context defined)
+                             ;; okay, yeah, it's set-iri-mapping-of-def-to-term
+                             ;; but we want to return the new active-context
+                             (values (jsmap-cons "@id" term definition)
+                                     active-context defined)))))))
 
-           (if value-reverse
-               (begin
-                 (if (jsmap-assoc "@id" value)
-                     (throw 'json-ld-error
-                            #:code "invalid reverse property"))
-                 (if (not (string? (cdr value-reverse)))
-                     (throw 'json-ld-error
-                            #:code "invalid IRI mapping"))
+                 ;; sec 15
+                 ((jsmap-assoc "@vocab" active-context)
+                  (values (jsmap-cons "@id"
+                                      (string-append
+                                       (jsmap-ref active-context "@vocab")
+                                       term)
+                           definition)
+                          active-context defined))
 
-                 (let* ((definition
-                          ;; 11.5, set the definition's reverse property to true
-                          (jsmap-cons
-                           "reverse" #t
-                           ;; 11.4
-                           (definition-handle-container-reverse
-                             ;; 11.3 goes into here...
-                             (definition-expand-iri definition (cdr value-reverse)))))
-                        ;; Set term definition of term in active-context to definition
-                        (active-context (jsmap-cons term definition active-context)))
-                   ;; return active-context and defined with term marked as #t
-                   (values active-context (vhash-cons term #t defined))))
-               (begin
-                 ;; naming things is hard, especially when you're implementing
-                 ;; the json-ld api
-                 ;; Anyway this does a multi-value return of definition
-                 ;; and active-context, adjusted as need be
-                 (receive (definition active-context)
-                     (more-definition-and-active-context-adjustments
-                      definition active-context)
-                   ;; TODO: resume at 16 here
-                   (let* ((definition
-                            (definition-handle-language
-                              (definition-handle-container-noreverse definition)))
-                          (active-context (active-context-terms-cons term definition active-context)))
-                     (values active-context (vhash-cons term #t defined)))))))))))))
+                 (else
+                  (throw 'json-ld-error
+                         #:code "invalid IRI mapping"))))
+
+              ;; 16
+              (define (definition-handle-container definition active-context defined)
+                (let ((value-container (jsmap-assoc "@container" value)))
+                  (if value-container
+                      ;; Make sure container has an appropriate value,
+                      ;; set it in the definition
+                      (let ((container (cdr value-container)))
+                        (if (not (member container '("@list" "@set"
+                                                     "@index" "@language")))
+                            (throw 'json-ld-error
+                                   #:code "invalid container mapping"))
+                        (values (jsmap-cons "@container" container definition)
+                                active-context defined))
+                      ;; otherwise, no adjustment needed apparently
+                      (values definition active-context defined))))
+
+              ;; 17
+              (define (definition-handle-language definition active-context defined)
+                (let ((value-language (jsmap-assoc "@language" value)))
+                  (if value-language
+                      ;; Make sure language has an appropriate value,
+                      ;; set it in the definition
+                      (let ((language (cdr value-language)))
+                        (if (not (or (eq? language #nil) (string? language)))
+                            (throw 'json-ld-error
+                                   #:code "invalid language mapping"))
+                        (values (jsmap-cons "@language" language definition)
+                                active-context defined))
+                      ;; otherwise, no adjustment needed apparently
+                      (values definition active-context defined))))
+
+              (receive (definition active-context defined)
+                  ((compose-forward definition-handle-type
+                                    ;; might return early on this one
+                                    definition-handle-reverse
+                                    ;; If we got this far, we didn't return early
+                                    definition-set-reverse-to-false
+                                    more-definition-adjustments
+                                    definition-handle-container
+                                    definition-handle-language)
+                   jsmap-nil active-context defined)
+                (values (active-context-terms-cons term definition active-context)
+                        (vhash-cons term #t defined))))))))))))
 
 ;; TODO: We have to redefine *ALL* entries that call iri-expansion
 ;;   to accept multiple value binding where the second value is defined
