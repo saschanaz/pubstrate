@@ -131,6 +131,8 @@ json-alist as well as the previous value"
 (define jsmap-fold json-alist-fold)
 (define jsmap->alist json-alist->alist)
 (define alist->jsmap alist->json-alist)
+(define json-array? sjson-array?)
+
 (define (jsmap-fold-unique proc init jsmap)
   "Like jsmap-fold, but skip keys that we've already seen"
   ;; Uses mutation under the hood, but still
@@ -147,9 +149,36 @@ json-alist as well as the previous value"
              (proc key val prev))))
      init jsmap)))
 
-(define json-array? sjson-array?)
 
 (define vjson-array? list?)
+
+;; This just makes my life slightly easier
+(define (vhash-ref vhash key)
+  "Like assoc-ref but for a vhash"
+  (cdr (vhash-assoc key vhash)))
+
+;; TODO (define (vhash-map))
+
+;; -- vhash edition --
+
+;; (define (jsmap? obj)
+;;   (or (eq? vlist-null obj)
+;;       (vhash? obj)))
+
+;; (define (jsmap-null? obj)
+;;   (and (vlist? obj) (vlist-null? obj)))
+
+;; (define jsmap-nil vlist-null)
+;; (define jsmap-assoc vhash-assoc)
+;; (define jsmap-ref vhash-ref)
+;; (define jsmap-cons vhash-cons)
+;; (define jsmap-delete vhash-delete)
+;; ;; (define jsmap-map vhash-map)
+;; (define jsmap->alist vlist->list)
+;; (define alist->jsmap alist->vhash)
+;; (define json-array? list?)
+
+;; -- end vhash edition --
 
 (define (jsmap->unique-alist jsmap)
   "Return an alist with only unique key-value pairs"
@@ -188,12 +217,6 @@ This is O(n) (twice over!) so beware"
   (call-with-output-string
    (lambda (p)
      (write-json exp p))))
-
-
-;; This just makes my life slightly easier
-(define (vhash-ref vhash key)
-  "Like assoc-ref but for a vhash"
-  (cdr (vhash-assoc key vhash)))
 
 
 ;; Conversion funcs
