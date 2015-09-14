@@ -125,10 +125,15 @@
 
 ;; This is effectively a check to see if something's an asbolute uri anyway...
 ;; TODO: in pyld this is much simpler, basically just (string-index obj #:\)
-;;       ... is that good enough for us too?  Would be faster...
-(define (absolute-uri? obj)
+;;       ... is that good enough for us too?  It speeds up our implementation to
+;;       about 25% faster faster...
+;;       so maybe change the default...
+(define* (absolute-uri? obj #:key (sloppy #f))
+  "Check if OBJ is a uri or not."
   (and (string? obj)
-       (string->uri obj)))
+       (if sloppy
+           (string-index obj #\:)
+           (string->uri obj))))
 
 (define (string-startswith? string start-string)
   "Does STRING start with START-STRING ?"
