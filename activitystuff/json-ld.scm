@@ -1246,9 +1246,9 @@ Does a multi-value-return of (expanded-iri active-context defined)"
              ;; @@: Hacky
              (let* ((num-members (jsmap-length result)))
                ;; 10.1
-               (if (not (or (eq? num-members 1)
+               (if (not (or (eqv? num-members 1)
                             (and (jsmap-assoc "@index" result)
-                                 (eq? num-members 2))))
+                                 (eqv? num-members 2))))
                    (throw 'json-ld-error #:code "invalid set or list object"))
 
                ;; 10.2
@@ -1261,7 +1261,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          ;; sec 11
          (define (adjust-result-2 result)
            (if (and (jsmap-assoc "@language" result)
-                    (eq? (jsmap-length result) 1))
+                    (eqv? (jsmap-length result) 1))
                (return #nil active-context)
                result))
 
@@ -1270,7 +1270,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
            ;; Graph adjustments...
            (if (member active-property '(#nil "@graph"))
                ;; drop free-floating values
-               (cond ((or (eq? (jsmap-length result) 0)
+               (cond ((or (eqv? (jsmap-length result) 0)
                           (jsmap-assoc "@value" result)
                           (jsmap-assoc "@list" result))
                       (return #nil active-context))
@@ -1278,7 +1278,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                      ;;   I think the only other thing result becomes is #nil
                      ;;   and we return it explicitly in such a case
                      ((and (jsmap-assoc "@id" result)
-                           (eq? 1 (jsmap-length result)))
+                           (eqv? 1 (jsmap-length result)))
                       (return #nil active-context))
 
                      (else result))
@@ -1315,7 +1315,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
     ;; final other than arrayify that is!
     (define (final-adjustments expanded-result)
       (cond ((and (jsmap? expanded-result)
-                 (eq? 1 (jsmap-length expanded-result))
+                 (eqv? 1 (jsmap-length expanded-result))
                  (jsmap-assoc "@graph" expanded-result))
             (jsmap-ref "@graph" expanded-result))
            ((eq? expanded-result #nil)
