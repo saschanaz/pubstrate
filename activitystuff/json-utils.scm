@@ -293,7 +293,7 @@ The opposite of sjson->vjson!"
 (define* (write-padding indent level port
                         #:optional opening)
   "Write (* INDENT LEVEL) level of whitespace to PORT"
-  (if (not (and (or (eq? indent 0) (eq? level 0))
+  (if (not (and (or (eqv? indent 0) (eqv? level 0))
                 opening))
       (newline port))
 
