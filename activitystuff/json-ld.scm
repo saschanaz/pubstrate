@@ -527,7 +527,7 @@ remaining context information to process from local-context"
                   (#f (values definition active-context defined))
                   ;; type value must be a string
                   ((_ . (? string? type-prop))
-                   (receive (expanded-iri active-context)
+                   (receive (expanded-iri active-context defined)
                        (iri-expansion active-context type-prop
                                       #:vocab #t
                                       #:document-relative #f
@@ -615,7 +615,7 @@ remaining context information to process from local-context"
                         (throw 'json-ld-error
                                #:code "invalid IRI mapping"))
 
-                    (receive (expanded-iri active-context)
+                    (receive (expanded-iri active-context defined)
                         (iri-expansion active-context id-val
                                        #:vocab #t #:document-relative #f
                                        #:local-context local-context
