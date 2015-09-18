@@ -876,7 +876,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
       (if (equal? key "@context")
           (return result active-context))
       ;; otherwise, on to 7.4.3
-      (receive (expanded-property active-context)
+      (receive (expanded-property active-context defined)
           (iri-expansion active-context key #:vocab #t)
         (cond
          ;; 7.3
