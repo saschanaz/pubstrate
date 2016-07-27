@@ -31,15 +31,16 @@
   (inherits-promise asobj-inherits-promise set-asobj-inherits-promise!))
 
 
+;; @@: maybe have env be a kwarg?  Maybe use some kind of default-env?
 (define (make-asobj sjson env)
-  (let ((asobj
-         (make-asobj-intern sjson env))
-        (types-promise
-         (delay (asobj-calculate-types asobj)))
-        (expanded-promise
-         (delay (asobj-calculate-expanded asobj)))
-        (inherits-promise
-         (delay (asobj-calculate-inherits asobj))))
+  (let* ((asobj
+          (make-asobj-intern sjson env))
+         (types-promise
+          (delay (asobj-calculate-types asobj)))
+         (expanded-promise
+          (delay (asobj-calculate-expanded asobj)))
+         (inherits-promise
+          (delay (asobj-calculate-inherits asobj))))
     ;; set promises
     (set-asobj-types-promise! asobj types-promise)
     (set-asobj-expanded-promise! asobj expanded-promise)
@@ -97,3 +98,38 @@ Field can be a string for a top-level field "
 
 (define (asobj-from-json-string json-string env)
   'TODO)
+
+
+
+;;; ============
+;;; The <astype>
+;;; ============
+
+;; A @type than an ActivityStreams object might take on.
+(define-record-type <astype>
+  (make-astype-internal
+   id-uri parents id-short notes)
+  astype?
+  (id-uri astype-id-uri)
+  (parents astype-parents)
+  (id-short astype-id-short)
+  (notes astype-notes)
+  
+  (inheritance-promise astype-inheritance-promise
+                       set-astype-inheritance-promise!))
+
+(define* (make-astype id-uri parents
+                      #:key id-short notes)
+  (let* ((astype (make-astype-internal
+                  id-uri parents id-short notes))
+         (inheritance-promise
+          (delay (astype-calculate-inheritance astype))))
+    (set-astype-inheritance-promise! astype inheritance-promise)
+    astype))
+
+(define (astype-calculate-inheritance astype)
+  'TODO)
+
+;;; User exposed methods
+(define (astype-inheritance astype)
+  (force (astype-inheritance-promise astype)))
