@@ -46,6 +46,8 @@
 
 ;; Convert it back: (json->as-obj json-root-beer-note)
 
+(define sjson-root-beer-note
+  (read-json-from-string json-root-beer-note))
 
 (pprint-json (expand (read-json-from-string "{
   \"@context\": {
