@@ -32,8 +32,9 @@
 ;; So in the future we might move this into more efficient
 ;; datastructures ;P
 ;;
-;; NOTE on the above, moving to vhashes should be very easy now,
+;; NOTE: moving to vhashes should be very easy now,
 ;; just a matter of switching out the jsmap calls in json-utils
+;; NOTE: There's also a fashes branch we could explore
 
 (define-module (activitystuff json-ld)
   #:use-module (activitystuff json-utils)
