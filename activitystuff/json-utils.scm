@@ -338,9 +338,10 @@ The opposite of sjson->vjson!"
        (display ": " port)
        (pprint-json value port
                     #:indent indent
-                    #:level next-level))))
+                    #:level next-level
+                    #:print-newline #f))))
 
-  (write-padding indent level port #t)
+  ;; (write-padding indent level port #f)
   (display "{" port)
   (match alist
     (() #f)
@@ -358,7 +359,7 @@ The opposite of sjson->vjson!"
   "Write LST to PORT in JSON array format."
   (define next-level (1+ level))
 
-  (write-padding indent level port #t)
+  ;; (write-padding indent level port #t)
   (display "[" port)
   (match lst
     (() #f)
@@ -367,18 +368,23 @@ The opposite of sjson->vjson!"
                  (write-padding indent next-level port)
                  (pprint-json val port
                               #:indent indent
-                              #:level next-level)
+                              #:level next-level
+                              #:print-newline #f)
                  (display "," port))
                front)
      (write-padding indent next-level port)
      (pprint-json end port
                   #:indent indent
-                  #:level next-level)))
+                  #:level next-level
+                  #:print-newline #f)))
   (write-padding indent level port)
   (display "]" port))
 
 (define* (pprint-json exp port
-                      #:key (indent default-pprint-indent) (level 0))
+                      #:key
+                      (indent default-pprint-indent)
+                      (level 0)
+                      (print-newline #t))
   "Write EXP to PORT in JSON format."
   (define next-level (1+ level))
 
@@ -394,4 +400,7 @@ The opposite of sjson->vjson!"
                                  #:level level))
     ((vals ...) (pprint-array vals port
                               #:indent indent
-                              #:level level))))
+                              #:level level)))
+
+  (if print-newline
+      (newline port)))
