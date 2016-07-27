@@ -133,3 +133,23 @@ Field can be a string for a top-level field "
 ;;; User exposed methods
 (define (astype-inheritance astype)
   (force (astype-inheritance-promise astype)))
+
+
+
+;;; =======================
+;;; The <asenv> environment
+;;; =======================
+
+(define-record-type <asenv>
+  (make-asenv-intern
+   implied-context vocabs methods shortids
+   extra-context document-loader uri-map)
+  asenv?
+
+  (implied-context asenv-implied-context)
+  (vocabs asenv-vocabs)
+  (methods asenv-methods)
+  (shortids asenv-shortids)
+  (extra-context asenv-extra-context)
+  (document-loader asenv-document-loader)
+  (uri-map asenv-uri-map))
