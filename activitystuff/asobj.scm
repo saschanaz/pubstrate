@@ -9,6 +9,7 @@
             asobj-sjson asobj-env
 
             asobj-types asobj-expanded asobj-inherits
+            asobj-id
 
             asobj-get asobj-set-field
             asobj-from-sjson
@@ -89,6 +90,17 @@
 (define (asobj-calculate-inherits asobj)
   'TODO)
 
+(define (asobj-id asobj)
+  (match (or (asobj-assoc "@id" asobj)
+             (asobj-assoc "id" asobj))
+    ((_ . val)
+     val)
+    (#f #f)))
+
+(define (asobj-assoc key asobj)
+  "Pull the value out of ASOBJ that matches KEY"
+  (jsmap-assoc key (asobj-sjson asobj)))
+
 ;; User exposed methods
 (define (asobj-types asobj)
   (force (asobj-types-promise asobj)))
@@ -104,7 +116,7 @@
   'TODO)
 
 (define (asobj-set-field asobj field value)
-  "Return a new asobj with `field' set to `value'
+  "Return a new asobj with FIELD set to VALUE.
 Field can be a string for a top-level field "
   'TODO)
 
