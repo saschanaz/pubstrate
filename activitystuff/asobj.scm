@@ -47,8 +47,15 @@
 
 (set-record-type-printer!
  <asobj>
- (lambda (record port)
-   (display "#<asobj>" port)))
+ (lambda (asobj port)
+   (format port "#<asobj [~a] ~s>"
+           (string-join
+            (map (lambda (type)
+                   (or (astype-short-id type)
+                       (astype-uri type)))
+                 (asobj-types asobj))
+            ", ")
+           (asobj-id asobj))))
 
 ;; @@: maybe have env be a kwarg?  Maybe use some kind of default-env?
 (define (make-asobj sjson env)
@@ -185,10 +192,12 @@ Field can be a string for a top-level field "
 (set-record-type-printer!
  <astype>
  (lambda (astype port)
-   (format port "<astype ~s>"
-           (cond
-            ((astype-short-id astype) => identity)
-            (else (astype-uri astype))))))
+   (cond
+    ((astype-short-id astype) =>
+     (lambda (short-id)
+       (format port "#<astype ~a>" short-id)))
+    (else (format port "#<astype ~s>"
+                  (astype-uri astype))))))
 
 (define* (make-astype id-uri parents
                       #:optional short-id notes)
