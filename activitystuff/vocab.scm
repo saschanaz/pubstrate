@@ -17,7 +17,7 @@
             $Page $Question $Event $Place $Mention
             $Profile
 
-            *core-vocab* *basic-env))
+            *core-vocab* *basic-env*))
 
 
 (define (as-uri identifier)
