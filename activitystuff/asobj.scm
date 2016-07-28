@@ -1,6 +1,8 @@
 (define-module (activitystuff asobj)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-9 gnu)
+  #:use-module (ice-9 control)
   #:use-module (ice-9 match)
   #:use-module (activitystuff contrib json)
   #:use-module (activitystuff json-utils)
@@ -37,7 +39,7 @@
   (make-asobj-intern sjson env)
   asobj?
   (sjson asobj-sjson)
-  (env sjson-env)
+  (env asobj-env)
   (types-promise asobj-types-promise set-asobj-types-promise!)
   (expanded-promise asobj-expanded-promise set-asobj-expanded-promise!)
   (inherits-promise asobj-inherits-promise set-asobj-inherits-promise!))
@@ -67,22 +69,49 @@
 
 ;; Where we actually calculate these things
 (define (asobj-calculate-types asobj)
-  (let* ((sjson
-          (asobj-sjson asobj))
-         (types-from-sjson
-          (or (json-alist-assoc "@type" sjson)
-              (json-alist-assoc "type" sjson)
-              ;; @@: Should this be '("Object") ?
-              '()))
+  (let* ((types-from-sjson
+          (asobj-type-field asobj))
          (types-as-list
           (match types-from-sjson
             ((? string? _)
              (list types-from-sjson))
             (((? string? _) ...)
-             types-from-sjson))))
-    ;; Here's where you turn into list of <astype>s
-    ;; (and strings if unknown?)
-    'TODO))
+             types-from-sjson)
+            (#f '())))
+         (env (asobj-env asobj)))
+    
+    (define (try-type-without-expanding)
+      ;; Here's where you turn into list of <astype>s
+      ;; (and strings if unknown?)
+      (call/ec
+       (lambda (return)
+         (fold
+          (lambda (type-str prev)
+            (cond
+             ;; Try looking up by short id
+             ((asenv-type-by-short-id env type-str) =>
+              (lambda (astype)
+                (cons astype prev)))
+             ;; Try looking up by URI
+             ((asenv-type-by-uri env type-str) =>
+              (lambda (astype)
+                (cons astype prev)))
+             ;; Try expanded, which means breaking out of this...
+             (else
+              ;; TODO: Add expanding... but make it optional, depending
+              ;;   on an object set in the <asenv>.
+              ;; So eventually:
+              ;;   (call/ec '*gotta-expand*)
+              ;; For now though, just fold forward without this one
+              prev)))
+          '()
+          types-as-list))))
+
+    ;; Not used... yet!
+    (define (try-expanding)
+      'TODO)
+
+    (try-type-without-expanding)))
 
 (define (asobj-calculate-expanded asobj)
   'TODO)
@@ -91,8 +120,15 @@
   'TODO)
 
 (define (asobj-id asobj)
-  (match (or (asobj-assoc "@id" asobj)
-             (asobj-assoc "id" asobj))
+  (match (or (asobj-assoc "id" asobj)
+             (asobj-assoc "@id" asobj))
+    ((_ . val)
+     val)
+    (#f #f)))
+
+(define (asobj-type-field asobj)
+  (match (or (asobj-assoc "type" asobj)
+             (asobj-assoc "@type" asobj))
     ((_ . val)
      val)
     (#f #f)))
@@ -222,6 +258,13 @@ Field can be a string for a top-level field "
                        extra-context document-loader uri-map
                        short-ids-map short-ids-reverse-map)))
 
+(define (asenv-type-by-short-id asenv type-str)
+  (hash-ref (asenv-short-ids-map asenv)
+            type-str))
+
+(define (asenv-type-by-uri asenv type-str)
+  (hash-ref (asenv-uri-map asenv)
+            type-str))
 
 (define (kwargs-to-sjson kwargs)
   (define (convert-kwmap kwargs)
@@ -260,6 +303,6 @@ Field can be a string for a top-level field "
   (kwargs-to-sjson kwargs))
 
 (define (make-as astype asenv . kwargs)
-  (kwargs-to-json kwargs)
-  )
+  ;; (kwargs-to-sjson kwargs)
+  'TODO)
 
