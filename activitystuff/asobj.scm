@@ -12,10 +12,13 @@
             asobj-get asobj-set-field
             asobj-from-sjson
             asobj-from-json-string
-            ))
+
+            make-astype make-asenv))
 
 
 
+;;; <asobj>
+;;; =======
 
 ;; Note that currently, this is effectively immutable (we don't expose
 ;; the mutation methods) but we aren't using (srfi srfi-9 gnu) because
@@ -119,7 +122,7 @@ Field can be a string for a top-level field "
                        set-astype-inheritance-promise!))
 
 (define* (make-astype id-uri parents
-                      #:key id-short notes)
+                      #:optional id-short notes)
   (let* ((astype (make-astype-internal
                   id-uri parents id-short notes))
          (inheritance-promise
@@ -153,3 +156,12 @@ Field can be a string for a top-level field "
   (extra-context asenv-extra-context)
   (document-loader asenv-document-loader)
   (uri-map asenv-uri-map))
+
+(define* (make-asenv
+          #:key (vocabs '()) (methods '()) (shortids '())
+          extra-context
+          ;; TODO: use %default-implied-context, %default-document-loader
+          implied-context document-loader)
+  (let ((uri-map 'TODO))
+    (make-asenv-intern implied-context vocabs methods shortids
+                       extra-context document-loader uri-map)))
