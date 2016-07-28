@@ -4,6 +4,7 @@
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ice-9 control)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 format)
   #:use-module (activitystuff contrib json)
   #:use-module (activitystuff json-utils)
   #:use-module (activitystuff json-ld)
@@ -180,6 +181,14 @@ Field can be a string for a top-level field "
   
   (inheritance-promise astype-inheritance-promise
                        set-astype-inheritance-promise!))
+
+(set-record-type-printer!
+ <astype>
+ (lambda (astype port)
+   (format port "<astype ~s>"
+           (cond
+            ((astype-short-id astype) => identity)
+            (else (astype-uri astype))))))
 
 (define* (make-astype id-uri parents
                       #:optional short-id notes)
