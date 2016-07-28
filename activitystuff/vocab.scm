@@ -454,7 +454,7 @@ is used to reference the object being described by the profile."))
         $Profile))
 
 (define *basic-env*
-  (make-asenv #:vocabs *core-vocab*
+  (make-asenv #:vocabs (list *core-vocab*)
               ;; #:shortids (shortids-from-vocab *core-vocab*)
               ;; #:c-accessors (shortids-from-vocab *core-vocab*)
               ))

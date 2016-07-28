@@ -59,6 +59,9 @@
     ;; and return!
     asobj))
 
+(define (make-as astype env . kwargs)
+  'TODO)
+
 ;; Where we actually calculate these things
 (define (asobj-calculate-types asobj)
   (let* ((sjson
@@ -153,7 +156,8 @@ Field can be a string for a top-level field "
 (define-record-type <asenv>
   (make-asenv-intern
    implied-context vocabs methods short-ids
-   extra-context document-loader uri-map)
+   extra-context document-loader uri-map
+   short-ids-map short-ids-reverse-map)
   asenv?
 
   (implied-context asenv-implied-context)
@@ -162,13 +166,44 @@ Field can be a string for a top-level field "
   (short-ids asenv-short-ids)
   (extra-context asenv-extra-context)
   (document-loader asenv-document-loader)
-  (uri-map asenv-uri-map))
+  (uri-map asenv-uri-map)
+  (short-ids-map asenv-short-ids-map)
+  (short-ids-reverse-map asenv-short-ids-reverse-map))
+
+(define (build-astype-map vocabs get-key)
+  "Build a uri map (a hash table) from vocabs"
+  (define uri-map (make-hash-table))
+
+  (for-each
+   (lambda (vocab)
+     (for-each
+      (lambda (astype)
+        (let ((key (get-key astype)))
+          (if key
+              (hash-set! uri-map (get-key astype) astype))))
+      vocab))
+   vocabs)
+  uri-map)
+
+(define (reversed-hash-table hash-table)
+  (define new-hash-table (make-hash-table))
+  (hash-for-each
+   (lambda (key val)
+     (hash-set! new-hash-table val key))
+   hash-table)
+  new-hash-table)
 
 (define* (make-asenv
           #:key (vocabs '()) (methods '()) (short-ids '())
           extra-context
           ;; TODO: use %default-implied-context, %default-document-loader
           implied-context document-loader)
-  (let ((uri-map 'TODO))
+  (let* ((uri-map
+          (build-astype-map vocabs astype-uri))
+         (short-ids-map
+          (build-astype-map vocabs astype-short-id))
+         (short-ids-reverse-map
+          (reversed-hash-table short-ids-map)))
     (make-asenv-intern implied-context vocabs methods short-ids
-                       extra-context document-loader uri-map)))
+                       extra-context document-loader uri-map
+                       short-ids-map short-ids-reverse-map)))
