@@ -13,7 +13,14 @@
             asobj-from-sjson
             asobj-from-json-string
 
-            make-astype make-asenv))
+            make-astype astype?
+            astype-uri astype-parents astype-short-id astype-notes
+            astype-inheritance
+
+            make-asenv asenv?
+            asenv-implied-context asenv-vocabs asenv-methods
+            asenv-short-ids asenv-extra-context asenv-document-loader
+            asenv-uri-map))
 
 
 
@@ -111,20 +118,20 @@ Field can be a string for a top-level field "
 ;; A @type than an ActivityStreams object might take on.
 (define-record-type <astype>
   (make-astype-internal
-   id-uri parents id-short notes)
+   uri parents short-id notes)
   astype?
-  (id-uri astype-id-uri)
+  (uri astype-uri)
   (parents astype-parents)
-  (id-short astype-id-short)
+  (short-id astype-short-id)
   (notes astype-notes)
   
   (inheritance-promise astype-inheritance-promise
                        set-astype-inheritance-promise!))
 
 (define* (make-astype id-uri parents
-                      #:optional id-short notes)
+                      #:optional short-id notes)
   (let* ((astype (make-astype-internal
-                  id-uri parents id-short notes))
+                  id-uri parents short-id notes))
          (inheritance-promise
           (delay (astype-calculate-inheritance astype))))
     (set-astype-inheritance-promise! astype inheritance-promise)
@@ -145,23 +152,23 @@ Field can be a string for a top-level field "
 
 (define-record-type <asenv>
   (make-asenv-intern
-   implied-context vocabs methods shortids
+   implied-context vocabs methods short-ids
    extra-context document-loader uri-map)
   asenv?
 
   (implied-context asenv-implied-context)
   (vocabs asenv-vocabs)
   (methods asenv-methods)
-  (shortids asenv-shortids)
+  (short-ids asenv-short-ids)
   (extra-context asenv-extra-context)
   (document-loader asenv-document-loader)
   (uri-map asenv-uri-map))
 
 (define* (make-asenv
-          #:key (vocabs '()) (methods '()) (shortids '())
+          #:key (vocabs '()) (methods '()) (short-ids '())
           extra-context
           ;; TODO: use %default-implied-context, %default-document-loader
           implied-context document-loader)
   (let ((uri-map 'TODO))
-    (make-asenv-intern implied-context vocabs methods shortids
+    (make-asenv-intern implied-context vocabs methods short-ids
                        extra-context document-loader uri-map)))
