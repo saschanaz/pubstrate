@@ -1,5 +1,6 @@
 (define-module (activitystuff asobj)
   #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-9 gnu)
   #:use-module (ice-9 match)
   #:use-module (activitystuff contrib json)
   #:use-module (activitystuff json-utils)
@@ -40,6 +41,10 @@
   (expanded-promise asobj-expanded-promise set-asobj-expanded-promise!)
   (inherits-promise asobj-inherits-promise set-asobj-inherits-promise!))
 
+(set-record-type-printer!
+ <asobj>
+ (lambda (record port)
+   (display "#<asobj>" port)))
 
 ;; @@: maybe have env be a kwarg?  Maybe use some kind of default-env?
 (define (make-asobj sjson env)
@@ -58,9 +63,6 @@
 
     ;; and return!
     asobj))
-
-(define (make-as astype env . kwargs)
-  'TODO)
 
 ;; Where we actually calculate these things
 (define (asobj-calculate-types asobj)
@@ -207,3 +209,45 @@ Field can be a string for a top-level field "
     (make-asenv-intern implied-context vocabs methods short-ids
                        extra-context document-loader uri-map
                        short-ids-map short-ids-reverse-map)))
+
+
+(define (kwargs-to-sjson kwargs)
+  (define (convert-kwmap kwargs)
+    (cons '@
+     (let lp ((kwargs kwargs)
+              (current-lst '()))
+       (match kwargs
+         (((? keyword? key) val . rest)
+          (lp rest
+              (cons (cons (symbol->string
+                           (keyword->symbol key))
+                          (convert-item val))
+                    current-lst)))
+         ('() current-lst)))))
+  (define (convert-item item)
+    (match item
+      ;; convert dictionaries/json objects
+      (('@ . rest)
+       (cons '@
+        (map
+         (match-lambda
+           ((key . val)
+            (cons key (convert-item val))))
+         rest)))
+      ;; Convert lists
+      ((lst ...)
+       (map convert-item lst))
+      ;; Extract sjson from an asobj
+      ((? asobj? asobj)
+       (asobj-sjson asobj))
+      ;; Otherwise return item as-is
+      (_ item)))
+  (convert-kwmap kwargs))
+
+(define (kwmap . kwargs)
+  (kwargs-to-sjson kwargs))
+
+(define (make-as astype asenv . kwargs)
+  (kwargs-to-json kwargs)
+  )
+
