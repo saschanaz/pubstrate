@@ -18,6 +18,8 @@
             asobj-from-sjson
             asobj-from-json-string
 
+            asobj-pprint
+
             make-astype astype?
             astype-uri astype-parents astype-short-id astype-notes
             astype-inheritance
@@ -25,7 +27,9 @@
             make-asenv asenv?
             asenv-implied-context asenv-vocabs asenv-methods
             asenv-short-ids asenv-extra-context asenv-document-loader
-            asenv-uri-map))
+            asenv-uri-map
+
+            make-as as-maker))
 
 
 
@@ -96,21 +100,16 @@
          (fold
           (lambda (type-str prev)
             (cond
-             ;; Try looking up by short id
-             ((asenv-type-by-short-id env type-str) =>
+             ;; Try looking up without expanding
+             ((asenv-type-by-str env type-str) =>
               (lambda (astype)
                 (cons astype prev)))
-             ;; Try looking up by URI
-             ((asenv-type-by-uri env type-str) =>
-              (lambda (astype)
-                (cons astype prev)))
-             ;; Try expanded, which means breaking out of this...
+             ;; TODO: Add expanding... but make it optional, depending
+             ;;   on an object set in the <asenv>.
+             ;; So eventually:
+             ;;   (call/ec '*gotta-expand*)
              (else
-              ;; TODO: Add expanding... but make it optional, depending
-              ;;   on an object set in the <asenv>.
-              ;; So eventually:
-              ;;   (call/ec '*gotta-expand*)
-              ;; For now though, just fold forward without this one
+              ;; Otherwise, just fold forward and skip this one
               prev)))
           '()
           types-as-list))))
@@ -170,6 +169,8 @@ Field can be a string for a top-level field "
 (define (asobj-from-json-string json-string env)
   'TODO)
 
+(define* (asobj-pprint asobj #:key (port (current-output-port)))
+  (pprint-json (asobj-sjson asobj) port))
 
 
 ;;; ============
@@ -276,6 +277,11 @@ Field can be a string for a top-level field "
                        extra-context document-loader uri-map
                        short-ids-map short-ids-reverse-map)))
 
+(define (asenv-type-by-str asenv type-str)
+  "Try to get a type from ASENV looking up TYPE-STR, *without* expanding"
+  (or (asenv-type-by-short-id asenv type-str)
+      (asenv-type-by-uri asenv type-str)))
+
 (define (asenv-type-by-short-id asenv type-str)
   (hash-ref (asenv-short-ids-map asenv)
             type-str))
@@ -321,6 +327,14 @@ Field can be a string for a top-level field "
   (kwargs-to-sjson kwargs))
 
 (define (make-as astype asenv . kwargs)
-  ;; (kwargs-to-sjson kwargs)
-  'TODO)
+  ;; TODO: Add the type from asenv, and add to the sjson
+  (let* ((initial-sjson (kwargs-to-sjson kwargs))
+         (sjson-with-type (jsmap-cons "type"
+                                      (or (astype-short-id astype)
+                                          (astype-uri astype))
+                                      initial-sjson)))
+    (make-asobj sjson-with-type asenv)))
 
+(define (as-maker asenv)
+  (lambda (astype . kwargs)
+    (apply make-as astype asenv kwargs)))
