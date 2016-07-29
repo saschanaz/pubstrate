@@ -14,7 +14,7 @@
             asobj-types asobj-expanded asobj-inherits
             asobj-id
 
-            asobj-get asobj-set-field
+            asobj-assoc asobj-assoc-asobj asobj-get asobj-set-field
             asobj-from-sjson
             asobj-from-json-string
 
@@ -143,6 +143,23 @@
 (define (asobj-assoc key asobj)
   "Pull the value out of ASOBJ that matches KEY"
   (jsmap-assoc key (asobj-sjson asobj)))
+
+(define (asobj-assoc-asobj key asobj)
+  "Pull the value out of ASOBJ that matches KEY, and return it as an asobj
+
+If it isn't a javascript object with a 'type' key, we return it as-is though."
+  (let* ((result (asobj-assoc key asobj))
+         (data (if result (cdr result) '*nothing*)))
+    (cond
+     ;; If we got back a result, and it's a javascript object, and it has
+     ;; a type field, wrap it in an <asobj>
+     ((and result
+           (jsmap? data)
+           (or (jsmap-assoc "type" data)
+               (jsmap-assoc "@type" data)))
+      (cons (car result) (make-asobj data (asobj-env asobj))))
+     ;; Otherwise, return it as-is
+     (else result))))
 
 ;; User exposed methods
 (define (asobj-types asobj)
