@@ -28,4 +28,37 @@
                      $Join)
     "http://www.w3.org/ns/activitystreams#Join"))
 
+(define root-beer-note-sjson
+  '(@ ("@type" . "Create")
+      ("@id" . "http://tsyesika.co.uk/act/foo-id-here/")
+      ("actor" . (@ ("@type" . "Person")
+                    ("@id" . "http://tsyesika.co.uk")
+                    ("displayName" . "Jessica Tallon")))
+      ("to" "acct:cwebber@identi.ca")
+      ("object" . (@ ("@type" . "Note")
+                     ("@id" . "http://tsyesika.co.uk/chat/sup-yo/")
+                     ("content" . "Up for some root beer floats?")))))
+
+(define root-beer-note-sjson-no-@
+  '(@ ("type" . "Create")
+      ("id" . "http://tsyesika.co.uk/act/foo-id-here/")
+      ("actor" . (@ ("type" . "Person")
+                    ("id" . "http://tsyesika.co.uk")
+                    ("displayName" . "Jessica Tallon")))
+      ("to" "acct:cwebber@identi.ca")
+      ("object" . (@ ("type" . "Note")
+                     ("id" . "http://tsyesika.co.uk/chat/sup-yo/")
+                     ("content" . "Up for some root beer floats?")))))
+
+(define root-beer-note-asobj
+  (make-asobj root-beer-note-sjson *basic-env*))
+(define root-beer-note-asobj-no-@
+  (make-asobj root-beer-note-sjson-no-@ *basic-env*))
+
+(test-equal (asobj-id root-beer-note-asobj)
+  "http://tsyesika.co.uk/act/foo-id-here/")
+(test-equal (asobj-id root-beer-note-asobj-no-@)
+  "http://tsyesika.co.uk/act/foo-id-here/")
+
+
 (test-end "test-actors")
