@@ -14,9 +14,8 @@
             asobj-types asobj-expanded asobj-inherits
             asobj-id
 
-            asobj-assoc asobj-assoc-asobj asobj-get asobj-set-field
-            asobj-from-sjson
-            asobj-from-json-string
+            asobj-assoc asobj-ref asobj-sjson-assoc asobj-get asobj-set-field
+            asobj-from-sjson asobj-from-json-string
 
             asobj-pprint
 
@@ -140,14 +139,43 @@
      val)
     (#f #f)))
 
-(define* (asobj-sjson-assoc key asobj)
-  "Pull the value out of ASOBJ that matches KEY"
-  (jsmap-assoc key (asobj-sjson asobj)))
+(define (jsmap-assoc-recursive key-list sjson)
+  "Recursively traverse an sjson structure, and try to extract a value
+from a key list"
+  (define (traverse)
+    (let lp ((key-list key-list)
+             (sjson sjson))
+      (cond 
+       ;; found it!
+       ((eq? key-list '())
+        (cons '*got-it* sjson))
+       ;; Okay, try matching the next part
+       ((jsmap? sjson)
+        (match (jsmap-assoc (car key-list) sjson)
+          ((_ . val)
+           (lp (cdr key-list) val))
+          (#f #f)))
+       ;; Well it's not a jsmap, so no sense searching
+       (else #f))))
+  (match (traverse)
+    (('*got-it* . val)
+     (cons key-list val))
+    (#f #f)))
 
-(define* (asobj-assoc key asobj)
+(define (asobj-sjson-assoc key asobj)
+  "Pull the value out of ASOBJ that matches KEY
+
+If KEY is a list, recursively look up keys until we (hopefully) find a value."
+  (if (pair? key)
+      (jsmap-assoc-recursive key (asobj-sjson asobj))
+      (jsmap-assoc key (asobj-sjson asobj))))
+
+(define (asobj-assoc key asobj)
   "Pull the value out of ASOBJ that matches KEY, and return it as an asobj
 
-If it isn't a javascript object with a 'type' key, we return it as-is though."
+If it isn't a javascript object with a 'type' key, we return it as-is though.
+
+If KEY is a list, recursively look up keys until we (hopefully) find a value."
   (let* ((result (asobj-sjson-assoc key asobj))
          (data (if result (cdr result) '*nothing*)))
     (cond
@@ -161,6 +189,11 @@ If it isn't a javascript object with a 'type' key, we return it as-is though."
      ;; Otherwise, return it as-is
      (else result))))
 
+(define* (asobj-ref asobj key #:optional dflt)
+  (match (asobj-assoc key asobj)
+    ((_ . val)
+     val)
+    (#f dflt)))
 
 ;; User exposed methods
 (define (asobj-types asobj)

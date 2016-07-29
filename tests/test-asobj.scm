@@ -2,7 +2,9 @@
   #:use-module (srfi srfi-64)
   #:use-module (ice-9 match)
   #:use-module (activitystuff vocab)
-  #:use-module (activitystuff asobj))
+  #:use-module (activitystuff asobj)
+  #:use-module ((activitystuff as-shorthand)
+                #:renamer (symbol-prefix-proc 'as:)))
 
 (test-begin "test-asobj")
 
@@ -59,6 +61,41 @@
   "http://tsyesika.co.uk/act/foo-id-here/")
 (test-equal (asobj-id root-beer-note-asobj-no-@)
   "http://tsyesika.co.uk/act/foo-id-here/")
+
+;; Here's a root beer note defined as an <asobj>
+(define root-beer-note
+  (as:create #:id "http://tsyesika.co.uk/act/foo-id-here/"
+             #:actor (as:person #:id "http://tsyesika.co.uk"
+                                #:displayName "Jessica Tallon")
+             #:to "acct:cwebber@identi.ca"
+             #:object (as:note #:id "http://tsyesika.co.uk/chat/sup-yo/"
+                               #:content "Up for some root beer floats?")))
+
+;; There's only one type here, Create, but that comes back as a list
+(test-equal (asobj-types root-beer-note)
+  (list $Create))
+
+(test-equal (asobj-assoc "to" root-beer-note)
+  '("to" . "acct:cwebber@identi.ca"))
+(test-assert (asobj? (cdr (asobj-assoc "actor" root-beer-note))))
+(test-assert (asobj? (asobj-ref root-beer-note "actor")))
+(test-equal (asobj-types root-beer-note)
+  (list $Create))
+
+;; is the sjson-assoc-recursive helper working?
+(test-equal
+    (asobj-sjson-assoc
+     '("actor" "displayName")
+     root-beer-note-sjson)
+  '(("actor" "displayName") . "Jessica Tallon"))
+
+;; If we can't find such a key, it shouldn't panic
+(test-equal
+    (asobj-sjson-assoc
+     '("actor" "not-a-field")
+     root-beer-note-sjson)
+  #f)
+
 
 
 (test-end "test-actors")
