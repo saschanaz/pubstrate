@@ -140,15 +140,15 @@
      val)
     (#f #f)))
 
-(define (asobj-assoc key asobj)
+(define* (asobj-sjson-assoc key asobj)
   "Pull the value out of ASOBJ that matches KEY"
   (jsmap-assoc key (asobj-sjson asobj)))
 
-(define (asobj-assoc-asobj key asobj)
+(define* (asobj-assoc key asobj)
   "Pull the value out of ASOBJ that matches KEY, and return it as an asobj
 
 If it isn't a javascript object with a 'type' key, we return it as-is though."
-  (let* ((result (asobj-assoc key asobj))
+  (let* ((result (asobj-sjson-assoc key asobj))
          (data (if result (cdr result) '*nothing*)))
     (cond
      ;; If we got back a result, and it's a javascript object, and it has
@@ -160,6 +160,7 @@ If it isn't a javascript object with a 'type' key, we return it as-is though."
       (cons (car result) (make-asobj data (asobj-env asobj))))
      ;; Otherwise, return it as-is
      (else result))))
+
 
 ;; User exposed methods
 (define (asobj-types asobj)
