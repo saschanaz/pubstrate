@@ -84,18 +84,35 @@
 
 ;; is the sjson-assoc-recursive helper working?
 (test-equal
-    (asobj-sjson-assoc
+    ((@@ (activitystuff asobj) jsmap-assoc-recursive)
      '("actor" "displayName")
      root-beer-note-sjson)
+  '(("actor" "displayName") . "Jessica Tallon"))
+;; and via the asobj
+(test-equal
+    (asobj-sjson-assoc
+     '("actor" "displayName")
+     root-beer-note)
   '(("actor" "displayName") . "Jessica Tallon"))
 
 ;; If we can't find such a key, it shouldn't panic
 (test-equal
-    (asobj-sjson-assoc
+    ((@@ (activitystuff asobj) jsmap-assoc-recursive)
      '("actor" "not-a-field")
      root-beer-note-sjson)
   #f)
+;; and via the asobj
+(test-equal
+    (asobj-sjson-assoc
+     '("actor" "not-a-field")
+     root-beer-note)
+  #f)
 
-
+;; Test that inheritance works right
+(test-equal
+    ((@@ (activitystuff asobj) astype-list-inheritance)
+     (list $Question $Invite))
+  (list $Question $Content $IntransitiveActivity $Invite $Offer
+        $Activity $Object))
 
 (test-end "test-actors")
