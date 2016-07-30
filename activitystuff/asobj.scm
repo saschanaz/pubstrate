@@ -123,7 +123,8 @@
   'TODO)
 
 (define (asobj-calculate-inherits asobj)
-  'TODO)
+  (astype-list-inheritance
+   (asobj-types asobj)))
 
 (define (asobj-id asobj)
   (match (or (asobj-assoc "id" asobj)
