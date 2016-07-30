@@ -45,7 +45,8 @@ moddir=$(prefix)/share/guile/site/2.0
 godir=$(libdir)/guile/2.0/ccache
 
 SOURCES =  \
-	activitystuff/activities.scm			\
+	activitystuff/asobj.scm				\
+	activitystuff/vocab.scm				\
 	activitystuff/json-utils.scm			\
 	activitystuff/json-ld.scm			\
 	activitystuff/contrib/json.scm
