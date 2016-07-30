@@ -1,21 +1,3 @@
-;;; Pubstrate --- ActivityStreams based social networking for Guile
-;;; Copyright (C) 2015-2016 Christopher Allan Webber <cwebber@dustycloud.org>
-;;;
-;;; This file is part of Pubstrate.
-;;;
-;;; Pubstrate is free software; you can redistribute it and/or modify it
-;;; under the terms of the GNU General Public License as published by
-;;; the Free Software Foundation; either version 3 of the License, or
-;;; (at your option) any later version.
-;;;
-;;; Pubstrate is distributed in the hope that it will be useful, but
-;;; WITHOUT ANY WARRANTY; without even the implied warranty of
-;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-;;; General Public License for more details.
-;;;
-;;; You should have received a copy of the GNU General Public License
-;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
-
 (define-module (tests test-asobj)
   #:use-module (srfi srfi-64)
   #:use-module (ice-9 match)
@@ -31,21 +13,21 @@
  (match-lambda
    ((astype expected-uri)
     (test-equal (astype-uri astype) expected-uri)))
- `((,$Object "http://www.w3.org/ns/activitystreams#Object")
-   (,$Activity "http://www.w3.org/ns/activitystreams#Activity")
-   (,$Collection "http://www.w3.org/ns/activitystreams#Collection")
-   (,$Note "http://www.w3.org/ns/activitystreams#Note")))
+ `((,^Object "http://www.w3.org/ns/activitystreams#Object")
+   (,^Activity "http://www.w3.org/ns/activitystreams#Activity")
+   (,^Collection "http://www.w3.org/ns/activitystreams#Collection")
+   (,^Note "http://www.w3.org/ns/activitystreams#Note")))
 
 ;; Make sure that building a uri-map works
 (let ((uri-map ((@@ (pubstrate asobj) build-astype-map)
                 (list *core-vocab*) astype-uri)))
   (test-eq (hash-ref uri-map
                      "http://www.w3.org/ns/activitystreams#Join")
-    $Join)
+    ^Join)
   ;; And in reverse
   (test-equal (hash-ref ((@@ (pubstrate asobj) reversed-hash-table)
                       uri-map)
-                     $Join)
+                     ^Join)
     "http://www.w3.org/ns/activitystreams#Join"))
 
 (define root-beer-note-sjson
@@ -91,14 +73,14 @@
 
 ;; There's only one type here, Create, but that comes back as a list
 (test-equal (asobj-types root-beer-note)
-  (list $Create))
+  (list ^Create))
 
 (test-equal (asobj-assoc "to" root-beer-note)
   '("to" . "acct:cwebber@identi.ca"))
 (test-assert (asobj? (cdr (asobj-assoc "actor" root-beer-note))))
 (test-assert (asobj? (asobj-ref root-beer-note "actor")))
 (test-equal (asobj-types root-beer-note)
-  (list $Create))
+  (list ^Create))
 
 ;; is the sjson-assoc-recursive helper working?
 (test-equal
@@ -129,8 +111,8 @@
 ;; Test that inheritance works right
 (test-equal
     ((@@ (pubstrate asobj) astype-list-inheritance)
-     (list $Question $Invite))
-  (list $Question $Content $IntransitiveActivity $Invite $Offer
-        $Activity $Object))
+     (list ^Question ^Invite))
+  (list ^Question ^Content ^IntransitiveActivity ^Invite ^Offer
+        ^Activity ^Object))
 
 (test-end "test-actors")
