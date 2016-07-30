@@ -47,10 +47,11 @@ godir=$(libdir)/guile/2.0/ccache
 SOURCES =  \
 	activitystuff/activities.scm			\
 	activitystuff/json-utils.scm			\
+	activitystuff/json-ld.scm			\
 	activitystuff/contrib/json.scm
 
 TESTS =							\
-	tests/test-json-ld.scm
+	tests/test-asobj.scm
 
 TEST_EXTENSIONS = .scm
 
