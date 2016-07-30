@@ -3,7 +3,7 @@
   #:use-module (ice-9 match)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate asobj)
-  #:use-module ((pubstrate as-shorthand)
+  #:use-module ((pubstrate shorthand)
                 #:renamer (symbol-prefix-proc 'as:)))
 
 (test-begin "test-asobj")

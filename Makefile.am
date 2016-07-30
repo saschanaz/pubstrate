@@ -48,7 +48,8 @@ SOURCES =  \
 	pubstrate/asobj.scm				\
 	pubstrate/vocab.scm				\
 	pubstrate/json-utils.scm			\
-	pubstrate/json-ld.scm			\
+	pubstrate/json-ld.scm				\
+	pubstrate/shorthand.scm				\
 	pubstrate/contrib/json.scm
 
 TESTS =							\
