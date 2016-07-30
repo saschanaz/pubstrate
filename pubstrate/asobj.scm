@@ -66,18 +66,6 @@
   (expanded-promise asobj-expanded-promise set-asobj-expanded-promise!)
   (inherits-promise asobj-inherits-promise set-asobj-inherits-promise!))
 
-(set-record-type-printer!
- <asobj>
- (lambda (asobj port)
-   (format port "#<asobj [~a] ~s>"
-           (string-join
-            (map (lambda (type)
-                   (or (astype-short-id type)
-                       (astype-uri type)))
-                 (asobj-types asobj))
-            ", ")
-           (asobj-id asobj))))
-
 ;; @@: maybe have env be a kwarg?  Maybe use some kind of default-env?
 (define (make-asobj sjson env)
   (let* ((asobj
@@ -260,16 +248,6 @@ Field can be a string for a top-level field "
   (inheritance-promise astype-inheritance-promise
                        set-astype-inheritance-promise!))
 
-(set-record-type-printer!
- <astype>
- (lambda (astype port)
-   (cond
-    ((astype-short-id astype) =>
-     (lambda (short-id)
-       (format port "#<astype ~a>" short-id)))
-    (else (format port "#<astype ~s>"
-                  (astype-uri astype))))))
-
 (define* (make-astype id-uri parents
                       #:optional short-id notes)
   (let* ((astype (make-astype-internal
@@ -446,3 +424,34 @@ Field can be a string for a top-level field "
 (define (as-maker asenv)
   (lambda (astype . kwargs)
     (apply make-as astype asenv kwargs)))
+
+
+
+;;; Printers
+;;; ========
+
+;; Note, we had to move the asobj printer until *after* the
+;; astype record definition, or it wasn't able to make use of
+;; astype-short-id.  Weird, right?
+
+(set-record-type-printer!
+ <asobj>
+ (lambda (asobj port)
+   (format port "#<asobj [~a] ~s>"
+           (string-join
+            (map (lambda (type)
+                   (or (astype-short-id type)
+                       (astype-uri type)))
+                 (asobj-types asobj))
+            ", ")
+           (asobj-id asobj))))
+
+(set-record-type-printer!
+ <astype>
+ (lambda (astype port)
+   (cond
+    ((astype-short-id astype) =>
+     (lambda (short-id)
+       (format port "#<astype ~a>" short-id)))
+    (else (format port "#<astype ~s>"
+                  (astype-uri astype))))))
