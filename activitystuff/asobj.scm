@@ -260,12 +260,50 @@ Field can be a string for a top-level field "
     (set-astype-inheritance-promise! astype inheritance-promise)
     astype))
 
+;; @@: This might be TOTALLY unnecessary, if astype-list-inheritance
+;;   is enough!
+;;   At least, it's short enough of a calculation to do it immediately
+;;   during make-astype so as to not use a promise
+
 (define (astype-calculate-inheritance astype)
   'TODO)
 
 ;;; User exposed methods
 (define (astype-inheritance astype)
   (force (astype-inheritance-promise astype)))
+
+
+(define (astype-list-inheritance astype-list)
+  "Calculate inheritance for a list of astypes"
+  (define (traverse astype cur-family)
+    (fold
+     (lambda (parent prev)
+       (traverse parent prev))
+     (cons astype cur-family)
+     (astype-parents astype)))
+
+  (define (traverse-all)
+    (fold
+     (lambda (astype cur-family)
+       (traverse astype cur-family))
+     '()
+     astype-list))
+
+  (define (de-dupe family)
+    (define seen (make-hash-table))
+    (fold
+     (lambda (astype prev)
+       (if (hashq-ref seen astype)
+           ;; If we've already seen it, continue
+           prev
+           ;; Otherwise, mark it seen and add it to the list
+           (begin
+             (hashq-set! seen astype #t)
+             (cons astype prev))))
+     '()
+     family))
+
+  (de-dupe (traverse-all)))
 
 
 
