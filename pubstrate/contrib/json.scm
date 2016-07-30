@@ -16,7 +16,7 @@
 ;;;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 ;;;;
 
-(define-module (activitystuff contrib json)  ;; originally (ice-9 json)
+(define-module (pubstrate contrib json)  ;; originally (ice-9 json)
   #:use-module (ice-9 match)
   #:export (read-json write-json))
 

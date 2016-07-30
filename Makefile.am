@@ -45,11 +45,11 @@ moddir=$(prefix)/share/guile/site/2.0
 godir=$(libdir)/guile/2.0/ccache
 
 SOURCES =  \
-	activitystuff/asobj.scm				\
-	activitystuff/vocab.scm				\
-	activitystuff/json-utils.scm			\
-	activitystuff/json-ld.scm			\
-	activitystuff/contrib/json.scm
+	pubstrate/asobj.scm				\
+	pubstrate/vocab.scm				\
+	pubstrate/json-utils.scm			\
+	pubstrate/json-ld.scm			\
+	pubstrate/contrib/json.scm
 
 TESTS =							\
 	tests/test-asobj.scm

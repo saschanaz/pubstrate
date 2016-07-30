@@ -1,13 +1,13 @@
-(define-module (activitystuff asobj)
+(define-module (pubstrate asobj)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ice-9 control)
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
-  #:use-module (activitystuff contrib json)
-  #:use-module (activitystuff json-utils)
-  #:use-module (activitystuff json-ld)
+  #:use-module (pubstrate contrib json)
+  #:use-module (pubstrate json-utils)
+  #:use-module (pubstrate json-ld)
   #:export (make-asobj asobj?
             asobj-sjson asobj-env
 

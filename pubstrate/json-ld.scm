@@ -36,8 +36,8 @@
 ;; just a matter of switching out the jsmap calls in json-utils
 ;; NOTE: There's also a fashes branch we could explore
 
-(define-module (activitystuff json-ld)
-  #:use-module (activitystuff json-utils)
+(define-module (pubstrate json-ld)
+  #:use-module (pubstrate json-utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-9 gnu)

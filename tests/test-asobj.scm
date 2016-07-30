@@ -1,9 +1,9 @@
 (define-module (tests test-asobj)
   #:use-module (srfi srfi-64)
   #:use-module (ice-9 match)
-  #:use-module (activitystuff vocab)
-  #:use-module (activitystuff asobj)
-  #:use-module ((activitystuff as-shorthand)
+  #:use-module (pubstrate vocab)
+  #:use-module (pubstrate asobj)
+  #:use-module ((pubstrate as-shorthand)
                 #:renamer (symbol-prefix-proc 'as:)))
 
 (test-begin "test-asobj")
@@ -19,13 +19,13 @@
    (,$Note "http://www.w3.org/ns/activitystreams#Note")))
 
 ;; Make sure that building a uri-map works
-(let ((uri-map ((@@ (activitystuff asobj) build-astype-map)
+(let ((uri-map ((@@ (pubstrate asobj) build-astype-map)
                 (list *core-vocab*) astype-uri)))
   (test-eq (hash-ref uri-map
                      "http://www.w3.org/ns/activitystreams#Join")
     $Join)
   ;; And in reverse
-  (test-equal (hash-ref ((@@ (activitystuff asobj) reversed-hash-table)
+  (test-equal (hash-ref ((@@ (pubstrate asobj) reversed-hash-table)
                       uri-map)
                      $Join)
     "http://www.w3.org/ns/activitystreams#Join"))
@@ -84,7 +84,7 @@
 
 ;; is the sjson-assoc-recursive helper working?
 (test-equal
-    ((@@ (activitystuff asobj) jsmap-assoc-recursive)
+    ((@@ (pubstrate asobj) jsmap-assoc-recursive)
      '("actor" "displayName")
      root-beer-note-sjson)
   '(("actor" "displayName") . "Jessica Tallon"))
@@ -97,7 +97,7 @@
 
 ;; If we can't find such a key, it shouldn't panic
 (test-equal
-    ((@@ (activitystuff asobj) jsmap-assoc-recursive)
+    ((@@ (pubstrate asobj) jsmap-assoc-recursive)
      '("actor" "not-a-field")
      root-beer-note-sjson)
   #f)
@@ -110,7 +110,7 @@
 
 ;; Test that inheritance works right
 (test-equal
-    ((@@ (activitystuff asobj) astype-list-inheritance)
+    ((@@ (pubstrate asobj) astype-list-inheritance)
      (list $Question $Invite))
   (list $Question $Content $IntransitiveActivity $Invite $Offer
         $Activity $Object))

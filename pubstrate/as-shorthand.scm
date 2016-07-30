@@ -1,6 +1,6 @@
-(define-module (activitystuff as-shorthand)
-  #:use-module (activitystuff asobj)
-  #:use-module (activitystuff vocab)
+(define-module (pubstrate as-shorthand)
+  #:use-module (pubstrate asobj)
+  #:use-module (pubstrate vocab)
   #:export (object link activity intransitive-activity actor
             collection ordered-collection
 

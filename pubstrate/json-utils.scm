@@ -18,8 +18,8 @@
 ;; 02110-1301 USA
 
 
-(define-module (activitystuff json-utils)
-  #:use-module (activitystuff contrib json)
+(define-module (pubstrate json-utils)
+  #:use-module (pubstrate contrib json)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)

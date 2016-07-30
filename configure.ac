@@ -1,4 +1,4 @@
-AC_INIT([activitystuff], [0.1.dev], [cwebber@dustycloud.org])
+AC_INIT([pubstrate], [0.1.dev], [cwebber@dustycloud.org])
 
 PKG_CHECK_MODULES([GUILE], [guile-2.0])
 

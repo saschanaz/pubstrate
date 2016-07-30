@@ -1,5 +1,5 @@
-(define-module (activitystuff vocab)
-  #:use-module (activitystuff asobj)
+(define-module (pubstrate vocab)
+  #:use-module (pubstrate asobj)
   #:export ($Object $Link $Activity $IntransitiveActivity
             $Actor $Collection $OrderedCollection
 
