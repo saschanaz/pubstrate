@@ -16,7 +16,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (pubstrate as-shorthand)
+(define-module (pubstrate shorthand)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate vocab)
   #:export (object link activity intransitive-activity actor
