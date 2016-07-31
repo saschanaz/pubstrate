@@ -23,7 +23,8 @@
   #:use-module (pubstrate asobj)
   #:use-module (ice-9 control)
   #:use-module (ice-9 match)
-  #:use-module (srfi srfi-9))
+  #:use-module (srfi srfi-9)
+  #:export (define-as-generic define-as-method))
 
 (define-record-type <as-generic>
   (make-as-generic method-map)
