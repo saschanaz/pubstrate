@@ -54,7 +54,8 @@ SOURCES =  \
 	pubstrate/contrib/json.scm
 
 TESTS =							\
-	tests/test-asobj.scm
+	tests/test-asobj.scm				\
+	tests/test-generics.scm
 
 TEST_EXTENSIONS = .scm
 
