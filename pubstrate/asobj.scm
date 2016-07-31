@@ -210,10 +210,17 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
 (define (asobj-inherits asobj)
   (force (asobj-inherits-promise asobj)))
 
-(define (asobj-set asobj field value)
+(define* (asobj-set asobj key value #:key (delete #t))
   "Return a new asobj with FIELD set to VALUE.
 Field can be a string for a top-level field "
-  'TODO)
+  (let ((jsobj (if delete
+                   (jsmap-delete key (asobj-sjson asobj))
+                   (asobj-sjson asobj))))
+    (make-asobj
+     (jsmap-cons
+      key (convert-sjson-with-maybe-asobj value)
+      jsobj)
+     (asobj-env asobj))))
 
 (define (asobj-from-json-string json-string env)
   'TODO)

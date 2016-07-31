@@ -3,6 +3,7 @@
   #:use-module (ice-9 match)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate asobj)
+  #:use-module (pubstrate json-utils)
   #:use-module ((pubstrate shorthand)
                 #:renamer (symbol-prefix-proc 'as:)))
 
@@ -115,4 +116,15 @@
   (list ^Question ^Content ^IntransitiveActivity ^Invite ^Offer
         ^Activity ^Object))
 
-(test-end "test-actors")
+;; Make sure asobj-set works and can set asobj things
+(let ((invitation
+       (asobj-set root-beer-note "object"
+                  (as:invite #:content
+                             "Libreplanet root beer floats party"))))
+  (test-assert (asobj? (asobj-ref invitation "object")))
+  (test-equal (asobj-types (asobj-ref invitation "object"))
+    (list ^Invite))
+  ;; but of course, it should still just be inserted as a jsmap...
+  (test-assert (jsmap? (cdr (asobj-sjson-assoc "object" invitation)))))
+
+(test-end "test-asobj")
