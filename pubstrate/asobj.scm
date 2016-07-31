@@ -32,8 +32,8 @@
             asobj-types asobj-expanded asobj-inherits
             asobj-id
 
-            asobj-assoc asobj-ref asobj-sjson-assoc asobj-get asobj-set-field
-            asobj-from-sjson asobj-from-json-string
+            asobj-assoc asobj-ref asobj-sjson-assoc asobj-set
+            asobj-from-json-string
 
             asobj-pprint
 
@@ -210,7 +210,7 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
 (define (asobj-inherits asobj)
   (force (asobj-inherits-promise asobj)))
 
-(define (asobj-set-field asobj field value)
+(define (asobj-set asobj field value)
   "Return a new asobj with FIELD set to VALUE.
 Field can be a string for a top-level field "
   'TODO)
@@ -367,24 +367,16 @@ Field can be a string for a top-level field "
   (hash-ref (asenv-uri-map asenv)
             type-str))
 
-(define (kwargs-to-sjson kwargs)
-  (define (convert-kwmap kwargs)
-    (cons '@
-     (let lp ((kwargs kwargs)
-              (current-lst '()))
-       (match kwargs
-         (((? keyword? key) val . rest)
-          (lp rest
-              (cons (cons (symbol->string
-                           (keyword->symbol key))
-                          (convert-item val))
-                    current-lst)))
-         ('() current-lst)))))
+(define (convert-sjson-with-maybe-asobj sjson)
+  "Take some sjson that might have asobj objects embedded
+and convert to sjson"
   (define (convert-item item)
     (match item
       ;; convert dictionaries/json objects
+      ;; TODO: use jsmap? instead
       (('@ . rest)
        (cons '@
+        ;; @@: Maybe use jsmap-fold-unique?
         (map
          (match-lambda
            ((key . val)
@@ -398,6 +390,21 @@ Field can be a string for a top-level field "
        (asobj-sjson asobj))
       ;; Otherwise return item as-is
       (_ item)))
+  (convert-item sjson))
+
+(define (kwargs-to-sjson kwargs)
+  (define (convert-kwmap kwargs)
+    (cons '@
+     (let lp ((kwargs kwargs)
+              (current-lst '()))
+       (match kwargs
+         (((? keyword? key) val . rest)
+          (lp rest
+              (cons (cons (symbol->string
+                           (keyword->symbol key))
+                          (convert-sjson-with-maybe-asobj val))
+                    current-lst)))
+         ('() current-lst)))))
   (convert-kwmap kwargs))
 
 (define (kwmap . kwargs)
