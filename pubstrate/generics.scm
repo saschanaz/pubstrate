@@ -22,35 +22,27 @@
 (define-module (pubstrate generics)
   #:use-module (pubstrate asobj)
   #:use-module (ice-9 control)
-  #:use-module (ice-9 match)
-  #:use-module (srfi srfi-9)
   #:export (define-as-generic define-as-method))
 
-(define-record-type <as-generic>
-  (make-as-generic method-map)
-  as-generic?
-  (method-map as-generic-method-map))
-
 (define (as-generic-method-ref as-generic astype)
-  (hashq-ref (as-generic-method-map as-generic) astype))
+  (hashq-ref (procedure-property as-generic 'generic-map) astype))
 
 (define (as-generic-method-set! as-generic astype proc)
-  (hashq-set! (as-generic-method-map as-generic)
+  (hashq-set! (procedure-property as-generic 'generic-map)
               astype proc))
 
 ;; TODO: Make docstrings optional.  See mlambda in 8sync!
-(define-syntax-rule (define-as-generic generic-name method-name
-                      docstring)
+(define-syntax-rule (define-as-generic generic-name docstring)
   (begin
-    (define generic-name
-      (make-as-generic (make-hash-table)))
-
-    (define (method-name asobj . args)
+    (define (generic-name asobj . args)
       docstring
       (apply (as-generic-find-method generic-name asobj)
-             asobj args))))
+             asobj args))
 
-(define-syntax-rule (define-as-method (generic astype args ...)
+    (set-procedure-property! generic-name 'generic-map
+                             (make-hash-table))))
+
+(define-syntax-rule (define-as-method (generic (asobj astype) args ...)
                       body ...)
   (as-generic-method-set!
    generic astype
