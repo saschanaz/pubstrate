@@ -210,18 +210,9 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
 (define (asobj-inherits asobj)
   (force (asobj-inherits-promise asobj)))
 
-
-(define* (asobj-get asobj field
-                    #:key (default '*nothing*)
-                    (as-asobj #f))
-  'TODO)
-
 (define (asobj-set-field asobj field value)
   "Return a new asobj with FIELD set to VALUE.
 Field can be a string for a top-level field "
-  'TODO)
-
-(define (asobj-from-sjson sjson env)
   'TODO)
 
 (define (asobj-from-json-string json-string env)
