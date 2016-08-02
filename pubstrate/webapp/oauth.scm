@@ -36,6 +36,9 @@
   (vector-ref %token-chars (random %token-chars-length)))
 
 (define* (gen-bearer-token #:optional (length 50))
+  "Bearer tokens can be... well, nearly anything that's a string.
+They're fairly opaque, by design.  In our case, a random string
+of a specified length is fine."
   (list->string
    (map (lambda _ (random-token-char))
         (iota length))))
