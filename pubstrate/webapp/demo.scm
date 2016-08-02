@@ -19,18 +19,23 @@
 (define-module (pubstrate webapp demo)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
+  #:use-module (rnrs io ports)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-1)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate generics)
+  #:use-module (pubstrate paths)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate contrib html)
+  #:use-module (pubstrate contrib mime-types)
   #:use-module (oop goops)
   #:use-module (sxml simple)
   #:use-module (web request)
   #:use-module (web response)
   #:use-module (web server)
   #:use-module (web uri)
+  #:use-module ((system repl server)
+                #:renamer (symbol-prefix-proc 'repl:))
   #:export (run-webapp))
 
 (define-as-generic asobj-gallery-tmpl
@@ -52,7 +57,7 @@
                  "Pubstrate"))
      ;; css
      (link (@ (rel "stylesheet")
-              (href ,(prefix-url "/css/main.css")))))
+              (href ,(prefix-url "/static/css/main.css")))))
     (body
      (div (@ (id "main-wrapper"))
           (header (@ (id "site-header"))
@@ -120,6 +125,13 @@
   (values '((content-type . (text/plain)))
           "Not found!"))
 
+;;; Static site rendering... only available on devel instances (hopefully!)
+(define (render-static request body static-path)
+  (respond
+   (call-with-input-file (web-static-filepath static-path) get-bytevector-all)
+   #:content-type (mime-type static-path)))
+
+
 
 ;;; Routing
 ;;; =======
@@ -127,9 +139,11 @@
 (define (route request)
   (match (pk 'path (split-and-decode-uri-path (uri-path (request-uri request))))
     (() (values index '()))
-    ((static static-path ...)
+    (("static" static-path ...)
      ;; TODO: make this toggle'able
-     (values render-static (list static-path)))
+     (values render-static
+             (list (string-append "/" (string-join
+                                       static-path "/")))))
     ;; Not found!
     (_ (values standard-four-oh-four '()))))
 

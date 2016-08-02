@@ -17,12 +17,15 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate paths)
-  #:export (%datadir scope-datadir))
+  #:export (%datadir scope-datadir web-static-filepath))
 
 ;; Thanks to David Thompson for this tip!
 (define %datadir
-  (or (getenv "PUBSTRATE_WEBAPP_DATADIR")
+  (or (getenv "PUBSTRATE_DATADIR")
       "@pubstrate_datadir@/pubstrate"))
 
 (define (scope-datadir filename)
   (string-append %datadir filename))
+
+(define (web-static-filepath filename)
+  (scope-datadir (string-append "/web-static" filename)))

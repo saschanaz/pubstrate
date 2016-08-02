@@ -22,7 +22,7 @@
 ;;
 ;;; Code:
 
-(define-module (haunt serve mime-types)
+(define-module (pubstrate contrib mime-types)
   #:use-module (ice-9 hash-table)
   #:use-module (ice-9 regex)
   #:export (mime-type))
