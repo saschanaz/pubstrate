@@ -51,6 +51,9 @@ SOURCES =  \
 	pubstrate/json-utils.scm			\
 	pubstrate/json-ld.scm				\
 	pubstrate/shorthand.scm				\
+	pubstrate/webapp/demo.scm			\
+	pubstrate/contrib/html.scm			\
+	pubstrate/contrib/mime-types.scm		\
 	pubstrate/contrib/json.scm
 
 TESTS =							\
