@@ -16,25 +16,22 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-;; (define-module (pubstrate webapp demo)
-;;   #:use-module (srfi srfi-9 gnu)
-;;   #:use-module (srfi srfi-1)
-;;   #:use-module (pubstrate asobj)
-;;   #:use-module (pubstrate generics)
-;;   #:use-module (pubstrate vocab)
-;;   #:use-module (oop goops)
-;;   #:use-module (web server)
-;;   #:export (run-webapp))
-
-(use-modules (srfi srfi-9 gnu))
-(use-modules (srfi srfi-1))
-(use-modules (pubstrate asobj))
-(use-modules (pubstrate generics))
-(use-modules (pubstrate vocab))
-(use-modules (oop goops))
-(use-modules (web server))
-(use-modules ((system repl server)
-              #:renamer (symbol-prefix-proc 'repl:)))
+(define-module (pubstrate webapp demo)
+  #:use-module (ice-9 match)
+  #:use-module (ice-9 receive)
+  #:use-module (srfi srfi-9 gnu)
+  #:use-module (srfi srfi-1)
+  #:use-module (pubstrate asobj)
+  #:use-module (pubstrate generics)
+  #:use-module (pubstrate vocab)
+  #:use-module (pubstrate contrib html)
+  #:use-module (oop goops)
+  #:use-module (sxml simple)
+  #:use-module (web request)
+  #:use-module (web response)
+  #:use-module (web server)
+  #:use-module (web uri)
+  #:export (run-webapp))
 
 (define-as-generic asobj-gallery-tmpl
   "Template for showing an asobj in a gallery")
@@ -83,47 +80,58 @@
 ;;; Views
 ;;; =====
 
-(define (index rqst)
-  (respond (index-tmpl)))
+(define (index request body)
+  (respond-html (index-tmpl)))
 
-(define (mockup rqst)
+(define (mockup request body)
   (respond (mockup-tmpl)))
 
-(define (user-page rqst user)
+(define (user-page request body user)
   'TODO)
 
-(define (user-inbox rqst user)
+(define (user-inbox request body user)
   'TODO)
 
-(define (user-outbox rqst username)
+(define (user-outbox request body username)
   (define (post-to-outbox oauth-user)
     'TODO)
   (define (read-from-outbox oauth-user)
     'TODO)
   'TODO)
 
-(define (login rqst)
+(define (login request body)
   'TODO)
 
-(define (logout rqst)
+(define (logout request body)
   'TODO)
 
-(define (content rqst user slug-or-id)
+(define (content request body user slug-or-id)
   'TODO)
 
-(define (asobj rqst asobj-id)
+(define (asobj request body asobj-id)
   'TODO)
 
-(define (oauth-authorize rqst)
+(define (oauth-authorize request body)
   'TODO)
 
+
+(define (standard-four-oh-four request body)
+  ;; TODO: Add 404 status message
+  (values '((content-type . (text/plain)))
+          "Not found!"))
 
 
 ;;; Routing
 ;;; =======
 
 (define (route request)
-  'TODO)
+  (match (pk 'path (split-and-decode-uri-path (uri-path (request-uri request))))
+    (() (values index '()))
+    ((static static-path ...)
+     ;; TODO: make this toggle'able
+     (values render-static (list static-path)))
+    ;; Not found!
+    (_ (values standard-four-oh-four '()))))
 
 
 ;;; Storage stuff
@@ -131,6 +139,15 @@
 
 (define-class <simple-storage> ()
   (asentry-store #:init-thunk make-hash-table))
+
+(define-generic storage-save-asentry)
+(define-generic storage-get-asentry)
+
+(define (storage-get-asentry-fat store id)
+  'TODO)
+(define (storage-save-asentry-lean store asentry)
+  'TODO)
+
 
 
 ;;; <asentry>
@@ -153,6 +170,23 @@
   url)
 
 
+(define* (respond #:optional body #:key
+                  (status 200)
+                  (content-type-params '((charset . "utf-8")))
+                  (content-type 'text/html)
+                  (extra-headers '()))
+  (values (build-response
+           #:code status
+           #:headers `((content-type
+                        . (,content-type ,@content-type-params))
+                       ,@extra-headers))
+          body))
+
+(define (respond-html sxml . respond-args)
+  (apply respond (lambda (port)
+                   (sxml->html sxml port))
+         respond-args))
+
 
 ;;; Application
 ;;; ===========
@@ -161,10 +195,11 @@
 (define %db (make-parameter #f))
 
 (define (webapp-server-handler request request-body)
-  (values '((content-type . (text/plain)))
-          "Hello World!"))
+  (receive (view args)
+      (route request)
+    (apply view request request-body args)))
 
 (define (run-webapp . args)
   (repl:spawn-server)
   (display "Hoo boy!\n")
-  (run-server webapp-server-handler))
+  (run-server (lambda args (apply webapp-server-handler args))))
