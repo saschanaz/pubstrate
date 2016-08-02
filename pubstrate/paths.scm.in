@@ -17,7 +17,10 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate paths)
-  #:export (%datadir scope-datadir web-static-filepath))
+  #:export (%datadir
+            scope-datadir web-static-filepath
+
+            %libgcrypt))
 
 ;; Thanks to David Thompson for this tip!
 (define %datadir
@@ -29,3 +32,6 @@
 
 (define (web-static-filepath filename)
   (scope-datadir (string-append "/web-static" filename)))
+
+(define %libgcrypt
+  "@LIBGCRYPT@")
