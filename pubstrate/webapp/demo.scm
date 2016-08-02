@@ -81,6 +81,60 @@
   (base-tmpl "Beep boop, hello there!"))
 
 
+(define (mockup-tmpl)
+  (base-tmpl
+   `(;; Input elements... TODO
+     (div (@ (id "user-input")))
+     ;; Main feed stuff
+     (div
+      (@ (id "main-feed-block")
+         (class "main-feed-block"))
+      (div (@ (class "feedish-tabs"))
+           (div (@ (class "tab-active tab"))
+                "Inbox")
+           (div (@ (class "tab-look-at-me tab"))
+                "Mentions")
+           (div (@ (class "tab-idle tab"))
+                "Direct")
+           (div (@ (class "tab-look-at-me tab"))
+                "Meanwhile"))
+      (div (@ (class "feedish-content"))
+           (div (@ (class "post-and-replies-wrapper"))
+                (div (@ (class "feedish-top-post feedish-post"))
+                     (div (@ (class "feedish-header"))
+                          (div
+                           (img (@ (class "feedish-user-avatar")
+                                   (src "/static/images/red-ghostie.png")
+                                   (alt "Red ghostie test"))))
+                          (header (@ (class "feedish-header-right"))
+                                  (h2 "New release of 8sync!")
+                                  (div (@ (class "feedish-byline"))
+                                       "By "
+                                       (a (@ (href "http://dustycloud.org/"))
+                                          "Christopher Allan Webber")
+                                       " -- "
+                                       (a (@ (href "/entry/293dc92a-1d5d-49dc-b3c4-b24ddc2feb9b/"))
+                                          "April 22, 2016 @ 2:30pm"))))
+                     (div (@ (class "feedish-entry-content"))
+                          (p "Greetings, gentle citizens of the GNUiverse!  I'm happy to "
+                             "announce 8sync 0.1, the very first release of "
+                             (a (@ (href "http://gnu.org/s/8sync/"))
+                                "8sync")
+                             " an asynchronous programming library for "
+                             (a (@ (href "http://gnu.org/s/guile/"))
+                                "GNU Guile")
+                             ". (I recently wrote a "
+                             (a (@ (href "https://www.gnu.org/software/8sync/news/hello-world.html"))
+                                "blogpost introducing 8sync")
+                             " if that's of interest to you.) "
+                             (a (@ (href "ftp://ftp.gnu.org/gnu/8sync/8sync-0.1.0.tar.gz"))
+                                "Get 8sync here!")))
+                     (div (@ (class "feedish-entry-buttons"))
+                          (div (@ (class "like-plain"))
+                               "♥ Like")
+                          (div (@ (class "share-plain"))
+                               "♻ Share")))))))))
+
 
 ;;; Views
 ;;; =====
@@ -89,7 +143,7 @@
   (respond-html (index-tmpl)))
 
 (define (mockup request body)
-  (respond (mockup-tmpl)))
+  (respond-html (mockup-tmpl)))
 
 (define (user-page request body user)
   'TODO)
@@ -144,6 +198,8 @@
      (values render-static
              (list (string-append "/" (string-join
                                        static-path "/")))))
+    (("mockup")
+     (values mockup '()))
     ;; Not found!
     (_ (values standard-four-oh-four '()))))
 
