@@ -51,6 +51,7 @@ SOURCES =  \
 	pubstrate/json-utils.scm			\
 	pubstrate/json-ld.scm				\
 	pubstrate/shorthand.scm				\
+	pubstrate/paths.scm				\
 	pubstrate/webapp/demo.scm			\
 	pubstrate/contrib/html.scm			\
 	pubstrate/contrib/mime-types.scm		\
@@ -75,4 +76,5 @@ EXTRA_DIST = 						\
 	$(SOURCES)					\
 	$(TESTS)					\
 	tests/utils.scm					\
+	data/web-static/css/main.css			\
 	pre-inst-env.in
