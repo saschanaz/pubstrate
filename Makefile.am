@@ -57,6 +57,9 @@ SOURCES =  \
 	pubstrate/webapp/cookie.scm			\
 	pubstrate/webapp/demo.scm			\
 	pubstrate/webapp/auth.scm			\
+	pubstrate/webapp/params.scm			\
+	pubstrate/webapp/templates.scm			\
+	pubstrate/webapp/utils.scm			\
 	pubstrate/contrib/base32.scm			\
 	pubstrate/contrib/html.scm			\
 	pubstrate/contrib/mime-types.scm		\
