@@ -32,6 +32,9 @@
 (define-class <memory-store> ()
   (asentry-store #:init-thunk make-hash-table))
 
+(define-generic storage-save-asentry!)
+(define-generic storage-get-asentry)
+
 (define-method (storage-save-asentry! (storage <memory-store>) asentry)
   (let ((id (asentry-id asentry)))
     (if (not id)
