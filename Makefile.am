@@ -54,8 +54,10 @@ SOURCES =  \
 	pubstrate/paths.scm				\
 	pubstrate/webapp/demo.scm			\
 	pubstrate/webapp/auth.scm			\
+	pubstrate/contrib/base32.scm			\
 	pubstrate/contrib/html.scm			\
 	pubstrate/contrib/mime-types.scm		\
+	pubstrate/contrib/gcrypt-hash.scm		\
 	pubstrate/contrib/json.scm
 
 TESTS =							\
