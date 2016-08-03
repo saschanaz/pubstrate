@@ -1,6 +1,7 @@
 (define-module (tests test-asobj)
   #:use-module (srfi srfi-64)
   #:use-module (ice-9 match)
+  #:use-module (tests utils)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate json-utils)
@@ -128,3 +129,5 @@
   (test-assert (jsmap? (cdr (asobj-sjson-assoc "object" invitation)))))
 
 (test-end "test-asobj")
+
+(test-exit)

@@ -1,5 +1,6 @@
 (define-module (tests test-asobj)
   #:use-module (srfi srfi-64)
+  #:use-module (tests utils)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate generics)
   #:use-module ((pubstrate shorthand)
@@ -21,3 +22,5 @@
     (list 'activity-time test-object 'yup)))
 
 (test-end "test-generics")
+
+(test-exit)

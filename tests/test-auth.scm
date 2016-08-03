@@ -1,5 +1,6 @@
 (define-module (tests test-asobj)
   #:use-module (srfi srfi-64)
+  #:use-module (tests utils)
   #:use-module (pubstrate webapp auth))
 
 (test-begin "test-auth")
@@ -38,3 +39,5 @@
                    (salted-hash-hash salted-hash2)))))
 
 (test-end "test-auth")
+
+(test-exit)
