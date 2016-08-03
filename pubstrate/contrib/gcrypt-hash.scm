@@ -1,5 +1,6 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2012, 2013, 2014, 2015 Ludovic Courtès <ludo@gnu.org>
+;;; Copyright © 2013 Nikita Karetnikov <nikita@karetnikov.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -16,11 +17,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with GNU Guix.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (pubstrate contrib hash)
+(define-module (pubstrate contrib gcrypt-hash)
   #:use-module (system foreign)
   #:use-module (pubstrate paths)
   #:use-module (rnrs bytevectors)
-  #:export (shas256))
+  #:export (sha256))
 
 ;;; Commentary:
 ;;;
