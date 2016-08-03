@@ -52,6 +52,7 @@ SOURCES =  \
 	pubstrate/json-ld.scm				\
 	pubstrate/shorthand.scm				\
 	pubstrate/paths.scm				\
+	pubstrate/webapp/cookie.scm			\
 	pubstrate/webapp/demo.scm			\
 	pubstrate/webapp/auth.scm			\
 	pubstrate/contrib/base32.scm			\
