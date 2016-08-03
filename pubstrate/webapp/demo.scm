@@ -28,7 +28,6 @@
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate contrib html)
   #:use-module (pubstrate contrib mime-types)
-  #:use-module (oop goops)
   #:use-module (sxml simple)
   #:use-module (web request)
   #:use-module (web response)
@@ -202,33 +201,6 @@
      (values mockup '()))
     ;; Not found!
     (_ (values standard-four-oh-four '()))))
-
-
-;;; Storage stuff
-;;; =============
-
-(define-class <simple-storage> ()
-  (asentry-store #:init-thunk make-hash-table))
-
-(define-generic storage-save-asentry)
-(define-generic storage-get-asentry)
-
-(define (storage-get-asentry-fat store id)
-  'TODO)
-(define (storage-save-asentry-lean store asentry)
-  'TODO)
-
-
-
-;;; <asentry>
-;;; =========
-
-(define-immutable-record-type <asentry>
-  (make-asentry asobj private)
-  asentry?
-  (asobj asentry-asobj set-asentry-asobj)
-  ;; Private data is sjson
-  (private asentry-private set-asentry-private))
 
 
 
