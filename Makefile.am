@@ -62,6 +62,7 @@ SOURCES =  \
 
 TESTS =							\
 	tests/test-asobj.scm				\
+	tests/test-auth.scm				\
 	tests/test-generics.scm
 
 TEST_EXTENSIONS = .scm

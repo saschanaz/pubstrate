@@ -16,10 +16,20 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-;;; OAuth (currently OAuth 2.0) support
+(define-module (pubstrate webapp auth)
+  #:use-module (srfi srfi-9)
+  #:use-module (pubstrate contrib gcrypt-hash)
+  #:use-module (pubstrate contrib base32)
+  #:use-module (rnrs bytevectors)
+  #:export (gen-bearer-token
 
-(define-module (pubstrate webapp oauth)
-  #:export (gen-bearer-token))
+            salt-and-hash-password salted-hash-matches?
+            salted-hash->string string->salted-hash))
+
+
+
+;;; OAuth (currently OAuth 2.0) support
+;;; ===================================
 
 (define *random-state* (random-state-from-platform))
 
@@ -42,3 +52,49 @@ of a specified length is fine."
   (list->string
    (map (lambda _ (random-token-char))
         (iota length))))
+
+
+
+;;; (Salted) hash support
+;;; =====================
+
+(define-record-type <salted-hash>
+  (make-salted-hash salt hash)
+  salted-hash?
+  (salt salted-hash-salt)
+  (hash salted-hash-hash))  ; @@: could later add hash-type if appropriate..
+
+(define %salted-hash-delimiter #\:)
+
+(define* (salt-and-hash-password password
+                                 ;; We can use a bearer token as a salt
+                                 ;; because it's also just a random string of
+                                 ;; characters...
+                                 #:optional (salt (gen-bearer-token)))
+  "Salt and hash a new password"
+  (let* ((salted-password (string-append
+                           salt (list->string (list %salted-hash-delimiter))
+                           password))
+         (hashed-password
+          (bytevector->base32-string (sha256 (string->utf8 salted-password)))))
+    (make-salted-hash salt hashed-password)))
+
+(define (salted-hash-matches? salted-hash password)
+  "See if a <salted-hash> matches this password"
+  (let ((pw-salted-hash (salt-and-hash-password
+                         password
+                         (salted-hash-salt salted-hash))))
+    (equal? (salted-hash-hash salted-hash)
+            (salted-hash-hash pw-salted-hash))))
+
+(define (salted-hash->string salted-hash)
+  "Serialize a <salted-hash> to a string."
+  (string-append (salted-hash-salt salted-hash)
+                 (list->string (list %salted-hash-delimiter))
+                 (salted-hash-hash salted-hash)))
+
+(define (string->salted-hash string)
+  (let* ((where (string-index string %salted-hash-delimiter))
+         (salt (substring string 0 where))
+         (hash (substring string (+ where 1))))
+    (make-salted-hash salt hash)))
