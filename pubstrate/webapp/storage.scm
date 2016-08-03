@@ -44,7 +44,7 @@
      (slot-ref store 'asentry-store)
      id asentry)))
 
-(define-generic (storage-asentry-ref (storage <memory-store>) id)
+(define-method (storage-asentry-ref (storage <memory-store>) id)
   (hash-ref (slot-ref storage 'asentry-store) id))
 
 (define (storage-asentry-ref-fat store id)
