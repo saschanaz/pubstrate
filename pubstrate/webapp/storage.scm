@@ -35,7 +35,7 @@
 (define-generic storage-asentry-set!)
 (define-generic storage-asentry-ref)
 
-(define-method (storage-asentry-set! (storage <memory-store>) asentry)
+(define-method (storage-asentry-set! (store <memory-store>) asentry)
   (let ((id (asentry-id asentry)))
     (if (not id)
         (throw 'asentry-storage-failure
@@ -44,8 +44,8 @@
      (slot-ref store 'asentry-store)
      id asentry)))
 
-(define-method (storage-asentry-ref (storage <memory-store>) id)
-  (hash-ref (slot-ref storage 'asentry-store) id))
+(define-method (storage-asentry-ref (store <memory-store>) id)
+  (hash-ref (slot-ref store 'asentry-store) id))
 
 (define (storage-asentry-ref-fat store id)
   'TODO)
