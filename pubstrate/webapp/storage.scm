@@ -25,17 +25,17 @@
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate webapp asentry)
   #:export (<simple-storage>
-            storage-save-asentry
-            storage-get-asentry))
+            storage-asentry-set!
+            storage-asentry-ref))
 
 ;;; Simple in-memory storage
 (define-class <memory-store> ()
   (asentry-store #:init-thunk make-hash-table))
 
-(define-generic storage-save-asentry!)
-(define-generic storage-get-asentry)
+(define-generic storage-asentry-set!)
+(define-generic storage-asentry-ref)
 
-(define-method (storage-save-asentry! (storage <memory-store>) asentry)
+(define-method (storage-asentry-set! (storage <memory-store>) asentry)
   (let ((id (asentry-id asentry)))
     (if (not id)
         (throw 'asentry-storage-failure
@@ -44,10 +44,10 @@
      (slot-ref store 'asentry-store)
      id asentry)))
 
-(define-generic (storage-get-asentry (storage <memory-store>) id)
+(define-generic (storage-asentry-ref (storage <memory-store>) id)
   (hash-ref (slot-ref storage 'asentry-store) id))
 
-(define (storage-get-asentry-fat store id)
+(define (storage-asentry-ref-fat store id)
   'TODO)
-(define (storage-save-asentry-lean! store asentry)
+(define (storage-asentry-set-lean! store asentry)
   'TODO)
