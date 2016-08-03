@@ -18,7 +18,6 @@
 
 
 (define-module (pubstrate webapp cookie)
-  #:use-module (srfi srfi-9)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-19)
   #:use-module (web http))
