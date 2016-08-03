@@ -53,7 +53,7 @@ SOURCES =  \
 	pubstrate/shorthand.scm				\
 	pubstrate/paths.scm				\
 	pubstrate/webapp/demo.scm			\
-	pubstrate/webapp/oauth.scm			\
+	pubstrate/webapp/auth.scm			\
 	pubstrate/contrib/html.scm			\
 	pubstrate/contrib/mime-types.scm		\
 	pubstrate/contrib/json.scm
