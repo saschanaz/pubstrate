@@ -23,8 +23,9 @@
 (define-module (pubstrate webapp storage)
   #:use-module (oop goops)
   #:use-module (pubstrate asobj)
+  #:use-module (pubstrate webapp params)
   #:use-module (pubstrate webapp asentry)
-  #:export (<simple-storage>
+  #:export (<memory-store>
             storage-asentry-set!
             storage-asentry-ref))
 
