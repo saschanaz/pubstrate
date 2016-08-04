@@ -19,20 +19,36 @@
 (define-module (pubstrate webapp asentry)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (pubstrate asobj)
+  #:use-module (pubstrate json-utils)
   #:export (make-asentry <asentry>
             asentry?
             asentry-asobj set-asentry-asobj
             asentry-private set-asentry-private
+            asentry-id
 
-            asentry-id))
+            asentry->string string->asentry))
 
 (define-immutable-record-type <asentry>
-  (make-asentry asobj private)
+  (make-asentry-intern asobj private)
   asentry?
   (asobj asentry-asobj set-asentry-asobj)
   ;; Private data is sjson
   (private asentry-private set-asentry-private))
 
+(define* (make-asentry asobj #:optional (private jsmap-nil))
+  (make-asentry-intern asobj private))
+
 (define (asentry-id asentry)
   "Shortcut to get the id from an asentry's asobj."
   (asobj-id (asentry-asobj asentry)))
+
+(define (asentry->string asentry)
+  (write-json-to-string
+   `(@ ("sjson" . ,(asobj-sjson (asentry-asobj asentry)))
+       ("private" . ,(asentry-private asentry)))))
+
+(define (string->asentry str)
+  (let* ((str-sjson (read-json-from-string str))
+         (sjson (jsmap-ref str-sjson "sjson"))
+         (private (jsmap-ref str-sjson "private")))
+    (make-asentry sjson private)))
