@@ -17,7 +17,9 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp params)
-  #:export (%user %db))
+  #:export (%user %db
+            %url-prefix))
 
 (define %user (make-parameter #f))
 (define %db (make-parameter #f))
+(define %url-prefix (make-parameter #f))
