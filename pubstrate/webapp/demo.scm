@@ -30,6 +30,7 @@
   #:use-module (pubstrate contrib mime-types)
   #:use-module (pubstrate webapp templates)
   #:use-module (pubstrate webapp utils)
+  #:use-module (pubstrate webapp urls)
   #:use-module (sxml simple)
   #:use-module (web request)
   #:use-module (web response)
@@ -44,75 +45,6 @@
 
 (define-as-method (asobj-gallery-tmpl (asobj ^Object))
   'foo)
-
-
-;;; Views
-;;; =====
-
-(define (index request body)
-  (respond-html (index-tmpl)))
-
-(define (mockup request body)
-  (respond-html (mockup-tmpl)))
-
-(define (user-page request body user)
-  'TODO)
-
-(define (user-inbox request body user)
-  'TODO)
-
-(define (user-outbox request body username)
-  (define (post-to-outbox oauth-user)
-    'TODO)
-  (define (read-from-outbox oauth-user)
-    'TODO)
-  'TODO)
-
-(define (login request body)
-  'TODO)
-
-(define (logout request body)
-  'TODO)
-
-(define (content request body user slug-or-id)
-  'TODO)
-
-(define (asobj request body asobj-id)
-  'TODO)
-
-(define (oauth-authorize request body)
-  'TODO)
-
-
-(define (standard-four-oh-four request body)
-  ;; TODO: Add 404 status message
-  (values '((content-type . (text/plain)))
-          "Not found!"))
-
-;;; Static site rendering... only available on devel instances (hopefully!)
-(define (render-static request body static-path)
-  (respond
-   (call-with-input-file (web-static-filepath static-path) get-bytevector-all)
-   #:content-type (mime-type static-path)))
-
-
-
-;;; Routing
-;;; =======
-
-(define (route request)
-  (match (pk 'path (split-and-decode-uri-path (uri-path (request-uri request))))
-    (() (values index '()))
-    (("static" static-path ...)
-     ;; TODO: make this toggle'able
-     (values render-static
-             (list (string-append "/" (string-join
-                                       static-path "/")))))
-    (("mockup")
-     (values mockup '()))
-    ;; Not found!
-    (_ (values standard-four-oh-four '()))))
-
 
 
 ;;; Application

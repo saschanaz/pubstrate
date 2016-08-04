@@ -1,0 +1,37 @@
+;;; Pubstrate --- ActivityStreams based social networking for Guile
+;;; Copyright © 2016 Christopher Allan Webber <cwebber@dustycloud.org>
+;;;
+;;; This file is part of Pubstrate.
+;;;
+;;; Pubstrate is free software; you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; Pubstrate is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
+
+(define-module (pubstrate webapp urls)
+  #:use-module (ice-9 match)
+  #:use-module (pubstrate webapp views)
+  #:use-module (web request)
+  #:use-module (web uri)
+  #:export (route))
+
+(define (route request)
+  (match (split-and-decode-uri-path (uri-path (request-uri request)))
+    (() (values index '()))
+    (("static" static-path ...)
+     ;; TODO: make this toggle'able
+     (values render-static
+             (list (string-append "/" (string-join
+                                       static-path "/")))))
+    (("mockup")
+     (values mockup '()))
+    ;; Not found!
+    (_ (values standard-four-oh-four '()))))

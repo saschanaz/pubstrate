@@ -60,6 +60,8 @@ SOURCES =  \
 	pubstrate/webapp/params.scm			\
 	pubstrate/webapp/templates.scm			\
 	pubstrate/webapp/utils.scm			\
+	pubstrate/webapp/urls.scm			\
+	pubstrate/webapp/views.scm			\
 	pubstrate/contrib/base32.scm			\
 	pubstrate/contrib/html.scm			\
 	pubstrate/contrib/mime-types.scm		\
