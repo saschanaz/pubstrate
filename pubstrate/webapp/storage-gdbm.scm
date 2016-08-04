@@ -18,3 +18,31 @@
 
 ;;; GDBM based store
 
+(define-module (pubstrate webapp storage-gdbm)
+  #:use-module (gdbm)
+  #:use-module (oop goops)
+  #:use-module (pubstrate webapp asentry)
+  #:use-module (pubstrate webapp storage)
+  #:export (<gdbm-store>
+            make-gdbm-store))
+
+(define-class <gdbm-store> ()
+  (asentry-db #:init-keyword #:asentry-db))
+
+(define (make-gdbm-store db-path)
+  (make <gdbm-store>
+    #:asentry-db
+    (gdbm-open db-path GDBM_WRCREAT)))
+
+(define-method (storage-asentry-set! (store <gdbm-store>) asentry)
+  (let ((id (asentry-id asentry)))
+    (if (not id)
+        (throw 'asentry-storage-failure
+               "Can't save an asentry if no id set on its asobj"))
+    (gdbm-set! (slot-ref store 'asentry-db)
+               id (asentry->string asentry))))
+
+(define-method (storage-asentry-ref (store <gdbm-store>) id)
+  (string->asentry
+   (gdbm-ref (slot-ref store 'asentry-db)
+             id)))
