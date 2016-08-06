@@ -1,3 +1,7 @@
+#!@GUILE@ \
+--no-auto-compile -e webapp-cli -s
+!#
+
 (use-modules (pubstrate webapp app)
              (pubstrate webapp storage)
              (pubstrate webapp storage-gdbm)
