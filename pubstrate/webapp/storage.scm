@@ -26,12 +26,16 @@
   #:use-module (pubstrate webapp params)
   #:use-module (pubstrate webapp asentry)
   #:export (<memory-store>
+            make-memory-store
             storage-asentry-set!
             storage-asentry-ref))
 
 ;;; Simple in-memory storage
 (define-class <memory-store> ()
   (asentry-store #:init-thunk make-hash-table))
+
+(define (make-memory-store)
+  (make <memory-store>))
 
 (define-generic storage-asentry-set!)
 (define-generic storage-asentry-ref)
