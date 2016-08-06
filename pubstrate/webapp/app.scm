@@ -43,14 +43,13 @@
           (append (list kwarg val)
                   current-kwargs)
           current-kwargs)))
-  (format #t
-          (string-append
-           "Running on http://"
-           (if host host "localhost")
-           (if port
-               (string-append ":" (number->string port))
-               "")
-           "/\n"))
+  (display (string-append
+            "Running on http://"
+            (if host host "localhost")
+            (if port
+                (string-append ":" (number->string port))
+                "")
+            "/\n"))
   (let ((server-args
          ((compose
            (maybe-kwarg #:host host)
