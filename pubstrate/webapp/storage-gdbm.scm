@@ -24,7 +24,8 @@
   #:use-module (pubstrate webapp asentry)
   #:use-module (pubstrate webapp storage)
   #:export (<gdbm-store>
-            make-gdbm-store))
+            make-gdbm-store
+            gdbm-store-close))
 
 (define-class <gdbm-store> ()
   (asentry-db #:init-keyword #:asentry-db))
@@ -46,3 +47,6 @@
   (string->asentry
    (gdbm-ref (slot-ref store 'asentry-db)
              id)))
+
+(define (gdbm-store-close store)
+  (gdbm-close (slot-ref store 'asentry-db)))
