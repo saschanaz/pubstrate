@@ -20,7 +20,7 @@
   #:use-module (ice-9 receive)
   #:use-module (oop goops)
   #:use-module (web server)
-  #:use-module (pubstrate webapp urls)
+  #:use-module (pubstrate webapp routes)
   #:use-module (pubstrate webapp storage)
   #:use-module (pubstrate webapp params)
   #:use-module ((system repl server)
