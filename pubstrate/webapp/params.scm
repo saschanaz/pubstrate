@@ -18,8 +18,9 @@
 
 (define-module (pubstrate webapp params)
   #:export (%user %store
-            %url-prefix))
+            %url-prefix %base-uri))
 
 (define %user (make-parameter #f))
 (define %store (make-parameter #f))
 (define %url-prefix (make-parameter #f))
+(define %base-uri (make-parameter #f))

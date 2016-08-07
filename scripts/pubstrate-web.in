@@ -19,6 +19,7 @@
     (url-prefix (single-char #\u) (value #t))
     (host (single-char #\h) (value #t))
     (port (single-char #\p) (value #t))
+    (base-uri (value #t))
     (repl-server (single-char #\r) (value #f))))
 
 (define* (get-storage-from-db-path db-path #:key (warn-if-memory-store #t))
@@ -40,6 +41,10 @@ pubstrate-webapp [options]
                        will be used.
   -h, --host=HOST      Server host address.  Defaults to localhost.
   -p, --port=PORT      Server port.  Defaults to 8080.
+
+      --base-uri=BASE-URI
+                       Base URI to generate URLs from.  Normally generated from
+                       host and port.
 
   -r, --repl-server[=REPL-PORT]
                        Run a REPL server (on REPL-PORT if provided, otherwise
@@ -70,6 +75,7 @@ pubstrate-webapp [options]
               ((compose
                 (maybe-kwarg #:host (get-option 'host))
                 (maybe-kwarg #:port (get-option 'port))
+                (maybe-kwarg #:base-uri (get-option 'base-uri))
                 (maybe-kwarg #:url-prefix (get-option 'url-refix)))
                (list #:storage storage))))
         ;; Enable the REPL server if requested
