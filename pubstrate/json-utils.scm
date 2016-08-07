@@ -380,7 +380,7 @@ The opposite of sjson->vjson!"
   (write-padding indent level port)
   (display "]" port))
 
-(define* (pprint-json exp port
+(define* (pprint-json exp #:optional (port (current-output-port))
                       #:key
                       (indent default-pprint-indent)
                       (level 0)
