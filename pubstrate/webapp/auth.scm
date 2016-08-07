@@ -18,13 +18,15 @@
 
 (define-module (pubstrate webapp auth)
   #:use-module (srfi srfi-9)
+  #:use-module (pubstrate json-utils)
   #:use-module (pubstrate contrib gcrypt-hash)
   #:use-module (pubstrate contrib base32)
   #:use-module (rnrs bytevectors)
   #:export (gen-bearer-token
 
             salt-and-hash-password salted-hash-matches?
-            salted-hash->string string->salted-hash))
+            salted-hash->string string->salted-hash
+            salted-hash->sjson sjson->salted-hash))
 
 
 
@@ -98,3 +100,13 @@ of a specified length is fine."
          (salt (substring string 0 where))
          (hash (substring string (+ where 1))))
     (make-salted-hash salt hash)))
+
+(define (salted-hash->sjson salted-hash)
+  "Serialize a <salted-hash> to sjson."
+  `(@ ("salt" . ,(salted-hash-salt salted-hash))
+      ("hash" . ,(salted-hash-hash salted-hash))))
+
+(define (sjson->salted-hash sjson)
+  "Convert sjson serialization back to <salted-hash>"
+  (make-salted-hash (json-alist-ref sjson "salt")
+                    (json-alist-ref sjson "hash")))

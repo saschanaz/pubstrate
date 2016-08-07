@@ -217,7 +217,7 @@ Field can be a string for a top-level field "
                    (json-alist-delete key (asobj-sjson asobj))
                    (asobj-sjson asobj))))
     (make-asobj
-     (json-alist-cons
+     (json-alist-acons
       key (convert-sjson-with-maybe-asobj value)
       jsobj)
      (asobj-env asobj))))
@@ -420,10 +420,10 @@ and convert to sjson"
 (define (make-as astype asenv . kwargs)
   ;; TODO: Add the type from asenv, and add to the sjson
   (let* ((initial-sjson (kwargs-to-sjson kwargs))
-         (sjson-with-type (json-alist-cons "type"
-                                      (or (astype-short-id astype)
-                                          (astype-uri astype))
-                                      initial-sjson)))
+         (sjson-with-type (json-alist-acons "type"
+                                            (or (astype-short-id astype)
+                                                (astype-uri astype))
+                                            initial-sjson)))
     (make-asobj sjson-with-type asenv)))
 
 (define (as-maker asenv)

@@ -86,7 +86,7 @@
 
 ;; is the sjson-assoc-recursive helper working?
 (test-equal
-    ((@@ (pubstrate asobj) jsmap-assoc-recursive)
+    ((@@ (pubstrate asobj) json-alist-assoc-recursive)
      '("actor" "displayName")
      root-beer-note-sjson)
   '(("actor" "displayName") . "Jessica Tallon"))
@@ -99,7 +99,7 @@
 
 ;; If we can't find such a key, it shouldn't panic
 (test-equal
-    ((@@ (pubstrate asobj) jsmap-assoc-recursive)
+    ((@@ (pubstrate asobj) json-alist-assoc-recursive)
      '("actor" "not-a-field")
      root-beer-note-sjson)
   #f)

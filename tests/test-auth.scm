@@ -1,6 +1,7 @@
 (define-module (tests test-asobj)
   #:use-module (srfi srfi-64)
   #:use-module (tests utils)
+  #:use-module (pubstrate json-utils)
   #:use-module (pubstrate webapp auth))
 
 (test-begin "test-auth")
@@ -37,6 +38,18 @@
   (test-assert
       (not (equal? (salted-hash-hash salted-hash1)
                    (salted-hash-hash salted-hash2)))))
+
+;; Serializing to sjson and back
+(let* ((salted-hash (salt-and-hash-password "fun-times"))
+       (sjson-hash (salted-hash->sjson salted-hash))
+       (restored-salted-hash (sjson->salted-hash sjson-hash)))
+  (test-assert
+      (equal? (salted-hash-hash salted-hash)
+              (salted-hash-hash restored-salted-hash)))
+  (test-assert
+      (equal? (salted-hash-salt salted-hash)
+              (salted-hash-salt restored-salted-hash))))
+
 
 (test-end "test-auth")
 
