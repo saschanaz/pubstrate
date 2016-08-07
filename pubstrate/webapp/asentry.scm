@@ -35,7 +35,7 @@
   ;; Private data is sjson
   (private asentry-private set-asentry-private))
 
-(define* (make-asentry asobj #:optional (private jsmap-nil))
+(define* (make-asentry asobj #:optional (private json-alist-nil))
   (make-asentry-intern asobj private))
 
 (define (asentry-id asentry)
@@ -49,6 +49,6 @@
 
 (define (string->asentry str)
   (let* ((str-sjson (read-json-from-string str))
-         (sjson (jsmap-ref str-sjson "sjson"))
-         (private (jsmap-ref str-sjson "private")))
+         (sjson (json-alist-ref str-sjson "sjson"))
+         (private (json-alist-ref str-sjson "private")))
     (make-asentry sjson private)))

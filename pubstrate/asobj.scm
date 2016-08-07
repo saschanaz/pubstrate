@@ -146,7 +146,7 @@
      val)
     (#f #f)))
 
-(define (jsmap-assoc-recursive key-list sjson)
+(define (json-alist-assoc-recursive key-list sjson)
   "Recursively traverse an sjson structure, and try to extract a value
 from a key list"
   (define (traverse)
@@ -157,12 +157,12 @@ from a key list"
        ((eq? key-list '())
         (cons '*got-it* sjson))
        ;; Okay, try matching the next part
-       ((jsmap? sjson)
-        (match (jsmap-assoc (car key-list) sjson)
+       ((json-alist? sjson)
+        (match (json-alist-assoc (car key-list) sjson)
           ((_ . val)
            (lp (cdr key-list) val))
           (#f #f)))
-       ;; Well it's not a jsmap, so no sense searching
+       ;; Well it's not a json-alist, so no sense searching
        (else #f))))
   (match (traverse)
     (('*got-it* . val)
@@ -174,8 +174,8 @@ from a key list"
 
 If KEY is a list, recursively look up keys until we (hopefully) find a value."
   (if (pair? key)
-      (jsmap-assoc-recursive key (asobj-sjson asobj))
-      (jsmap-assoc key (asobj-sjson asobj))))
+      (json-alist-assoc-recursive key (asobj-sjson asobj))
+      (json-alist-assoc key (asobj-sjson asobj))))
 
 (define (asobj-assoc key asobj)
   "Pull the value out of ASOBJ that matches KEY, and return it as an asobj
@@ -189,9 +189,9 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
      ;; If we got back a result, and it's a javascript object, and it has
      ;; a type field, wrap it in an <asobj>
      ((and result
-           (jsmap? data)
-           (or (jsmap-assoc "type" data)
-               (jsmap-assoc "@type" data)))
+           (json-alist? data)
+           (or (json-alist-assoc "type" data)
+               (json-alist-assoc "@type" data)))
       (cons (car result) (make-asobj data (asobj-env asobj))))
      ;; Otherwise, return it as-is
      (else result))))
@@ -214,10 +214,10 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
   "Return a new asobj with FIELD set to VALUE.
 Field can be a string for a top-level field "
   (let ((jsobj (if delete
-                   (jsmap-delete key (asobj-sjson asobj))
+                   (json-alist-delete key (asobj-sjson asobj))
                    (asobj-sjson asobj))))
     (make-asobj
-     (jsmap-cons
+     (json-alist-cons
       key (convert-sjson-with-maybe-asobj value)
       jsobj)
      (asobj-env asobj))))
@@ -380,10 +380,10 @@ and convert to sjson"
   (define (convert-item item)
     (match item
       ;; convert dictionaries/json objects
-      ;; TODO: use jsmap? instead
+      ;; TODO: use json-alist? instead
       (('@ . rest)
        (cons '@
-        ;; @@: Maybe use jsmap-fold-unique?
+        ;; @@: Maybe use json-alist-fold-unique?
         (map
          (match-lambda
            ((key . val)
@@ -420,7 +420,7 @@ and convert to sjson"
 (define (make-as astype asenv . kwargs)
   ;; TODO: Add the type from asenv, and add to the sjson
   (let* ((initial-sjson (kwargs-to-sjson kwargs))
-         (sjson-with-type (jsmap-cons "type"
+         (sjson-with-type (json-alist-cons "type"
                                       (or (astype-short-id astype)
                                           (astype-uri astype))
                                       initial-sjson)))
