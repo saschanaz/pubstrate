@@ -37,7 +37,7 @@
 (define-syntax-rule (shorthand name astype)
   (begin
     (define (name . kwargs)
-      (apply make-as astype *basic-env* kwargs))
+      (apply make-as astype (%default-env) kwargs))
     (if (astype-notes astype)
         (set-procedure-property! name 'documentation
                                  (astype-notes astype)))))
@@ -46,7 +46,6 @@
 (shorthand link ^Link)
 (shorthand activity ^Activity)
 (shorthand intransitive-activity ^IntransitiveActivity)
-(shorthand actor ^Actor)
 (shorthand collection ^Collection)
 (shorthand ordered-collection ^OrderedCollection)
 
@@ -83,7 +82,6 @@
 (shorthand application ^Application)
 (shorthand group ^Organization)
 (shorthand person ^Person)
-(shorthand process ^Process)
 (shorthand service ^Service)
 
 (shorthand relationship ^Relationship)

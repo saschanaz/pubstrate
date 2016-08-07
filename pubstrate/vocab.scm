@@ -455,7 +455,7 @@ is used to reference the object being described by the profile."))
         ^Follow ^Ignore ^Join ^Leave ^Like ^Offer ^Invite ^Reject
         ^TentativeReject ^Remove ^Undo ^Update ^Experience ^View
         ^Listen ^Read ^Move ^Travel ^Announce ^Block ^Flag ^Dislike
-        ^Application ^Group ^Organization ^Person ^Process ^Service
+        ^Application ^Group ^Organization ^Person ^Service
         ^Relationship ^Content ^Article ^Album ^Folder ^Story ^Document
         ^Audio ^Image ^Video ^Note ^Page ^Question ^Event ^Place ^Mention
         ^Profile))
