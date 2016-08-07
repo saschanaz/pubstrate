@@ -59,9 +59,9 @@ SOURCES =  \
 	pubstrate/webapp/app.scm			\
 	pubstrate/webapp/auth.scm			\
 	pubstrate/webapp/params.scm			\
+	pubstrate/webapp/routes.scm			\
 	pubstrate/webapp/templates.scm			\
 	pubstrate/webapp/utils.scm			\
-	pubstrate/webapp/urls.scm			\
 	pubstrate/webapp/views.scm			\
 	pubstrate/contrib/base32.scm			\
 	pubstrate/contrib/html.scm			\

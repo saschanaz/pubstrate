@@ -16,7 +16,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (pubstrate webapp urls)
+(define-module (pubstrate webapp routes)
   #:use-module (ice-9 match)
   #:use-module (pubstrate webapp views)
   #:use-module (web request)
