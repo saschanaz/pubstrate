@@ -19,7 +19,7 @@
 (define-module (pubstrate vocab)
   #:use-module (pubstrate asobj)
   #:export (^Object ^Link ^Activity ^IntransitiveActivity
-            ^Actor ^Collection ^OrderedCollection
+            ^Collection ^OrderedCollection
 
             ^Accept ^TentativeAccept ^Add ^Arrive ^Create
             ^Delete ^Follow ^Ignore ^Join ^Leave ^Like
@@ -27,15 +27,15 @@
             ^Undo ^Update ^Experience ^View ^Listen ^Read
             ^Move ^Travel ^Announce ^Block ^Flag ^Dislike
 
-            ^Application ^Group ^Organization ^Person
-            ^Process ^Service
+            ^Application ^Group ^Organization ^Person ^Service
 
             ^Relationship ^Content ^Article ^Album ^Folder
             ^Story ^Document ^Audio ^Image ^Video ^Note
             ^Page ^Question ^Event ^Place ^Mention
             ^Profile
 
-            *core-vocab* *basic-env*))
+            *core-vocab* *basic-env*
+            %default-env))
 
 
 (define (as-uri identifier)
@@ -82,12 +82,6 @@ about the kind of action being taken."))
    "Instances of IntransitiveActivity are a subclass of Activity whose
 actor property identifies the direct object of the action as opposed
 to using the object property."))
-
-(define ^Actor
-  (make-astype
-   (as-uri "Actor") (list ^Object) "Actor"
-   "An Actor is any entity that is capable of being the primary actor
-for an Activity."))
 
 (define ^Collection
   (make-astype
@@ -321,32 +315,27 @@ content as being inappropriate for any number of reasons."))
 
 (define ^Application
   (make-astype
-   (as-uri "Application") (list ^Actor) "Application"
+   (as-uri "Application") (list ^Object) "Application"
    "Describes a software application."))
 
 (define ^Group
   (make-astype
-   (as-uri "Group") (list ^Actor) "Group"
+   (as-uri "Group") (list ^Object) "Group"
    "Represents a formal or informal collective of Actors."))
 
 (define ^Organization
   (make-astype
-   (as-uri "Organization") (list ^Actor) "Organization"
+   (as-uri "Organization") (list ^Object) "Organization"
    "Represents an organization."))
 
 (define ^Person
   (make-astype
-   (as-uri "Person") (list ^Actor) "Person"
+   (as-uri "Person") (list ^Object) "Person"
    "Represents an individual person."))
-
-(define ^Process
-  (make-astype
-   (as-uri "Process") (list ^Actor) "Process"
-   "Represents a series of actions taken to achieve a particular goal."))
 
 (define ^Service
   (make-astype
-   (as-uri "Service") (list ^Actor) "Service"
+   (as-uri "Service") (list ^Object) "Service"
    "Represents a service of any kind."))
 
 
@@ -460,7 +449,7 @@ is used to reference the object being described by the profile."))
 
 
 (define *core-vocab*
-  (list ^Object ^Link ^Activity ^IntransitiveActivity ^Actor ^Collection
+  (list ^Object ^Link ^Activity ^IntransitiveActivity ^Collection
         ^OrderedCollection ^CollectionPage ^OrderedCollectionPage
         ^Accept ^TentativeAccept ^Add ^Arrive ^Create ^Delete
         ^Follow ^Ignore ^Join ^Leave ^Like ^Offer ^Invite ^Reject
@@ -476,3 +465,6 @@ is used to reference the object being described by the profile."))
               ;; #:shortids (shortids-from-vocab *core-vocab*)
               ;; #:c-accessors (shortids-from-vocab *core-vocab*)
               ))
+
+(define %default-env
+  (make-parameter *basic-env*))
