@@ -35,8 +35,8 @@
   ;; Private data is sjson
   (private asentry-private set-asentry-private))
 
-(define* (make-asentry asobj #:optional (private json-alist-nil))
-  (make-asentry-intern asobj private))
+(define* (make-asentry asobj #:optional (private-data json-alist-nil))
+  (make-asentry-intern asobj private-data))
 
 (define (asentry-id asentry)
   "Shortcut to get the id from an asentry's asobj."
