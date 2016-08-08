@@ -27,13 +27,16 @@
   #:use-module (pubstrate json-utils)
   #:use-module (pubstrate json-ld)
   #:export (make-asobj asobj?
-            asobj-sjson asobj-env
+            asobj-sjson asobj-env asobj-private
 
             asobj-types asobj-expanded asobj-inherits
             asobj-id
 
-            asobj-assoc asobj-ref asobj-sjson-assoc asobj-set
+            asobj-assoc asobj-ref asobj-sjson-assoc asobj-cons
             asobj-from-json-string
+
+            asobj-set-private asobj-set-private*
+            asobj-private-assoc asobj-private-ref asobj-private-cons
 
             asobj-pprint
 
@@ -58,18 +61,19 @@
 ;; we want to attach the promises.
 
 (define-record-type <asobj>
-  (make-asobj-intern sjson env)
+  (make-asobj-intern sjson env private)
   asobj?
   (sjson asobj-sjson)
   (env asobj-env)
+  (private asobj-private)
   (types-promise asobj-types-promise set-asobj-types-promise!)
   (expanded-promise asobj-expanded-promise set-asobj-expanded-promise!)
   (inherits-promise asobj-inherits-promise set-asobj-inherits-promise!))
 
 ;; @@: maybe have env be a kwarg?  Maybe use some kind of default-env?
-(define (make-asobj sjson env)
+(define* (make-asobj sjson env #:optional (private json-alist-nil))
   (let* ((asobj
-          (make-asobj-intern sjson env))
+          (make-asobj-intern sjson env private))
          (types-promise
           (delay (asobj-calculate-types asobj)))
          (expanded-promise
@@ -192,7 +196,8 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
            (json-alist? data)
            (or (json-alist-assoc "type" data)
                (json-alist-assoc "@type" data)))
-      (cons (car result) (make-asobj data (asobj-env asobj))))
+      (cons (car result) (make-asobj data (asobj-env asobj)
+                                     (asobj-private asobj))))
      ;; Otherwise, return it as-is
      (else result))))
 
@@ -210,7 +215,9 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
 (define (asobj-inherits asobj)
   (force (asobj-inherits-promise asobj)))
 
-(define* (asobj-set asobj key value #:key (delete #t))
+;; TODO: Document that if you asobj-cons another asobj in,
+;;   any private data in the to-be-nested asobj will be dropped!
+(define* (asobj-cons asobj key value #:key (delete #t))
   "Return a new asobj with FIELD set to VALUE.
 Field can be a string for a top-level field "
   (let ((jsobj (if delete
@@ -220,13 +227,76 @@ Field can be a string for a top-level field "
      (json-alist-acons
       key (convert-sjson-with-maybe-asobj value)
       jsobj)
-     (asobj-env asobj))))
+     (asobj-env asobj)
+     (asobj-private asobj))))
 
-(define (asobj-from-json-string json-string env)
+(define (asobj-set-private asobj private)
+  "Return a new <asobj> based on ASOBJ with private field set to PRIVATE"
+  (make-asobj (asobj-sjson asobj)
+              (asobj-env asobj)
+              private))
+
+(define (asobj-private-assoc key asobj)
+  (if (pair? key)
+      (json-alist-assoc-recursive key (asobj-private asobj))
+      (json-alist-assoc key (asobj-private asobj))))
+
+(define* (asobj-private-ref asobj key #:optional dflt)
+  (match (asobj-private-assoc key asobj)
+    ((_ . val)
+     val)
+    (#f dflt)))
+
+(define* (asobj-private-cons asobj key value #:key (delete #t))
+  "Append KEY and VALUE to ASOBJ's private field.
+
+If #:delete is provided, make sure this is the only item with this key."
+  ;; @@: TODO: this is super similar to asobj-cons, could probably
+  ;;  do with a shared abstraction!
+  (let ((jsobj (if delete
+                   (json-alist-delete key (asobj-private asobj))
+                   (asobj-private asobj))))
+    (make-asobj
+     (asobj-sjson asobj)
+     (asobj-env asobj)
+     ;; @@: Do we need convert-sjson-with-maybe-asobj here?
+     ;;   Will people really whack asobjs into the private field?
+     (json-alist-acons
+      key (convert-sjson-with-maybe-asobj value)
+      jsobj))))
+
+(define (asobj-set-private* asobj . kwargs)
+  "Like asobj-set-private, but uses keyword argument fanciness instead of sjson"
+  (asobj-set-private asobj (kwargs-to-sjson kwargs)))
+
+(define (asobj->sjson-combined asobj)
+  "Return an sjson object combining ASOBJ's sjson and private fields
+
+Will look something like:
+  {\"sjson\": {\"sjson-goes\": \"here\"},
+   \"private\": {\"private\": \"stuff\"}}"
+  `(@ ("sjson" . ,(asobj-sjson asobj))
+      ("private" . ,(asobj-private asobj))))
+
+(define* (sjson-combined->asobj sjson-combined
+                                #:optional (env (%default-env)))
+  'TODO)
+
+(define* (asobj->string-combined asobj)
+  'TODO)
+
+(define* (string-combined->asobj string-combined
+                                 #:optional (env (%default-env)))
+  'TODO)
+
+(define (string->asobj json-string env)
   'TODO)
 
 (define* (asobj-pprint asobj #:key (port (current-output-port)))
   (pprint-json (asobj-sjson asobj) port))
+
+(define* (asobj-pprint-combined asobj #:key (port (current-output-port)))
+  (pprint-json (asobj-sjson-combined asobj) port))
 
 
 ;;; ============
@@ -442,14 +512,17 @@ and convert to sjson"
 (set-record-type-printer!
  <asobj>
  (lambda (asobj port)
-   (format port "#<asobj [~a] ~s>"
+   (format port "#<asobj [~a] ~s~a>"
            (string-join
             (map (lambda (type)
                    (or (astype-short-id type)
                        (astype-uri type)))
                  (asobj-types asobj))
             ", ")
-           (asobj-id asobj))))
+           (asobj-id asobj)
+           (if (json-alist-null? (asobj-private asobj))
+               ""
+               " +private"))))
 
 (set-record-type-printer!
  <astype>
