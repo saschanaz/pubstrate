@@ -40,12 +40,10 @@
              #:path path))
 
 (define* (run-webapp #:key (storage (make <memory-store>))
-                     (url-prefix #f)
                      (host #f)
                      (port 8080)
                      (base-uri (base-uri-from-other-params
-                                host port (or url-prefix
-                                              "/")))
+                                host port "/"))
                      (announce #f))
   (define (maybe-kwarg kwarg val)
     (lambda (current-kwargs)
@@ -55,13 +53,7 @@
           current-kwargs)))
   (display (string-append
             "Running on "
-            ;; Not using base-uri because we're serving on this,
-            ;; but that might not be what the public URLs are.
-            (uri->string
-             (build-uri 'http
-                        #:host (or host "localhost")
-                        #:port port
-                        #:path (or url-prefix "/")))
+            (uri->string base-uri)
             "\n"))
   (let ((server-args
          ((compose
@@ -69,7 +61,6 @@
            (maybe-kwarg #:port port))
           '())))
     (parameterize ((%store storage)
-                   (%url-prefix url-prefix)
                    (%base-uri base-uri))
       (run-server (lambda args (apply webapp-server-handler args))
                   'http server-args))))

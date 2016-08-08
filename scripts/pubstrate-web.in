@@ -16,7 +16,6 @@
 (define option-spec
   '((help (single-char #\h) (value #f))
     (db-path (single-char #\d) (value #t))
-    (url-prefix (single-char #\u) (value #t))
     (host (single-char #\h) (value #t))
     (port (single-char #\p) (value #t))
     (base-uri (value #t))
@@ -75,8 +74,7 @@ pubstrate-webapp [options]
               ((compose
                 (maybe-kwarg #:host (get-option 'host))
                 (maybe-kwarg #:port (get-option 'port))
-                (maybe-kwarg #:base-uri (get-option 'base-uri))
-                (maybe-kwarg #:url-prefix (get-option 'url-refix)))
+                (maybe-kwarg #:base-uri (get-option 'base-uri)))
                (list #:storage storage))))
         ;; Enable the REPL server if requested
         (match (option-ref options 'repl-server #f)
