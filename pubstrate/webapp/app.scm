@@ -39,6 +39,9 @@
              #:port port
              #:path path))
 
+(define %debug-store #f)
+(define %debug-base-uri #f)
+
 (define* (run-webapp #:key (storage (make <memory-store>))
                      (host #f)
                      (port 8080)
@@ -60,6 +63,8 @@
            (maybe-kwarg #:host host)
            (maybe-kwarg #:port port))
           '())))
+    (set! %debug-store storage)
+    (set! %debug-base-uri base-uri)
     (parameterize ((%store storage)
                    (%base-uri base-uri))
       (run-server (lambda args (apply webapp-server-handler args))
