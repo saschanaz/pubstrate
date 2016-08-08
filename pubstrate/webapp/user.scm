@@ -43,8 +43,12 @@
   (abs-local-uri "u" username))
 
 (define* (make-user username password
-                    #:key (asenv (%default-env)))
-  (define (user-endpoints )
+                    #:key (asenv (%default-env))
+                    name)
+  (define (user-endpoints)
+    ;;; TODO: Supply once we work on ActivitySub
+    ;; #:following ,(abs-local-uri "u" username "following")
+    ;; #:followers ,(abs-local-uri "u" username "followers")
     `(#:inbox ,(abs-local-uri "u" username "inbox")
       #:outbox ,(abs-local-uri "u" username "outbox")))
   (require-base-uri)
@@ -56,7 +60,8 @@
          (user
           (make-asentry (apply make-as ^Person asenv
                                #:id id
-                               #:name username
+                               #:preferredUsername username
+                               #:name (or name username)
                                (user-endpoints))
                         `(@ ("password" . ,password-sjson)))))
     user))
