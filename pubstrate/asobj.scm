@@ -278,15 +278,13 @@ Will look something like:
   `(@ ("sjson" . ,(asobj-sjson asobj))
       ("private" . ,(asobj-private asobj))))
 
-(define* (sjson-combined->asobj sjson-combined
-                                #:optional (env (%default-env)))
+(define (sjson-combined->asobj sjson-combined env)
   'TODO)
 
-(define* (asobj->string-combined asobj)
+(define (asobj->string-combined asobj)
   'TODO)
 
-(define* (string-combined->asobj string-combined
-                                 #:optional (env (%default-env)))
+(define (string-combined->asobj string-combined env)
   'TODO)
 
 (define (string->asobj json-string env)
@@ -296,7 +294,7 @@ Will look something like:
   (pprint-json (asobj-sjson asobj) port))
 
 (define* (asobj-pprint-combined asobj #:key (port (current-output-port)))
-  (pprint-json (asobj-sjson-combined asobj) port))
+  (pprint-json (asobj->sjson-combined asobj) port))
 
 
 ;;; ============
