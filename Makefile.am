@@ -62,6 +62,7 @@ SOURCES =  \
 	pubstrate/webapp/routes.scm			\
 	pubstrate/webapp/templates.scm			\
 	pubstrate/webapp/utils.scm			\
+	pubstrate/webapp/user.scm			\
 	pubstrate/webapp/views.scm			\
 	pubstrate/contrib/base32.scm			\
 	pubstrate/contrib/html.scm			\
