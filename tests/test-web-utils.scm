@@ -5,7 +5,7 @@
   #:use-module (pubstrate webapp params)
   #:use-module (pubstrate webapp utils))
 
-(test-begin "test-asobj")
+(test-begin "test-web-utils")
 
 (parameterize ((%base-uri (string->uri "https://coolsite.example/")))
   (test-equal (local-uri) "/")
@@ -17,6 +17,6 @@
   (test-equal (local-uri "foo" "bar") "/stuff/foo/bar")
   (test-equal (abs-local-uri "foo" "bar") "https://coolsite.example/stuff/foo/bar"))
 
-(test-end "test-asobj")
+(test-end "test-web-utils")
 
 (test-exit)
