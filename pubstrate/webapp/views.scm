@@ -20,6 +20,9 @@
   #:use-module (pubstrate paths)
   #:use-module (pubstrate webapp templates)
   #:use-module (pubstrate webapp utils)
+  #:use-module (pubstrate webapp user)
+  #:use-module (pubstrate webapp asentry)
+  #:use-module (pubstrate webapp params)
   #:use-module (pubstrate contrib mime-types)
   #:use-module (rnrs io ports)
   #:export (index mockup
@@ -36,10 +39,21 @@
 (define (mockup request body)
   (respond-html (mockup-tmpl)))
 
-(define (user-page request body user)
-  'TODO)
+(define (user-page request body username)
+  (define (user-tmpl user)
+    (base-tmpl
+     `(p "Hi!  This is "
+         ,(or (asentry-ref user "name")
+              (asentry-ref user "preferredUsername"))
+         "'s page.")))
+  (let ((user (store-user-ref (%store) username)))
+    (if user
+        (respond-html
+         (user-tmpl user))
+        (respond "User not found!"
+                 #:status 404))))
 
-(define (user-inbox request body user)
+(define (user-inbox request body username)
   'TODO)
 
 (define (user-outbox request body username)

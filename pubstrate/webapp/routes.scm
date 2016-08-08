@@ -26,6 +26,12 @@
 (define (route request)
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
     (() (values index '()))
+    (("u" username)
+     (values user-page (list username)))
+    (("u" username "inbox")
+     (values user-inbox (list username)))
+    (("u" username "outbox")
+     (values user-outbox (list username)))
     (("static" static-path ...)
      ;; TODO: make this toggle'able
      (values render-static

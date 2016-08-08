@@ -53,6 +53,11 @@
 (define (index-tmpl)
   (base-tmpl "Beep boop, hello there!"))
 
+(define (user-tmpl user)
+  (base-tmpl
+   `(p "Hi!  This is "
+       ,(user-username user)
+       "'s page.")))
 
 (define (mockup-tmpl)
   (base-tmpl
