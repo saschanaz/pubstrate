@@ -135,16 +135,40 @@
   (list ^Question ^Content ^IntransitiveActivity ^Invite ^Offer
         ^Activity ^Object))
 
-;; Make sure asobj-set works and can set asobj things
+;; Make sure asobj-cons works and can set asobj things
 (let ((invitation
-       (asobj-set root-beer-note "object"
-                  (as:invite #:content
-                             "Libreplanet root beer floats party"))))
+       (asobj-cons root-beer-note "object"
+                   (as:invite #:content
+                              "Libreplanet root beer floats party"))))
   (test-assert (asobj? (asobj-ref invitation "object")))
   (test-equal (asobj-types (asobj-ref invitation "object"))
     (list ^Invite))
   ;; but of course, it should still just be inserted as a jsmap...
   (test-assert (jsmap? (cdr (asobj-sjson-assoc "object" invitation)))))
+
+;; Create a version of the root-beer-note with private data attached
+;; to it
+
+(define privatized-note
+  (asobj-set-private
+   root-beer-note
+   '(@ ("sekret-kode" . "bananaphone"))))
+
+(test-equal
+    (asobj-private-ref privatized-note "sekret-kode")
+  "bananaphone")
+
+;; Same thing if we were to use the sugar constructor
+(let ((privatized-note
+       (asobj-set-private* root-beer-note
+                           #:sekret-kode "bananaphone")))
+  (test-equal
+      (asobj-private-ref privatized-note "sekret-kode")
+    "bananaphone"))
+
+;; Original note should just have the json-alist-nil though
+(test-equal (asobj-private root-beer-note)
+    json-alist-nil)
 
 (test-end "test-asobj")
 

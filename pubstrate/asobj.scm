@@ -38,7 +38,7 @@
             asobj-set-private asobj-set-private*
             asobj-private-assoc asobj-private-ref asobj-private-cons
 
-            asobj-pprint
+            asobj-pprint asobj-pprint-private asobj-pprint-combined
 
             make-astype astype?
             astype-uri astype-parents astype-short-id astype-notes
@@ -292,6 +292,9 @@ Will look something like:
 
 (define* (asobj-pprint asobj #:key (port (current-output-port)))
   (pprint-json (asobj-sjson asobj) port))
+
+(define* (asobj-pprint-private asobj #:key (port (current-output-port)))
+  (pprint-json (asobj-private asobj) port))
 
 (define* (asobj-pprint-combined asobj #:key (port (current-output-port)))
   (pprint-json (asobj->sjson-combined asobj) port))
