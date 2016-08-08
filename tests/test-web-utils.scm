@@ -1,4 +1,5 @@
 (define-module (tests test-asobj)
+  #:use-module (tests utils)
   #:use-module (srfi srfi-64)
   #:use-module (web uri)
   #:use-module (pubstrate webapp params)
