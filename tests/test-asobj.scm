@@ -170,6 +170,24 @@
 (test-equal (asobj-private root-beer-note)
     json-alist-nil)
 
+;; Test serializing to and restoring from sjson
+(let ((restored-asobj
+       (sjson-combined->asobj (asobj->sjson-combined privatized-note)
+                              (%default-env))))
+  (test-equal (asobj-ref restored-asobj "to")
+    "acct:cwebber@identi.ca")
+  (test-equal (asobj-private-ref restored-asobj "sekret-kode")
+    "bananaphone"))
+
+;; Test serializing to and restoring from string
+(let ((restored-asobj
+       (string-combined->asobj (asobj->string-combined privatized-note)
+                               (%default-env))))
+  (test-equal (asobj-ref restored-asobj "to")
+    "acct:cwebber@identi.ca")
+  (test-equal (asobj-private-ref restored-asobj "sekret-kode")
+    "bananaphone"))
+
 (test-end "test-asobj")
 
 (test-exit)

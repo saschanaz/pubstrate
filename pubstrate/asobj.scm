@@ -40,6 +40,9 @@
 
             asobj-pprint asobj-pprint-private asobj-pprint-combined
 
+            asobj->sjson-combined sjson-combined->asobj
+            asobj->string-combined string-combined->asobj
+
             make-astype astype?
             astype-uri astype-parents astype-short-id astype-notes
             astype-inheritance
@@ -279,13 +282,16 @@ Will look something like:
       ("private" . ,(asobj-private asobj))))
 
 (define (sjson-combined->asobj sjson-combined env)
-  'TODO)
+  (let* ((sjson (json-alist-ref sjson-combined "sjson"))
+         (private (json-alist-ref sjson-combined "private")))
+    (make-asobj sjson env private)))
 
 (define (asobj->string-combined asobj)
-  'TODO)
+  (write-json-to-string (asobj->sjson-combined asobj)))
 
 (define (string-combined->asobj string-combined env)
-  'TODO)
+  (sjson-combined->asobj (read-json-from-string string-combined)
+                         env))
 
 (define (string->asobj json-string env)
   'TODO)
