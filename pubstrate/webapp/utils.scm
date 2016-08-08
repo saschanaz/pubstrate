@@ -22,14 +22,32 @@
 
 (define-module (pubstrate webapp utils)
   #:use-module (pubstrate contrib html)
+  #:use-module (pubstrate webapp params)
   #:use-module (web response)
-  #:export (prefix-url
+  #:use-module (web uri)
+  #:export (local-url abs-local-uri
             respond respond-html))
 
+(define (local-uri . path)
+  "Construct a local URI for this site based off the %base-uri parameter"
+  (if (not (%base-uri))
+      (throw 'base-uri-not-set
+             "%base-uri parameter not set"))
+  (string-append
+     "/"
+     (encode-and-join-uri-path
+      (append (split-and-decode-uri-path
+               (uri-path (%base-uri)))
+              path))))
 
-(define (prefix-url url)
-  ;; TODO!
-  url)
+(define (abs-local-uri . path)
+  "Build an absolute local URI, as a string."
+  (let ((base-uri (%base-uri)))
+    (uri->string
+     (build-uri (uri-scheme base-uri)
+                #:host (uri-host base-uri)
+                #:port (uri-port base-uri)
+                #:path (apply local-uri path)))))
 
 (define* (respond #:optional body #:key
                   (status 200)

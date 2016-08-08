@@ -30,19 +30,19 @@
                  "Pubstrate"))
      ;; css
      (link (@ (rel "stylesheet")
-              (href ,(prefix-url "/static/css/main.css")))))
+              (href ,(local-uri "static" "css" "main.css")))))
     (body
      (div (@ (id "main-wrapper"))
           (header (@ (id "site-header"))
                   ;; @@: Not semantic naming!
                   (span (@ (id "site-header-left-stuff"))
-                        (a (@ (href ,(prefix-url "/")))
+                        (a (@ (href ,(local-uri)))
                            "Pubstrate"))
                   (span (@ (id "site-header-right-stuff"))
                         ,@(if (%user)
                               (list "Hello, " (user-username (%user)) "!")
                               (list
-                               "[" `(a (@ (href ,(prefix-url "/logout/")))
+                               "[" `(a (@ (href ,(local-uri "logout")))
                                        "Log out")
                                "]"))))
           (div (@ (id "site-main-content"))
