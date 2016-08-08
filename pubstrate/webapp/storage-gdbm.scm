@@ -44,9 +44,11 @@
                id (asentry->string asentry))))
 
 (define-method (storage-asentry-ref (store <gdbm-store>) id)
-  (string->asentry
-   (gdbm-ref (slot-ref store 'asentry-db)
-             id)))
+  (let ((db-result (gdbm-ref (slot-ref store 'asentry-db)
+                             id)))
+    (if db-result
+        (string->asentry db-result)
+        #f)))
 
 (define (gdbm-store-close store)
   (gdbm-close (slot-ref store 'asentry-db)))
