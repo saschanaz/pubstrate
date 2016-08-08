@@ -19,6 +19,7 @@
 (define-module (pubstrate webapp asentry)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (pubstrate asobj)
+  #:use-module (pubstrate vocab)
   #:use-module (pubstrate json-utils)
   #:export (make-asentry <asentry>
             asentry?
@@ -49,8 +50,9 @@
 (define (asentry->string asentry)
   (write-json-to-string (asentry->sjson asentry)))
 
-(define (string->asentry str)
+(define* (string->asentry str #:optional (asenv (%default-env)))
   (let* ((str-sjson (read-json-from-string str))
          (sjson (json-alist-ref str-sjson "sjson"))
          (private (json-alist-ref str-sjson "private")))
-    (make-asentry sjson private)))
+    (make-asentry (make-asobj sjson asenv)
+                  private)))
