@@ -52,7 +52,6 @@ SOURCES =  \
 	pubstrate/json-ld.scm				\
 	pubstrate/shorthand.scm				\
 	pubstrate/paths.scm				\
-	pubstrate/webapp/asentry.scm			\
 	pubstrate/webapp/storage.scm			\
 	pubstrate/webapp/storage-gdbm.scm		\
 	pubstrate/webapp/cookie.scm			\
@@ -73,7 +72,6 @@ SOURCES =  \
 TESTS =							\
 	tests/test-asobj.scm				\
 	tests/test-auth.scm				\
-	tests/test-web-asentry.scm			\
 	tests/test-web-utils.scm			\
 	tests/test-web-user.scm				\
 	tests/test-generics.scm

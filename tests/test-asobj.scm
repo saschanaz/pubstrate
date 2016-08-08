@@ -172,7 +172,7 @@
 
 ;; Test serializing to and restoring from sjson
 (let ((restored-asobj
-       (sjson-combined->asobj (asobj->sjson-combined privatized-note)
+       (combined-sjson->asobj (asobj->combined-sjson privatized-note)
                               (%default-env))))
   (test-equal (asobj-ref restored-asobj "to")
     "acct:cwebber@identi.ca")
@@ -181,7 +181,7 @@
 
 ;; Test serializing to and restoring from string
 (let ((restored-asobj
-       (string-combined->asobj (asobj->string-combined privatized-note)
+       (combined-string->asobj (asobj->combined-string privatized-note)
                                (%default-env))))
   (test-equal (asobj-ref restored-asobj "to")
     "acct:cwebber@identi.ca")

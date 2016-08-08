@@ -21,34 +21,35 @@
 (define-module (pubstrate webapp storage-gdbm)
   #:use-module (gdbm)
   #:use-module (oop goops)
-  #:use-module (pubstrate webapp asentry)
+  #:use-module (pubstrate asobj)
+  #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp storage)
   #:export (<gdbm-store>
             make-gdbm-store
             gdbm-store-close))
 
 (define-class <gdbm-store> ()
-  (asentry-db #:init-keyword #:asentry-db))
+  (asobj-db #:init-keyword #:asobj-db))
 
 (define (make-gdbm-store db-path)
   (make <gdbm-store>
-    #:asentry-db
+    #:asobj-db
     (gdbm-open db-path GDBM_WRCREAT)))
 
-(define-method (storage-asentry-set! (store <gdbm-store>) asentry)
-  (let ((id (asentry-id asentry)))
+(define-method (storage-asobj-set! (store <gdbm-store>) asobj)
+  (let ((id (asobj-id asobj)))
     (if (not id)
-        (throw 'asentry-storage-failure
-               "Can't save an asentry if no id set on its asobj"))
-    (gdbm-set! (slot-ref store 'asentry-db)
-               id (asentry->string asentry))))
+        (throw 'asobj-storage-failure
+               "Can't save an asobj if no id set on its asobj"))
+    (gdbm-set! (slot-ref store 'asobj-db)
+               id (asobj->combined-string asobj))))
 
-(define-method (storage-asentry-ref (store <gdbm-store>) id)
-  (let ((db-result (gdbm-ref (slot-ref store 'asentry-db)
+(define-method (storage-asobj-ref (store <gdbm-store>) id)
+  (let ((db-result (gdbm-ref (slot-ref store 'asobj-db)
                              id)))
     (if db-result
-        (string->asentry db-result)
+        (combined-string->asobj db-result (%default-env))
         #f)))
 
 (define (gdbm-store-close store)
-  (gdbm-close (slot-ref store 'asentry-db)))
+  (gdbm-close (slot-ref store 'asobj-db)))

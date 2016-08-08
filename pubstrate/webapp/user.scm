@@ -25,7 +25,6 @@
   #:use-module (pubstrate webapp params)
   #:use-module (pubstrate webapp storage)
   #:use-module (pubstrate webapp utils)
-  #:use-module (pubstrate webapp asentry)
   #:export (make-user
             user-id-from-username
             store-add-new-user! store-user-ref
@@ -58,12 +57,12 @@
           (salted-hash->sjson
            (salt-and-hash-password password)))
          (user
-          (make-asentry (apply make-as ^Person asenv
-                               #:id id
-                               #:preferredUsername username
-                               #:name (or name username)
-                               (user-endpoints))
-                        `(@ ("password" . ,password-sjson)))))
+          (asobj-set-private (apply make-as ^Person asenv
+                                    #:id id
+                                    #:preferredUsername username
+                                    #:name (or name username)
+                                    (user-endpoints))
+                             `(@ ("password" . ,password-sjson)))))
     user))
 
 (define* (store-add-new-user! store username password
@@ -72,16 +71,16 @@
 
 Optionally pass in ASENV, otherwise %default-env is used."
   (let ((user (make-user username password #:asenv asenv)))
-    (storage-asentry-set! store user)))
+    (storage-asobj-set! store user)))
 
 (define* (store-user-ref store username)
-  (storage-asentry-ref store (user-id-from-username username)))
+  (storage-asobj-ref store (user-id-from-username username)))
 
 (define (user-password-hash user)
-  (sjson->salted-hash (json-alist-assoc "password" (asentry-private user))))
+  (sjson->salted-hash (asobj-private-ref user "password")))
 
 (define (user-password-matches? user password)
-  "Check if PASSWORD matches that of asentry USER"
+  "Check if PASSWORD matches that of asobj USER"
   (salted-hash-matches? (user-password-hash user)
                         password))
 

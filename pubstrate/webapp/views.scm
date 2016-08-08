@@ -17,11 +17,11 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp views)
+  #:use-module (pubstrate asobj)
   #:use-module (pubstrate paths)
   #:use-module (pubstrate webapp templates)
   #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate webapp user)
-  #:use-module (pubstrate webapp asentry)
   #:use-module (pubstrate webapp params)
   #:use-module (pubstrate contrib mime-types)
   #:use-module (rnrs io ports)
@@ -43,8 +43,8 @@
   (define (user-tmpl user)
     (base-tmpl
      `(p "Hi!  This is "
-         ,(or (asentry-ref user "name")
-              (asentry-ref user "preferredUsername"))
+         ,(or (asobj-ref user "name")
+              (asobj-ref user "preferredUsername"))
          "'s page.")))
   (let ((user (store-user-ref (%store) username)))
     (if user

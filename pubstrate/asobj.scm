@@ -40,8 +40,8 @@
 
             asobj-pprint asobj-pprint-private asobj-pprint-combined
 
-            asobj->sjson-combined sjson-combined->asobj
-            asobj->string-combined string-combined->asobj
+            asobj->combined-sjson combined-sjson->asobj
+            asobj->combined-string combined-string->asobj
 
             make-astype astype?
             astype-uri astype-parents astype-short-id astype-notes
@@ -272,7 +272,7 @@ If #:delete is provided, make sure this is the only item with this key."
   "Like asobj-set-private, but uses keyword argument fanciness instead of sjson"
   (asobj-set-private asobj (kwargs-to-sjson kwargs)))
 
-(define (asobj->sjson-combined asobj)
+(define (asobj->combined-sjson asobj)
   "Return an sjson object combining ASOBJ's sjson and private fields
 
 Will look something like:
@@ -281,16 +281,16 @@ Will look something like:
   `(@ ("sjson" . ,(asobj-sjson asobj))
       ("private" . ,(asobj-private asobj))))
 
-(define (sjson-combined->asobj sjson-combined env)
-  (let* ((sjson (json-alist-ref sjson-combined "sjson"))
-         (private (json-alist-ref sjson-combined "private")))
+(define (combined-sjson->asobj combined-sjson env)
+  (let* ((sjson (json-alist-ref combined-sjson "sjson"))
+         (private (json-alist-ref combined-sjson "private")))
     (make-asobj sjson env private)))
 
-(define (asobj->string-combined asobj)
-  (write-json-to-string (asobj->sjson-combined asobj)))
+(define (asobj->combined-string asobj)
+  (write-json-to-string (asobj->combined-sjson asobj)))
 
-(define (string-combined->asobj string-combined env)
-  (sjson-combined->asobj (read-json-from-string string-combined)
+(define (combined-string->asobj combined-string env)
+  (combined-sjson->asobj (read-json-from-string combined-string)
                          env))
 
 (define (string->asobj json-string env)
@@ -303,7 +303,7 @@ Will look something like:
   (pprint-json (asobj-private asobj) port))
 
 (define* (asobj-pprint-combined asobj #:key (port (current-output-port)))
-  (pprint-json (asobj->sjson-combined asobj) port))
+  (pprint-json (asobj->combined-sjson asobj) port))
 
 
 ;;; ============

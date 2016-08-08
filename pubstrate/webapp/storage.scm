@@ -24,35 +24,34 @@
   #:use-module (oop goops)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate webapp params)
-  #:use-module (pubstrate webapp asentry)
   #:export (<memory-store>
             make-memory-store
-            storage-asentry-set!
-            storage-asentry-ref))
+            storage-asobj-set!
+            storage-asobj-ref))
 
 ;;; Simple in-memory storage
 (define-class <memory-store> ()
-  (asentry-store #:init-thunk make-hash-table))
+  (asobj-store #:init-thunk make-hash-table))
 
 (define (make-memory-store)
   (make <memory-store>))
 
-(define-generic storage-asentry-set!)
-(define-generic storage-asentry-ref)
+(define-generic storage-asobj-set!)
+(define-generic storage-asobj-ref)
 
-(define-method (storage-asentry-set! (store <memory-store>) asentry)
-  (let ((id (asentry-id asentry)))
+(define-method (storage-asobj-set! (store <memory-store>) asobj)
+  (let ((id (asobj-id asobj)))
     (if (not id)
-        (throw 'asentry-storage-failure
-               "Can't save an asentry if no id set on its asobj"))
+        (throw 'asobj-storage-failure
+               "Can't save an asobj if no id set"))
     (hash-set!
-     (slot-ref store 'asentry-store)
-     id asentry)))
+     (slot-ref store 'asobj-store)
+     id asobj)))
 
-(define-method (storage-asentry-ref (store <memory-store>) id)
-  (hash-ref (slot-ref store 'asentry-store) id))
+(define-method (storage-asobj-ref (store <memory-store>) id)
+  (hash-ref (slot-ref store 'asobj-store) id))
 
-(define (storage-asentry-ref-fat store id)
+(define (storage-asobj-ref-fat store id)
   'TODO)
-(define (storage-asentry-set-lean! store asentry)
+(define (storage-asobj-set-lean! store asobj)
   'TODO)
