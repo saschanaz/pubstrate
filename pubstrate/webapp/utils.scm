@@ -25,8 +25,11 @@
   #:use-module (pubstrate webapp params)
   #:use-module (web response)
   #:use-module (web uri)
-  #:export (local-url abs-local-uri
+  #:export (local-uri abs-local-uri
             respond respond-html))
+
+;; TODO: add local-uri* and abs-local-uri* which should allow
+;;   optional GET parameters & fragments
 
 (define (local-uri . path)
   "Construct a local URI for this site based off the %base-uri parameter"
