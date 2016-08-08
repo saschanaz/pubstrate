@@ -28,7 +28,7 @@
   #:use-module (pubstrate webapp asentry)
   #:export (make-user
             user-id-from-username
-            add-new-user-to-store! store-user-ref
+            store-add-new-user! store-user-ref
             user-password-matches?))
 
 (define (require-base-uri)
@@ -66,16 +66,15 @@
                         `(@ ("password" . ,password-sjson)))))
     user))
 
-(define* (add-new-user-to-store! username password
-                                 #:key (asenv (%default-env))
-                                 (store (%store)))
+(define* (store-add-new-user! store username password
+                              #:key (asenv (%default-env)))
   "Add user with USERNAME to and PASSWORD to STORE
 
 Optionally pass in ASENV, otherwise %default-env is used."
   (let ((user (make-user username password #:asenv asenv)))
     (storage-asentry-set! store user)))
 
-(define* (store-user-ref username #:key (store (%store)))
+(define* (store-user-ref store username)
   (storage-asentry-ref store (user-id-from-username username)))
 
 (define (user-password-hash user)
