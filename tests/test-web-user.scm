@@ -30,8 +30,8 @@
                (%store (make-memory-store)))
   (test-equal (user-id-from-username "discocat")
     "https://coolsite.example/u/discocat")
-  (add-new-user-to-store! "seadub" "monkeybarf")
-  (let ((user (store-user-ref "seadub")))
+  (store-add-new-user! (%store) "seadub" "monkeybarf")
+  (let ((user (store-user-ref (%store) "seadub")))
     (test-assert (user-password-matches? user "monkeybarf"))
     (test-assert (not (user-password-matches? user "bananapudding")))))
 
