@@ -73,6 +73,7 @@ SOURCES =  \
 TESTS =							\
 	tests/test-asobj.scm				\
 	tests/test-auth.scm				\
+	tests/test-web-asentry.scm			\
 	tests/test-web-utils.scm			\
 	tests/test-web-user.scm				\
 	tests/test-generics.scm
