@@ -27,6 +27,7 @@
   #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate webapp asentry)
   #:export (make-user
+            user-id-from-username
             add-new-user-to-store! store-user-ref
             user-password-matches?))
 
@@ -79,3 +80,4 @@ Optionally pass in ASENV, otherwise %default-env is used."
   "Check if PASSWORD matches that of asentry USER"
   (salted-hash-matches? (user-password-hash user)
                         password))
+
