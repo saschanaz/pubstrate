@@ -19,6 +19,7 @@
 (define-module (pubstrate webapp user)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate vocab)
+  #:use-module (pubstrate json-utils)
   #:use-module (pubstrate generics)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp params)
@@ -26,7 +27,8 @@
   #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate webapp asentry)
   #:export (make-user
-            add-new-user-to-store! store-user-ref))
+            add-new-user-to-store! store-user-ref
+            user-password-matches?))
 
 (define (require-base-uri)
   (if (not (%base-uri))
