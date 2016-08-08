@@ -26,7 +26,7 @@
             asentry-private set-asentry-private
             asentry-id
 
-            asentry->string string->asentry))
+            asentry->sjson asentry->string string->asentry))
 
 (define-immutable-record-type <asentry>
   (make-asentry-intern asobj private)
@@ -42,10 +42,12 @@
   "Shortcut to get the id from an asentry's asobj."
   (asobj-id (asentry-asobj asentry)))
 
+(define (asentry->sjson asentry)
+  `(@ ("sjson" . ,(asobj-sjson (asentry-asobj asentry)))
+      ("private" . ,(asentry-private asentry))))
+
 (define (asentry->string asentry)
-  (write-json-to-string
-   `(@ ("sjson" . ,(asobj-sjson (asentry-asobj asentry)))
-       ("private" . ,(asentry-private asentry)))))
+  (write-json-to-string (asentry->sjson asentry)))
 
 (define (string->asentry str)
   (let* ((str-sjson (read-json-from-string str))
