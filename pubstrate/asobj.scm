@@ -40,6 +40,7 @@
 
             asobj-pprint asobj-pprint-private asobj-pprint-combined
 
+            asobj->string string->asobj
             asobj->combined-sjson combined-sjson->asobj
             asobj->combined-string combined-string->asobj
 
@@ -292,6 +293,9 @@ Will look something like:
 (define (combined-string->asobj combined-string env)
   (combined-sjson->asobj (read-json-from-string combined-string)
                          env))
+
+(define (asobj->string asobj)
+  (write-json-to-string (asobj-sjson asobj)))
 
 (define (string->asobj json-string env)
   'TODO)
