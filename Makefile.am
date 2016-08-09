@@ -55,6 +55,7 @@ SOURCES =  \
 	pubstrate/paths.scm				\
 	pubstrate/webapp/storage.scm			\
 	pubstrate/webapp/storage-gdbm.scm		\
+	pubstrate/webapp/http-status.scm		\
 	pubstrate/webapp/cookie.scm			\
 	pubstrate/webapp/app.scm			\
 	pubstrate/webapp/auth.scm			\
