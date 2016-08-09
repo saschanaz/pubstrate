@@ -46,6 +46,7 @@ godir=$(libdir)/guile/2.0/ccache
 
 SOURCES =  \
 	pubstrate/asobj.scm				\
+	pubstrate/apclient.scm				\
 	pubstrate/generics.scm				\
 	pubstrate/vocab.scm				\
 	pubstrate/json-utils.scm			\
