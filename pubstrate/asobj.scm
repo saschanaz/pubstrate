@@ -298,7 +298,8 @@ Will look something like:
   (write-json-to-string (asobj-sjson asobj)))
 
 (define (string->asobj json-string env)
-  'TODO)
+  (make-asobj (read-json-from-string json-string)
+              env))
 
 (define* (asobj-pprint asobj #:key (port (current-output-port)))
   (pprint-json (asobj-sjson asobj) port))

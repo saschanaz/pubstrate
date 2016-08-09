@@ -21,12 +21,16 @@
   #:use-module (web request)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate paths)
-  #:use-module (pubstrate webapp templates)
-  #:use-module (pubstrate webapp utils)
-  #:use-module (pubstrate webapp user)
+  #:use-module (pubstrate vocab)
+  #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp params)
+  #:use-module (pubstrate webapp storage)
+  #:use-module (pubstrate webapp templates)
+  #:use-module (pubstrate webapp user)
+  #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate contrib mime-types)
   #:use-module (rnrs io ports)
+  #:use-module (rnrs bytevectors)
   #:export (index mockup
             user-page user-inbox user-outbox
             login logout
@@ -71,12 +75,48 @@
 (define (user-inbox request body username)
   'TODO)
 
+(define %debug-body #f)
+
 (define (user-outbox request body username)
-  (define (post-to-outbox oauth-user)
-    'TODO)
+  (define (post-to-outbox)
+    ;; TODO: Handle side effects appropriately.
+    ;;   Currently doing a "dumb" version of things where we just dump it
+    ;;   into the database.
+    (let* ((unique-id
+            (abs-local-uri "u" username "p"
+                           (gen-bearer-token 30)))
+           ;; TODO: Also strip out any @id that may have been attached...
+           (asobj
+            (asobj-cons
+             (string->asobj
+              (if (bytevector? body)
+                  (utf8->string body)
+                  body)
+              (%default-env))
+             "id" unique-id)))
+      (storage-asobj-set! (%store) asobj)
+      (respond (asobj->string asobj)
+               #:status 201  ; 201 Created
+               #:content-type 'application/activity+json)))
   (define (read-from-outbox oauth-user)
     'TODO)
-  'TODO)
+  (define (user-can-post?)
+    ;; TODO!  Right now we just accept it.
+    ;;  - Extract the bearer token
+    ;;  - See if the bearer token matches anything in the db
+    #t)
+  (define (get-oauth-user)
+    'TODO)
+  (let ((oauth-user (get-oauth-user)))
+    (match (request-method request)
+      ('GET
+       (read-from-outbox oauth-user))
+      ('POST
+       (if (user-can-post?)
+           (post-to-outbox)
+           (respond "Sorry, you don't have permission to post that."
+                    #:status 401
+                    #:content-type 'text/plain))))))
 
 (define (login request body)
   'TODO)
