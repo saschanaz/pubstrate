@@ -17,6 +17,8 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp views)
+  #:use-module (ice-9 match)
+  #:use-module (web request)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate paths)
   #:use-module (pubstrate webapp templates)
@@ -46,12 +48,25 @@
          ,(or (asobj-ref user "name")
               (asobj-ref user "preferredUsername"))
          "'s page.")))
+  (define (requesting-asobj?)
+    (match (request-content-type request)
+      (('application/activity+json _ ...)
+       #t)
+      (_ #f)))
   (let ((user (store-user-ref (%store) username)))
-    (if user
-        (respond-html
-         (user-tmpl user))
-        (respond "User not found!"
-                 #:status 404))))
+    (cond
+     ;; User not found, so 404
+     ((not user)
+      (respond "User not found!"
+               #:status 404))
+     ;; Looks like they want the activitystreams object version..
+     ((requesting-asobj?)
+      (respond (asobj->string user)
+               #:content-type 'application/activity+json))
+     ;; Otherwise, give them the human-readable HTML!
+     (else
+      (respond-html
+       (user-tmpl user))))))
 
 (define (user-inbox request body username)
   'TODO)
