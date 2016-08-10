@@ -72,6 +72,7 @@
 
 (define (respond-html sxml . respond-args)
   (apply respond (lambda (port)
+                   (set-port-encoding! port "utf-8")
                    (sxml->html sxml port))
          respond-args))
 
