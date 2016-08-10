@@ -29,12 +29,14 @@
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate contrib mime-types)
+  #:use-module ((pubstrate webapp http-status)
+                #:renamer (symbol-prefix-proc 'status:))
   #:use-module (rnrs io ports)
   #:use-module (rnrs bytevectors)
   #:export (index mockup
             user-page user-inbox user-outbox
             login logout
-            content asobj
+            display-post asobj
             oauth-authorize
 
             standard-four-oh-four render-static))
@@ -52,19 +54,13 @@
          ,(or (asobj-ref user "name")
               (asobj-ref user "preferredUsername"))
          "'s page.")))
-  (define (requesting-asobj?)
-    (match (request-content-type request)
-      (('application/activity+json _ ...)
-       #t)
-      (_ #f)))
   (let ((user (store-user-ref (%store) username)))
     (cond
      ;; User not found, so 404
      ((not user)
-      (respond "User not found!"
-               #:status 404))
+      (respond-not-found))
      ;; Looks like they want the activitystreams object version..
-     ((requesting-asobj?)
+     ((requesting-asobj? request)
       (respond (asobj->string user)
                #:content-type 'application/activity+json))
      ;; Otherwise, give them the human-readable HTML!
@@ -96,7 +92,7 @@
              "id" unique-id)))
       (storage-asobj-set! (%store) asobj)
       (respond (asobj->string asobj)
-               #:status 201  ; 201 Created
+               #:status status:created
                #:content-type 'application/activity+json)))
   (define (read-from-outbox oauth-user)
     'TODO)
@@ -115,8 +111,9 @@
        (if (user-can-post?)
            (post-to-outbox)
            (respond "Sorry, you don't have permission to post that."
-                    #:status 401
-                    #:content-type 'text/plain))))))
+                    #:status status:unauthorized
+                    #:content-type 'text/plain)))
+      (_ (respond #:status status:method-not-allowed)))))
 
 (define (login request body)
   'TODO)
@@ -124,11 +121,31 @@
 (define (logout request body)
   'TODO)
 
-(define (content request body user slug-or-id)
-  'TODO)
+(define (display-post request body username post-id)
+  (define (display-post-tmpl asobj)
+    (base-tmpl
+     `(div (@ (class "generic-content-box"))
+           (p "Here's yer AS2:")
+           (pre (@ (class "code-box"))
+                ,(with-output-to-string
+                   (lambda ()
+                     (asobj-pprint asobj)))))))
 
-(define (asobj request body asobj-id)
-  'TODO)
+  ;; GET only.
+  (let* ((post-url (abs-local-uri "u" username "p" post-id))
+         (asobj (storage-asobj-ref (%store) post-url)))
+    (match (request-method request)
+      ('GET
+       ;; TODO: authorization check?
+       (cond
+        ((requesting-asobj? request)
+         (respond (asobj->string asobj)
+                  #:content-type 'application/activity+json))
+        (else
+         (if asobj
+             (respond-html (display-post-tmpl asobj))
+             (respond-not-found)))))
+      (_ (respond #:status status:method-not-allowed)))))
 
 (define (oauth-authorize request body)
   'TODO)
@@ -136,8 +153,7 @@
 
 (define (standard-four-oh-four request body)
   ;; TODO: Add 404 status message
-  (values '((content-type . (text/plain)))
-          "Not found!"))
+  (respond-not-found))
 
 ;;; Static site rendering... only available on devel instances (hopefully!)
 (define (render-static request body static-path)

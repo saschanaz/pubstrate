@@ -28,6 +28,8 @@
     (() (values index '()))
     (("u" username)
      (values user-page (list username)))
+    (("u" username "p" post-id)
+     (values display-post (list username post-id)))
     (("u" username "inbox")
      (values user-inbox (list username)))
     (("u" username "outbox")
