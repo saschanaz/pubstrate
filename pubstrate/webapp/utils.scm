@@ -21,12 +21,18 @@
 ;;;
 
 (define-module (pubstrate webapp utils)
+  #:use-module (ice-9 match)
   #:use-module (pubstrate contrib html)
   #:use-module (pubstrate webapp params)
+  #:use-module ((pubstrate webapp http-status)
+                #:renamer (symbol-prefix-proc 'status:))
   #:use-module (web response)
+  #:use-module (web request)
   #:use-module (web uri)
   #:export (local-uri abs-local-uri
-            respond respond-html))
+            respond respond-html
+            respond-not-found
+            requesting-asobj?))
 
 ;; TODO: add local-uri* and abs-local-uri* which should allow
 ;;   optional GET parameters & fragments
@@ -68,3 +74,41 @@
   (apply respond (lambda (port)
                    (sxml->html sxml port))
          respond-args))
+
+(define robot-404-message "\
+           _________________
+        .-'                 '-.
+      .'                       '.
+     .\"  _  _    ___  _  _   _  \".
+     '  | || |  / _ \\| || | | |  '
+     |  | || |_| | | | || |_| |  |
+     |  '._   _| '-' ;._   _|_|  |
+     '     |_|  \\___/   |_| (_)  '
+     '.                         .'
+       '.                     .'    _--------_
+         '---------   .------'    .'          '.
+                  / ./           |   Page Not   |
+                 (  (      .o    '.   Found!   .'
+                  '.\\     (        '--.   .---'
+                        .---.          ) )
+                     o-|O   O|-o    --=-'
+                       |[vvv]|
+                      .'-----'.
+                   .##|.-=.=-.|##.
+                   #  ||'~-~'||  #
+                  (') ||_____|| (')
+                      '-------'
+                      ((     ))
+                     [__]   [__]")
+
+(define (respond-not-found)
+  (respond robot-404-message
+           #:content-type 'text/plain
+           #:status status:not-found))
+
+(define (requesting-asobj? request)
+  (match (request-content-type request)
+    (((or 'application/activity+json
+          'application/ld+json) _ ...)
+     #t)
+    (_ #f)))
