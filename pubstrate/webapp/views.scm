@@ -122,15 +122,6 @@
   'TODO)
 
 (define (display-post request body username post-id)
-  (define (display-post-tmpl asobj)
-    (base-tmpl
-     `(div (@ (class "generic-content-box"))
-           (p "Here's yer AS2:")
-           (pre (@ (class "code-box"))
-                ,(with-output-to-string
-                   (lambda ()
-                     (asobj-pprint asobj)))))))
-
   ;; GET only.
   (let* ((post-url (abs-local-uri "u" username "p" post-id))
          (asobj (storage-asobj-ref (%store) post-url)))
@@ -143,7 +134,7 @@
                   #:content-type 'application/activity+json))
         (else
          (if asobj
-             (respond-html (display-post-tmpl asobj))
+             (respond-html (asobj-page-tmpl asobj))
              (respond-not-found)))))
       (_ (respond #:status status:method-not-allowed)))))
 
