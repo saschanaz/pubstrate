@@ -47,6 +47,8 @@
 (define (random-token-char)
   (vector-ref %token-chars (random %token-chars-length)))
 
+;; TODO: Rename to plain ol' gen-token?  We seem to be using this for
+;;   a lot of things...
 (define* (gen-bearer-token #:optional (length 50))
   "Bearer tokens can be... well, nearly anything that's a string.
 They're fairly opaque, by design.  In our case, a random string
