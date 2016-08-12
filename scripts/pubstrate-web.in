@@ -15,7 +15,7 @@
 
 (define option-spec
   '((help (single-char #\h) (value #f))
-    (db-path (single-char #\d) (value #t))
+    (db-dir (single-char #\d) (value #t))
     (host (single-char #\h) (value #t))
     (port (single-char #\p) (value #t))
     (base-uri (value #t))
@@ -35,9 +35,7 @@
   "\
 pubstrate-webapp [options]
   -h, --help           Display this help
-  -d, --db-path=PATH   Path to a GDBM database.  Will be created if does not
-                       exist.  If not supplied, a temporary in-memory database
-                       will be used.
+  -d, --db-dir=PATH    Path to a directory where GDBM databases will be stored.
   -h, --host=HOST      Server host address.  Defaults to localhost.
   -p, --port=PORT      Server port.  Defaults to 8080.
 

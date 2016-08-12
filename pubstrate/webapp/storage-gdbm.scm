@@ -31,10 +31,37 @@
 (define-class <gdbm-store> ()
   (asobj-db #:init-keyword #:asobj-db))
 
-(define (make-gdbm-store db-path)
+(define (directory-exists? dir)
+  "Check to see if DIR exists."
+  (and (file-exists? dir)
+       (eq? (stat:type (stat dir))
+            'directory)))
+
+(define (path-join base-path . paths)
+  "Join together BASE-PATH and all remaining PATHS with filename separator.
+
+Note that if there's a forward slash at the end of the final path, this
+procedure will not preserve it."
+  (let* ((separator-char (string-ref file-name-separator-string 0))
+         (stripped-paths
+          (map (lambda (path)
+                 (string-trim-both path separator-char))
+               paths))
+         (stripped-base-path (string-trim-right base-path separator-char)))
+    (string-join (append (list stripped-base-path)
+                         stripped-paths)
+     file-name-separator-string)))
+
+(define (make-gdbm-store db-dir)
+  (define (db-file filename)
+    (path-join db-dir filename))
+  (if (not (directory-exists? db-dir))
+      (throw 'not-a-directory
+             "Provided db-dir is not a directory."
+             #:db-dir db-dir))
   (make <gdbm-store>
     #:asobj-db
-    (gdbm-open db-path GDBM_WRCREAT)))
+    (gdbm-open (db-file "asobj.db") GDBM_WRCREAT)))
 
 (define-method (storage-asobj-set! (store <gdbm-store>) asobj)
   (let ((id (asobj-id asobj)))
