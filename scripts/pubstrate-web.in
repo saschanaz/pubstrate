@@ -62,7 +62,7 @@ pubstrate-webapp [options]
       (display *help-text*) (newline))
      (else
       (let* ((storage (get-storage-from-db-path
-                       (option-ref options 'db-path #f)))
+                       (option-ref options 'db-dir #f)))
              (get-option
               (lambda (option)
                 (option-ref options option #f)))
