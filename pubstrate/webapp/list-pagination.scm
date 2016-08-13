@@ -31,9 +31,19 @@
   "Search for MEMBER in LST with a page of HOW-MANY items, as well as
 returning information on previous and next pages.
 
+To search for the first page, pass in any object as MEMBER, and
+use (const #t) for IS-EQUAL?.  Or, just use the list-paginate-first
+procedure.
+
 Returns three values to its continuation: a list of items (or #f if
 not found) in the range of MEMBER and HOW-MANY, as well as the key for
-the prior page (or #f), and the key for the next page (or #f)."
+the previous page (or #f), and the key for the next page (or #f).
+
+Note that the usefulness of the \"previous\" and \"next\" return
+values is dependent on there being no duplicate items in the list.
+After all, if you search for member 'foo and your \"next\" value is
+also 'foo, don't expect to advance forward anywhere. :)
+"
   (define (find-member)
     ;; Returns 2 values to its continuation: the cons cell with KEY as
     ;; its car and all later elements as its cdr
@@ -99,6 +109,11 @@ the prior page (or #f), and the key for the next page (or #f)."
         ;; horray, get the whole page and whatever's next
         (receive (page next)
             (get-page-and-next member-lst)
-          (values prev page next))
+          (values page prev next))
         ;; well we never found it, so... return a whole lot of nothin'
         (values #f #f #f))))
+
+
+(define (list-paginate-first lst how-many)
+  "Like list-paginate, but returns the first page."
+  (list-paginate lst #f how-many #:is-equal? (const #t)))
