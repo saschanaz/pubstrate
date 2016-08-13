@@ -17,6 +17,8 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp user)
+  #:use-module (ice-9 format)
+  #:use-module (ice-9 receive)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate json-utils)
@@ -44,34 +46,74 @@
 (define* (make-user username password
                     #:key (asenv (%default-env))
                     name)
-  (define (user-endpoints)
-    ;;; TODO: Supply once we work on ActivitySub
-    ;; #:following ,(abs-local-uri "u" username "following")
-    ;; #:followers ,(abs-local-uri "u" username "followers")
-    `(#:inbox ,(abs-local-uri "u" username "inbox")
-      #:outbox ,(abs-local-uri "u" username "outbox")))
+  (define (make-collection col-name)
+    (make-as ^OrderedCollection asenv
+             #:id (abs-local-uri "u" username col-name)
+             #:name (format #f "~a for ~a"
+                            (string-capitalize col-name)
+                            username)))
+
   (require-base-uri)
   (assert-valid-username username)
   (let* ((id (user-id-from-username username))
          (password-sjson
           (salted-hash->sjson
            (salt-and-hash-password password)))
+         (inbox (make-collection "inbox"))
+         (outbox (make-collection "outbox"))
+         (following (make-collection "following"))
+         (followers (make-collection "followers"))
          (user
-          (asobj-set-private (apply make-as ^Person asenv
-                                    #:id id
-                                    #:preferredUsername username
-                                    #:name (or name username)
-                                    (user-endpoints))
-                             `(@ ("password" . ,password-sjson)))))
-    user))
+          (asobj-set-private
+           (make-as ^Person asenv
+                    #:id id
+                    #:preferredUsername username
+                    #:name (or name username)
+                    #:inbox (asobj-id inbox)
+                    #:outbox (asobj-id outbox)
+                    #:following (asobj-id following)
+                    #:followers (asobj-id followers))
+           `(@ ("password" . ,password-sjson)))))
+    (values user
+            (list inbox outbox followers following))))
 
 (define* (store-add-new-user! store username password
                               #:key (asenv (%default-env)))
   "Add user with USERNAME to and PASSWORD to STORE
 
-Optionally pass in ASENV, otherwise %default-env is used."
-  (let ((user (make-user username password #:asenv asenv)))
-    (storage-asobj-set! store user)))
+Optionally pass in ASENV, otherwise %default-env is used.
+
+This procedure returns two values to its continuation: the
+user object produced, and a list of any other asobj objects added
+to the database (in this case, the collections!)"
+  ;; Ensure a user with this username doesn't already exist in the
+  ;; database
+  (if (store-user-ref store username)
+      (throw 'user-already-exists
+             "Tried adding a user with an already existing username."
+             #:username username))
+
+  (receive (user collections)
+      (make-user username password #:asenv asenv)
+    (let (;; Update collections with containers
+          (new-collections
+           (map
+            (lambda (col)
+              (let* ((container-key (storage-container-new! store))
+                     ;; Update with the private information set
+                     ;; to the container key
+                     (col (asobj-set-private*
+                           col #:container container-key)))
+                ;; Store in the database
+                (storage-asobj-set! store col)
+                col))
+            collections)))
+      ;; Add the user to the store
+      (storage-asobj-set! store user)
+
+      ;; Return both the user object and the list of collections
+      ;; created
+      (values user new-collections))))
 
 (define* (store-user-ref store username)
   (storage-asobj-ref store (user-id-from-username username)))
