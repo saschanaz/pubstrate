@@ -25,7 +25,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (srfi srfi-1)
-  #:export (list-paginate))
+  #:export (list-paginate list-paginate-first))
 
 (define* (list-paginate lst member how-many #:key (is-equal? equal?))
   "Search for MEMBER in LST with a page of HOW-MANY items, as well as
