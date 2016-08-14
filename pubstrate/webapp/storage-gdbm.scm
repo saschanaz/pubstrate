@@ -20,16 +20,20 @@
 
 (define-module (pubstrate webapp storage-gdbm)
   #:use-module (gdbm)
+  #:use-module (ice-9 receive)
   #:use-module (oop goops)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate vocab)
+  #:use-module (pubstrate webapp auth)
+  #:use-module (pubstrate webapp list-pagination)
   #:use-module (pubstrate webapp storage)
   #:export (<gdbm-store>
             make-gdbm-store
             gdbm-store-close))
 
 (define-class <gdbm-store> ()
-  (asobj-db #:init-keyword #:asobj-db))
+  (asobj-db #:init-keyword #:asobj-db)
+  (container-db #:init-keyword #:container-db))
 
 (define (directory-exists? dir)
   "Check to see if DIR exists."
@@ -61,7 +65,9 @@ procedure will not preserve it."
              #:db-dir db-dir))
   (make <gdbm-store>
     #:asobj-db
-    (gdbm-open (db-file "asobj.db") GDBM_WRCREAT)))
+    (gdbm-open (db-file "asobj.db") GDBM_WRCREAT)
+    #:container-db
+    (gdbm-open (db-file "containers.db") GDBM_WRCREAT)))
 
 (define-method (storage-asobj-set! (store <gdbm-store>) asobj)
   (let ((id (asobj-id asobj)))
@@ -80,3 +86,72 @@ procedure will not preserve it."
 
 (define (gdbm-store-close store)
   (gdbm-close (slot-ref store 'asobj-db)))
+
+
+(define (write-to-string obj)
+  (with-output-to-string
+    (lambda ()
+      (write obj (current-output-port)))))
+
+(define (read-from-string str)
+  (with-input-from-string str
+    (lambda ()
+      (read (current-input-port)))))
+
+;; Again, probabalistic, but safe... if even necessary!
+(define-method (storage-container-new! (store <gdbm-store>))
+  (define container-db (slot-ref store 'container-db))
+  (define (keep-trying)
+    (let ((token (gen-bearer-token)))
+      (if (gdbm-ref container-db token)
+          (keep-trying)
+          (begin
+            (gdbm-set! container-db token
+                       (write-to-string '()))
+            token))))
+  (keep-trying))
+
+(define (get-container-or-error container-db key)
+  (cond
+   ((gdbm-ref container-db key) => read-from-string)
+   (else (throw 'no-container-for-key
+                #:key key))))
+
+(define-method (storage-container-append! (store <gdbm-store>)
+                                          container-key val)
+  (define container-db (slot-ref store 'container-db))
+  (define current-members
+    (get-container-or-error container-db container-key))
+
+  (gdbm-set! container-db container-key
+             (write-to-string
+              (cons val current-members))))
+
+(define-method (storage-container-fetch-all (store <gdbm-store>)
+                                            container-key)
+  (define container-db (slot-ref store 'container-db))
+  (get-container-or-error container-db container-key))
+
+(define-method (storage-container-page (store <gdbm-store>) container-key
+                                       member how-many)
+  (define container-db (slot-ref store 'container-db))
+  (list-paginate
+   (get-container-or-error container-db container-key)
+   member how-many))
+
+(define-method (storage-container-first-page (store <gdbm-store>)
+                                             container-key how-many)
+  (define container-db (slot-ref store 'container-db))
+  (receive (page prev next)
+      (list-paginate-first
+       (get-container-or-error container-db container-key)
+       how-many)
+    (values page next)))
+
+(define-method (storage-container-member? (store <gdbm-store>)
+                                          container-key item)
+  (if (member (get-container-or-error
+               (slot-ref store 'container-db)
+               container-key)
+              item)
+      #t #f))
