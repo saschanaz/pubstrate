@@ -26,6 +26,10 @@
 
 (test-begin "test-list-storage")
 
+
+;;; Asobj storing tests 
+;;; ===================
+
 (let ((test-store (make-memory-store)))
   ;; Insert some stuff
   (storage-asobj-set! test-store
@@ -50,6 +54,45 @@
   (test-eq (storage-asobj-ref test-store
                           "http://coolsite.example/posts/does-not-exist")
     #f))
+
+
+;;; Container storing tests 
+;;; =======================
+
+;;; @@: We currently allow inserting things that are totally unrelated to any
+;;;   asobj ids... so notice that we're not bothering to test that here.
+(let* ((test-store (make-memory-store))
+       (container-key (storage-container-new! test-store)))
+  ;; Well, the container-key shouldn't be #f
+  (test-assert container-key)
+
+  ;; Currently it should have nothing in it
+  (test-equal (storage-container-fetch-all test-store container-key)
+    '())
+
+  ;; But we can add stuff to it..
+  (storage-container-append! test-store container-key "a")
+  (storage-container-append! test-store container-key "e")
+  (storage-container-append! test-store container-key "i")
+  (storage-container-append! test-store container-key "o")
+  (storage-container-append! test-store container-key "u")
+  (storage-container-append! test-store container-key "y")
+
+  (test-equal
+      (storage-container-fetch-all test-store container-key)
+    '("y" "u" "o" "i" "e" "a"))
+
+  (receive (page prev next)
+      (storage-container-first-page test-store container-key 2)
+    (test-equal page '("y" "u"))
+    (test-equal prev #f)
+    (test-equal next "o"))
+  
+  (receive (page prev next)
+      (storage-container-page test-store container-key "o" 2)
+    (test-equal page '("o" "i"))
+    (test-equal prev "y")
+    (test-equal next "e")))
 
 (test-end "test-list-storage")
 
