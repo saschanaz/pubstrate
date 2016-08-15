@@ -178,13 +178,13 @@ to the database (in this case, the collections!)"
                                     how-many)
   (let*-values (((container-key)
                  (store-user-container-key store user collection-name))
-                ((page next)
+                ((page prev next)
                  (storage-container-first-page store container-key how-many)))
     (values (map
              (lambda (id)
                (storage-asobj-ref store id))
              page)
-            next)))
+            prev next)))
 
 (define (user-password-hash user)
   (sjson->salted-hash (asobj-private-ref user "password")))
