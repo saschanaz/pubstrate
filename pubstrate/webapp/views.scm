@@ -96,7 +96,7 @@
               (%default-env))
              "id" unique-id)))
       (storage-asobj-set! (%store) asobj)
-      (store-user-add-to-outbox! (%store) outbox-user (asobj-id asobj))
+      (user-add-to-outbox! (%store) outbox-user (asobj-id asobj))
       (respond (asobj->string asobj)
                #:status status:created
                #:content-type 'application/activity+json)))
