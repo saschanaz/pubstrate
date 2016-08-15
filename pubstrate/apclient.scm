@@ -26,7 +26,14 @@
   #:use-module (oop goops)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate json-utils)
-  #:use-module (pubstrate vocab))
+  #:use-module (pubstrate vocab)
+  #:export (<apclient>
+            apclient-id apclient-auth-token
+
+            make-apclient
+            apclient-user apclient-inbox-uri apclient-outbox-uri
+
+            apclient-submit))
 
 ;; TODO: Add authentication info, etc...
 (define-class <apclient> ()
