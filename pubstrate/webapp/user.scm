@@ -30,6 +30,13 @@
   #:export (make-user
             user-id-from-username
             store-add-new-user! store-user-ref
+
+            user-inbox-container-key user-outbox-container-key
+            user-inbox-followers-key user-outbox-following-key
+
+            user-add-to-inbox! user-add-to-outbox!
+            user-add-to-followers! user-add-to-following!
+
             user-password-matches?))
 
 (define (require-base-uri)
@@ -118,6 +125,40 @@ to the database (in this case, the collections!)"
 (define* (store-user-ref store username)
   (storage-asobj-ref store (user-id-from-username username)))
 
+
+(define (store-user-container-key store user collection-name)
+  "Get the container key for USER's COLLECTION-NAME"
+  (let ((collection
+         (storage-asobj-ref store (asobj-ref user collection-name))))
+    (asobj-private-ref collection "container")))
+
+(define (user-inbox-container-key store user)
+  (store-user-container-key store user "inbox"))
+(define (user-outbox-container-key store user)
+  (store-user-container-key store user "outbox"))
+(define (user-followers-container-key store user)
+  (store-user-container-key store user "followers"))
+(define (user-following-container-key store user)
+  (store-user-container-key store user "following"))
+
+
+(define (store-user-add-to-collection! store user id-to-store
+                                       collection-name)
+  "Append item of ID-TO-STORE to USER's ourbox in STORE"
+  (storage-container-append!
+   store (store-user-container-key store user collection-name)
+   id-to-store))
+
+(define (user-add-to-inbox! store user id-to-store)
+  (store-user-add-to-collection! store user id-to-store "inbox"))
+(define (user-add-to-outbox! store user id-to-store)
+  (store-user-add-to-collection! store user id-to-store "outbox"))
+(define (user-add-to-followers! store user id-to-store)
+  (store-user-add-to-collection! store user id-to-store "followers"))
+(define (user-add-to-following! store user id-to-store)
+  (store-user-add-to-collection! store user id-to-store "following"))
+
+
 (define (user-password-hash user)
   (sjson->salted-hash (asobj-private-ref user "password")))
 
@@ -125,4 +166,3 @@ to the database (in this case, the collections!)"
   "Check if PASSWORD matches that of asobj USER"
   (salted-hash-matches? (user-password-hash user)
                         password))
-
