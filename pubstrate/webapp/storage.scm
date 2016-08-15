@@ -120,15 +120,14 @@ the prior page (or #f), and the key for the next page (or #f)."
                                              container-key how-many)
   "Retrieve the first page of in STORE's container KEY with HOW-MANY items.
 
-Returns two values to its continuation: a list of items (or #f if not
-found) from the first item to HOW-MANY, as well as the key for the
-next page (or #f)"
+Returns two values to its continuation: a list of items from the first
+item to HOW-MANY, as well as the key for the next page (or #f)"
   (define containers (slot-ref store 'containers))
   (receive (page prev next)
       (list-paginate-first
             (get-container-or-error containers container-key)
             how-many)
-    (values page next)))
+    (values (or page '()) next)))
 
 (define-method (storage-container-member? (store <memory-store>)
                                           container-key item)
