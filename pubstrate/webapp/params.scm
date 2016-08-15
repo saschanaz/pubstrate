@@ -23,9 +23,17 @@
 
             set-params! with-pubstrate-params))
 
+
+;;; Parameters
+;;; ==========
+
 (define %user (make-parameter #f))
 (define %store (make-parameter #f))
 (define %base-uri (make-parameter #f))
+
+
+;;; Parameter utilities
+;;; ===================
 
 (define param-map
   `((store . ,%store)
