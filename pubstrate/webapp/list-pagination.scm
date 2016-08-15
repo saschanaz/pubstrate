@@ -56,12 +56,14 @@ also 'foo, don't expect to advance forward anywhere. :)
         (values #f #f))
        ;; Looks like we found it!
        ((is-equal? (car lst) member)
-        (values
-         lst
-         ;; Only return
-         (if (eq? history-len how-many)
-             (deq! history)
-             #f)))
+        (cond
+         ;; If prev is the same as our parent, we return #f...
+         ;; wouldn't want the user to keep looping forever...
+         ((eqv? history-len 0)
+          (values lst #f))
+         ;; Otherwise, return the most recent history member
+         (else
+          (values lst (deq! history)))))
        (else
         (enq! history (car lst))
         ;; If the history's already full, remove

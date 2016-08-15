@@ -49,15 +49,16 @@
   (test-eq prev #f)
   (test-eq next 'f))
 
-;;; A few items in, but still shouldn't have a prev because
-;;; the item we request comes before that would happen
+;;; A few items in.  Even though the 'a is less than 5 members previous,
+;;; we should have it be the prev because a user wouldn't expect to
+;;; totally lack a back button.
 (receive (page prev next)
     (list-paginate alphabet 'c 5)
   (test-equal page '(c d e f g))
-  (test-eq prev #f)
+  (test-eq prev 'a)
   (test-eq next 'h))
 
-;;; This one should have a prev, though.
+;;; This one should have a prev, easily.
 (receive (page prev next)
     (list-paginate alphabet 'j 5)
   (test-equal page '(j k l m n))
