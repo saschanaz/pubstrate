@@ -42,6 +42,12 @@
 (define %debug-store #f)
 (define %debug-base-uri #f)
 
+(define (repl-set-params!)
+  "For debugging/hacking purposes, set the parameters from
+the %debug-foo values."
+  (set-params! #:store %debug-store
+               #:base-uri %debug-base-uri))
+
 (define* (run-webapp #:key (storage (make <memory-store>))
                      (host #f)
                      (port 8080)
