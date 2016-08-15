@@ -74,6 +74,11 @@
 (define %debug-body #f)
 
 (define (user-outbox request body username)
+  (define oauth-user
+    ;; TODO: Get this from OAUTH!
+    'TODO)
+  (define outbox-user
+    (store-user-ref (%store) username))
   (define (post-to-outbox)
     ;; TODO: Handle side effects appropriately.
     ;;   Currently doing a "dumb" version of things where we just dump it
@@ -91,6 +96,7 @@
               (%default-env))
              "id" unique-id)))
       (storage-asobj-set! (%store) asobj)
+      (store-user-add-to-outbox! (%store) outbox-user (asobj-id asobj))
       (respond (asobj->string asobj)
                #:status status:created
                #:content-type 'application/activity+json)))
@@ -101,19 +107,16 @@
     ;;  - Extract the bearer token
     ;;  - See if the bearer token matches anything in the db
     #t)
-  (define (get-oauth-user)
-    'TODO)
-  (let ((oauth-user (get-oauth-user)))
-    (match (request-method request)
-      ('GET
-       (read-from-outbox oauth-user))
-      ('POST
-       (if (user-can-post?)
-           (post-to-outbox)
-           (respond "Sorry, you don't have permission to post that."
-                    #:status status:unauthorized
-                    #:content-type 'text/plain)))
-      (_ (respond #:status status:method-not-allowed)))))
+  (match (request-method request)
+    ('GET
+     (read-from-outbox oauth-user))
+    ('POST
+     (if (user-can-post?)
+         (post-to-outbox)
+         (respond "Sorry, you don't have permission to post that."
+                  #:status status:unauthorized
+                  #:content-type 'text/plain)))
+    (_ (respond #:status status:method-not-allowed))))
 
 (define (login request body)
   'TODO)
