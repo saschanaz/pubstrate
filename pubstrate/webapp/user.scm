@@ -19,6 +19,7 @@
 (define-module (pubstrate webapp user)
   #:use-module (ice-9 format)
   #:use-module (ice-9 receive)
+  #:use-module (srfi srfi-11)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate json-utils)
@@ -36,6 +37,8 @@
 
             user-add-to-inbox! user-add-to-outbox!
             user-add-to-followers! user-add-to-following!
+
+            user-collection-page user-collection-first-page
 
             user-password-matches?))
 
@@ -158,6 +161,30 @@ to the database (in this case, the collections!)"
 (define (user-add-to-following! store user id-to-store)
   (store-user-add-to-collection! store user id-to-store "following"))
 
+(define (user-collection-page store user collection-name
+                              member how-many)
+  (let*-values (((container-key)
+                 (store-user-container-key store user collection-name))
+                ((page prev next)
+                 (storage-container-page store container-key
+                                         member how-many)))
+    (values (map
+             (lambda (id)
+               (storage-asobj-ref store id))
+             page)
+            prev next)))
+
+(define (user-collection-first-page store user collection-name
+                                    how-many)
+  (let*-values (((container-key)
+                 (store-user-container-key store user collection-name))
+                ((page next)
+                 (storage-container-first-page store container-key how-many)))
+    (values (map
+             (lambda (id)
+               (storage-asobj-ref store id))
+             page)
+            next)))
 
 (define (user-password-hash user)
   (sjson->salted-hash (asobj-private-ref user "password")))
