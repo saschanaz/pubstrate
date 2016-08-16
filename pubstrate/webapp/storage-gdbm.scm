@@ -146,7 +146,7 @@ procedure will not preserve it."
       (list-paginate-first
        (get-container-or-error container-db container-key)
        how-many)
-    (values (or page '()) next)))
+    (values (or page '()) prev next)))
 
 (define-method (storage-container-member? (store <gdbm-store>)
                                           container-key item)
