@@ -41,6 +41,8 @@
 
             standard-four-oh-four render-static))
 
+(define %items-per-page 20)
+
 (define (index request body)
   (respond-html (index-tmpl)))
 
@@ -48,25 +50,24 @@
   (respond-html (mockup-tmpl)))
 
 (define (user-page request body username)
-  (define (user-tmpl user)
-    (base-tmpl
-     `(p "Hi!  This is "
-         ,(or (asobj-ref user "name")
-              (asobj-ref user "preferredUsername"))
-         "'s page.")))
-  (let ((user (store-user-ref (%store) username)))
-    (cond
-     ;; User not found, so 404
-     ((not user)
-      (respond-not-found))
-     ;; Looks like they want the activitystreams object version..
-     ((requesting-asobj? request)
-      (respond (asobj->string user)
-               #:content-type 'application/activity+json))
-     ;; Otherwise, give them the human-readable HTML!
-     (else
+  (define (render-user-page)
+    (let ((activities
+           (user-collection-first-page
+            (%store) user "outbox"
+            %items-per-page)))
       (respond-html
-       (user-tmpl user))))))
+       (user-homepage-tmpl user activities))))
+  (define user (store-user-ref (%store) username))
+  (cond
+   ;; User not found, so 404
+   ((not user)
+    (respond-not-found))
+   ;; Looks like they want the activitystreams object version..
+   ((requesting-asobj? request)
+    (respond (asobj->string user)
+             #:content-type 'application/activity+json))
+   ;; Otherwise, give them the human-readable HTML!
+   (else (render-user-page))))
 
 (define (user-inbox request body username)
   'TODO)

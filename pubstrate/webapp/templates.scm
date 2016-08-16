@@ -28,6 +28,8 @@
   ;; TODO: Move html parsing stuff into utils.html and remove this import
   #:use-module (htmlprag)
   #:export (base-tmpl index-tmpl mockup-tmpl
+            user-homepage-tmpl
+
             asobj-page-tmpl
             toplevel-activity-tmpl))
 
@@ -122,6 +124,21 @@
                                "♥ Like")
                           (div (@ (class "share-plain"))
                                "♻ Share")))))))))
+
+
+(define (user-homepage-tmpl user activities)
+  (base-tmpl
+   `(div (@ (class "generic-content-box"))
+         (p "Hi!  This is "
+            ,(or (asobj-ref user "name")
+                 (asobj-ref user "preferredUsername"))
+            "'s page.")
+         (hr)
+         ,@(map
+            (lambda (activity)
+              `(div (@ (class "post-and-replies-wrapper"))
+                    ,(toplevel-activity-tmpl activity)))
+            activities))))
 
 
 
