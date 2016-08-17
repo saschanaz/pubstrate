@@ -18,6 +18,7 @@
 
 (define-module (pubstrate webapp views)
   #:use-module (ice-9 match)
+  #:use-module (srfi srfi-9)
   #:use-module (web request)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate paths)
@@ -56,7 +57,8 @@
             (%store) user "outbox"
             %items-per-page)))
       (respond-html
-       (user-homepage-tmpl user activities))))
+       (user-homepage-tmpl user activities
+                           #f #f))))
   (define user (store-user-ref (%store) username))
   (cond
    ;; User not found, so 404
