@@ -18,10 +18,11 @@
 
 (define-module (pubstrate webapp auth)
   #:use-module (srfi srfi-9)
+  #:use-module (rnrs bytevectors)
+  #:use-module (web http)
   #:use-module (pubstrate json-utils)
   #:use-module (pubstrate contrib gcrypt-hash)
   #:use-module (pubstrate contrib base32)
-  #:use-module (rnrs bytevectors)
   #:export (gen-bearer-token
 
             salt-and-hash-password salted-hash-matches?
@@ -112,3 +113,81 @@ of a specified length is fine."
   "Convert sjson serialization back to <salted-hash>"
   (make-salted-hash (json-alist-ref sjson "salt")
                     (json-alist-ref sjson "hash")))
+
+
+;;; Bearer token http header support
+;;; ================================
+
+;;; By default Guile doesn't know anything about bearer tokens.
+;;; So we need to supply support for that ourselves...
+;;; Code borrowed and adapted from GNU Guile.
+
+;; Copyright (C)  2010, 2011, 2012, 2013, 2014 Free Software Foundation, Inc.
+
+;; This library is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU Lesser General Public
+;; License as published by the Free Software Foundation; either
+;; version 3 of the License, or (at your option) any later version.
+;;
+;; This library is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; Lesser General Public License for more details.
+;;
+;; You should have received a copy of the GNU Lesser General Public
+;; License along with this library; if not, write to the Free Software
+;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+;; 02110-1301 USA
+
+;;; @@: We should get this contributed upstream to Guile!
+
+(define default-val-parser
+  (@@ (web http) default-val-parser))
+(define skip-whitespace
+  (@@ (web http) skip-whitespace))
+(define bad-header-component
+  (@@ (web http) bad-header-component))
+(define parse-key-value-list
+  (@@ (web http) parse-key-value-list))
+(define write-key-value-list
+  (@@ (web http) write-key-value-list))
+(define key-value-list?
+  (@@ (web http) key-value-list?))
+(define declare-header!
+  (@@ (web http) declare-header!))
+
+(define* (parse-credentials str #:optional (val-parser default-val-parser)
+                            (start 0) (end (string-length str)))
+  (let* ((start (skip-whitespace str start end))
+         (delim (or (string-index str char-set:whitespace start end) end)))
+    (if (= start end)
+        (bad-header-component 'authorization str))
+    (let ((scheme (string->symbol
+                   (string-downcase (substring str start (or delim end))))))
+      (case scheme
+        ((basic bearer)
+         (let* ((start (skip-whitespace str delim end)))
+           (if (< start end)
+               (cons scheme (substring str start end))
+               (bad-header-component 'credentials str))))
+        (else
+         (cons scheme (parse-key-value-list str default-val-parser delim end)))))))
+
+(define (validate-credentials val)
+  (and (pair? val) (symbol? (car val))
+       (case (car val)
+         ((basic bearer) (string? (cdr val)))
+         (else (key-value-list? (cdr val))))))
+
+(define (write-credentials val port)
+  (display (header->string (car val)) port)
+  (display #\space port)
+  (case (car val)
+    ((basic bearer) (display (cdr val) port))
+    (else (write-key-value-list (cdr val) port))))
+
+(define (declare-credentials-header! name)
+  (declare-header! name
+    parse-credentials validate-credentials write-credentials))
+
+(declare-credentials-header! "Authorization")
