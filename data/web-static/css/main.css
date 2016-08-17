@@ -1,3 +1,17 @@
+@font-face {
+    font-family: 'Inconsolata';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Inconsolata-Regular'), local('Inconsolata'), local('Inconsolata Regular'), url('../fonts/inconsolata/Inconsolata-Regular.ttf');
+}
+
+@font-face {
+    font-family: 'Inconsolata';
+    font-style: normal;
+    font-weight: 700;
+    src: local('Inconsolata-Bold'), local('Inconsolata Bold'), url('../fonts/inconsolata/Inconsolata-Bold.ttf');
+}
+
 body {
     background-color: #414141;
     color: #000000;
@@ -7,6 +21,7 @@ body {
     min-width: 500px;
     margin: 0px;
     padding: 0px;
+    font-family: 'Inconsolata', monospace;
 }
 
 a {
@@ -148,8 +163,8 @@ pre.code-box {
     background-color: #ffffff;
     border-radius: 6px;
     border: 3px solid #ffffff;
-    padding-left: 15px;
-    padding-right: 15px;
+    padding-left: 12px;
+    padding-right: 12px;
     padding-top: 10px;
     padding-bottom: 5px;
 }
@@ -157,6 +172,9 @@ pre.code-box {
 .feedish-header {
     display: flex;
     flex-direction: row;
+    border-bottom: medium dashed #dddddd;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
 }
 
 .feedish-header-right {
