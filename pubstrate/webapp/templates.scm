@@ -34,6 +34,11 @@
             toplevel-activity-tmpl))
 
 (define* (base-tmpl body #:key title)
+  (define (header-link link-name link-url)
+    (list
+     "[" `(a (@ (href ,link-url))
+             ,link-name)
+     "]"))
   `((doctype html)
     (head
      (meta (@ (charset "utf-8")))
@@ -48,15 +53,15 @@
           (header (@ (id "site-header"))
                   ;; @@: Not semantic naming!
                   (span (@ (id "site-header-left-stuff"))
-                        (a (@ (href ,(local-uri)))
-                           "Pubstrate"))
+                        (b (a (@ (href ,(local-uri)))
+                              "*pubstrate*")))
                   (span (@ (id "site-header-right-stuff"))
                         ,@(if (%user)
-                              (list "Hello, " (user-username (%user)) "!")
-                              (list
-                               "[" `(a (@ (href ,(local-uri "logout")))
-                                       "Log out")
-                               "]"))))
+                              (list "Hello, " (user-username (%user)) "!"
+                                    ;; TODO: Add [inbox] [mentions] [direct] [meanwhile]
+                                    " :: "
+                                    (header-link "Log out" (local-uri "logout")))
+                              (list (header-link "Log in" (local-uri "login"))))))
           (div (@ (id "site-main-content"))
                ,body))
      (div (@ (id "site-footer"))
@@ -126,7 +131,7 @@
                                "♻ Share")))))))))
 
 
-(define (user-homepage-tmpl user activities)
+(define (user-homepage-tmpl user activities prev-url next-url)
   (base-tmpl
    `(div (@ (class "generic-content-box"))
          (p "Hi!  This is "
@@ -189,7 +194,9 @@ Arguments: (asobj)")
              (div (@ (class "like-plain"))
                   "♥ Like")
              (div (@ (class "share-plain"))
-                  "♻ Share"))))
+                  "♻ Share")
+             (div (@ (class "reply-plain"))
+                  "⌨ Reply"))))
 
 
 (define-as-generic asobj-header-tmpl
@@ -218,10 +225,10 @@ Arguments: (asobj)")
           (header (@ (class "feedish-header-right"))
                   ,@(render-if title)
                   (div (@ (class "feedish-byline"))
-                       "By "
+                       (b "By: ")
                        (a (@ (href ,(asobj-ref actor "id")))
                           ,actor-name)
-                       " -- "
+                       (b " At: ")
                        (a (@ (href ,(asobj-ref asobj "id")))
                           ,when-posted))))))
 
