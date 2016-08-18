@@ -162,9 +162,9 @@
        lst))
 
 (define (post-to-outbox actor outgoing)
-  (format #t "*** -> OUTBOX of ~a ***\n"
-          (asobj-ref actor "name"))
-  (asobj-pprint outgoing)
+  ;; (format #t "*** -> OUTBOX of ~a ***\n"
+  ;;         (asobj-ref actor "name"))
+  ;; (asobj-pprint outgoing)
   (let ((actor (official-actor actor)))
     (db-see! actor outgoing)
     (for-each
@@ -189,9 +189,9 @@
                  (asobj-ref in-reply-to '("actor" "id"))))))
 
 (define (inbox-receive actor incoming)
-  (format #t "*** -> INBOX of ~a ***\n"
-          (asobj-ref actor "name"))
-  (asobj-pprint incoming)
+  ;; (format #t "*** -> INBOX of ~a ***\n"
+  ;;         (asobj-ref actor "name"))
+  ;; (asobj-pprint incoming)
   (let ((actor (official-actor actor)))
     (format #t "~a got from ~a: ~s :: ~s\n"
             (asobj-ref actor "name")
@@ -208,3 +208,11 @@
            (if (string? recipient)
                (maybe-send-to-followers actor incoming recipient)))
          (list->asobj (asobj-ref incoming "to")))))))
+
+;;; Test with:
+;; (post-to-outbox
+;;  amy (wrap-in-create
+;;       (note #:content "Horray interop"
+;;             #:id "http://rhiaro.co.uk/interflop"
+;;             #:actor amy
+;;             #:to (list cwebber (actor-followers-uri amy)))))
