@@ -46,8 +46,13 @@
 
 (define-class <store> ())
 
+(define-class <docustore> ()
+  (asobjs)
+  (containers)
+  (bearer-entries))
+
 ;;; Simple in-memory storage
-(define-class <memory-store> (<store>)
+(define-class <memory-store> (<docustore>)
   (asobjs #:init-thunk make-hash-table)
   (containers #:init-thunk make-hash-table)
   (bearer-entries #:init-thunk make-hash-table))
@@ -59,17 +64,40 @@
 ;; (define-generic storage-asobj-set!)
 ;; (define-generic storage-asobj-ref)
 
-(define-method (storage-asobj-set! (store <memory-store>) asobj)
+(define-method (docustore-set! (store <memory-store>)
+                                     slot key val)
+  "Store a (already serialized) VAL for KEY in STORE's SLOT"
+  (hash-set! (slot-ref store slot) key val))
+
+(define-method (docustore-ref (store <memory-store>)
+                                   slot key)
+  "Retrieve a (serialized) value for KEY in STORE's SLOT"
+  (hash-ref (slot-ref store slot) key))
+
+(define-method (docustore-remove! (store <memory-store>)
+                                   slot key)
+  "Retrieve a (serialized) value for KEY in STORE's SLOT"
+  (hash-remove! (slot-ref store slot) key))
+
+(define-method (docustore-serialize-asobj (store <memory-store>) asobj)
+  (identity asobj))
+(define-method (docustore-deserialize-asobj (store <memory-store>) serialized)
+  (identity serialized))
+
+
+;;; Note that the default storage method assumes that this is a
+;;; simple docustore
+(define-method (storage-asobj-set! (store <docustore>) asobj)
   (let ((id (asobj-id asobj)))
     (if (not id)
         (throw 'asobj-storage-failure
                "Can't save an asobj if no id set"))
-    (hash-set!
-     (slot-ref store 'asobjs)
-     id asobj)))
+    (docustore-set! store 'asobjs id
+                    (docustore-serialize-asobj store asobj))))
 
-(define-method (storage-asobj-ref (store <memory-store>) id)
-  (hash-ref (slot-ref store 'asobjs) id))
+(define-method (storage-asobj-ref (store <docustore>) id)
+  (docustore-deserialize-asobj
+   store (docustore-ref store 'asobjs id)))
 
 (define (storage-asobj-ref-fat store id)
   'TODO)
@@ -83,43 +111,58 @@
 ;; (define-generic storage-container-new!)
 ;; (define-generic storage-container-append!)
 
+;; @@: The serialize/deserialize docustore stuff seems to only work for our
+;;   stupid lists method.  Which means all users of this are using a crappy
+;;   O(n) store for containers!  Not good!
+(define-method (docustore-serialize-container (store <memory-store>) container)
+  (identity container))
+(define-method (docustore-deserialize-container
+                (store <memory-store>) serialized)
+  (identity serialized))
+
 ;; @@: Probabalistic method, but if this doesn't succeed, something is
 ;;   wrong with the universe, or your RNG...
 ;;   Collisions are so unlikely, hopefully this procedure's check is
 ;;   unnecessary anyway...!
-(define-method (storage-container-new! (store <memory-store>))
+(define-method (storage-container-new! (store <docustore>))
   "Add a new container and return its key"
-  (define containers (slot-ref store 'containers))
   (define (keep-trying)
-    (let ((token (gen-bearer-token)))
-      (if (hash-ref containers token)
+    (let* ((token (gen-bearer-token))
+           (existing-container
+            (docustore-deserialize-container
+             store (docustore-ref store 'containers token))))
+      (if existing-container
           (keep-trying)
           (begin
-            (hash-set! containers token '())
+            (docustore-set! store 'containers token
+                            (docustore-serialize-container
+                             store '()))
             token))))
   (keep-trying))
 
-(define (get-container-or-error containers key)
+(define (get-container-or-error storage key)
   (cond
-   ((hash-ref containers key) => identity)
+   ((docustore-ref storage 'containers key)
+    => (lambda (c)
+         (docustore-deserialize-container storage c)))
    (else (throw 'no-container-for-key
                 #:key key))))
 
-(define-method (storage-container-append! (store <memory-store>)
+(define-method (storage-container-append! (store <docustore>)
                                           container-key val)
-  (define containers (slot-ref store 'containers))
   (define current-members
-    (get-container-or-error containers container-key))
+    (get-container-or-error store container-key))
+  (docustore-set! store 'containers container-key
+                  (docustore-serialize-container
+                   store
+                   (cons val current-members))))
 
-  (hash-set! containers container-key
-             (cons val current-members)))
-
-(define-method (storage-container-fetch-all (store <memory-store>)
+(define-method (storage-container-fetch-all (store <docustore>)
                                             container-key)
-  (define containers (slot-ref store 'containers))
-  (get-container-or-error containers container-key))
+  (docustore-deserialize-container
+   store (docustore-ref store 'containers container-key)))
 
-(define-method (storage-container-page (store <memory-store>) container-key
+(define-method (storage-container-page (store <docustore>) container-key
                                        member how-many)
   "Search for MEMBER in STORE's container KEY with a page of HOW-MANY
 items, as well as returning information on previous and next pages.
@@ -127,12 +170,11 @@ items, as well as returning information on previous and next pages.
 Returns three values to its continuation: a list of items (or #f if
 not found) in the range of MEMBER and HOW-MANY, as well as the key for
 the prior page (or #f), and the key for the next page (or #f)."
-  (define containers (slot-ref store 'containers))
   (list-paginate
-   (get-container-or-error containers container-key)
+   (get-container-or-error store container-key)
    member how-many))
 
-(define-method (storage-container-first-page (store <memory-store>)
+(define-method (storage-container-first-page (store <docustore>)
                                              container-key how-many)
   "Retrieve the first page of in STORE's container KEY with HOW-MANY items.
 
@@ -140,18 +182,16 @@ Returns three values to its continuation: a list of items from the
 first item to HOW-MANY, the key for the previous page (which will, in
 this case, not exist so will always be #f), and the key for the next
 page (or #f)"
-  (define containers (slot-ref store 'containers))
   (receive (page prev next)
       (list-paginate-first
-            (get-container-or-error containers container-key)
+            (get-container-or-error store container-key)
             how-many)
     (values (or page '()) prev next)))
 
-(define-method (storage-container-member? (store <memory-store>)
+(define-method (storage-container-member? (store <docustore>)
                                           container-key item)
   (if (member (get-container-or-error
-               (slot-ref store 'containers)
-               container-key)
+               store container-key)
               item)
       #t #f))
 
@@ -185,20 +225,32 @@ page (or #f)"
     #:user-id (assoc-ref alist "user-id")
     #:expires (assoc-ref alist "expires")))
 
-;;; Bearer tokens
-(define-method (storage-bearer-token-new! (store <memory-store>) user)
+(define-method (docustore-serialize-bearer-entry (store <memory-store>)
+                                                 bearer-entry)
+  (identity bearer-entry))
+
+(define-method (docustore-deserialize-bearer-entry (store <memory-store>)
+                                                   serialized)
+  (identity serialized))
+
+(define-method (storage-bearer-token-new! (store <docustore>) user)
+  "Define a new bearer token for USER and place its entry in STORE.
+The bearer token key is returned, but the full bearer entry is not."
   (let ((bearer-entry (make <bearer-entry>
                         #:user-id (asobj-id user))))
-    (hash-set! (slot-ref store 'bearer-entries)
-               (slot-ref bearer-entry 'token)
-               bearer-entry)
+    (docustore-set! store 'bearer-entries
+                    (slot-ref bearer-entry 'token)
+                    (docustore-serialize-bearer-entry
+                     store bearer-entry))
     (slot-ref bearer-entry 'token)))
 
-(define-method (storage-bearer-entry-ref (store <memory-store>) token-key)
-  (hash-ref (slot-ref store 'bearer-entries)
-            token-key))
+(define-method (storage-bearer-entry-ref (store <docustore>) token-key)
+  (docustore-deserialize-bearer-entry
+   store (docustore-ref store 'bearer-entries token-key)))
 
-(define-method (storage-bearer-token-valid? (store <store>)
+;;; This one should work, docustore or not, because it relies on the heavy
+;;; lifting of the other methods
+(define-method (storage-bearer-token-valid? (store <docustore>)
                                             token-key user)
   "See if the bearer token with TOKEN-KEY is valid in the context of USER"
   (let ((bearer-entry (storage-bearer-entry-ref store token-key)))
@@ -206,5 +258,5 @@ page (or #f)"
          ;; TODO: Check expires field
          (equal? (asobj-id user) (slot-ref bearer-entry 'user-id)))))
 
-(define-method (storage-bearer-token-delete! (store <memory-store>) token-key)
-  (hash-remove! (slot-ref store 'bearer-entries) token-key))
+(define-method (storage-bearer-token-delete! (store <docustore>) token-key)
+  (docustore-remove! store 'bearer-entries token-key))
