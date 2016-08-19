@@ -40,6 +40,9 @@
             display-post asobj
             oauth-authorize
 
+            ;; @@: Temporary!
+            bearer-token-test
+
             standard-four-oh-four render-static))
 
 (define %items-per-page 20)
@@ -109,7 +112,12 @@
     ;; TODO!  Right now we just accept it.
     ;;  - Extract the bearer token
     ;;  - See if the bearer token matches anything in the db
-    #t)
+    (match (assoc-ref (request-headers request) 'authorization)
+      (('bearer . (? string? token))
+       (pk 'valid?
+           (storage-bearer-token-valid?
+            (%store) token outbox-user)))
+      (_ #f)))
   (match (request-method request)
     ('GET
      (read-from-outbox oauth-user))
@@ -146,7 +154,6 @@
 
 (define (oauth-authorize request body)
   'TODO)
-
 
 (define (standard-four-oh-four request body)
   ;; TODO: Add 404 status message

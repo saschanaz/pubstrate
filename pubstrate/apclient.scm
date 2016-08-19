@@ -46,13 +46,17 @@
   (inbox-uri #:init-value #f)
   (outbox-uri #:init-value #f))
 
-(define (make-apclient id)
-  (let ((id (match id
-              ((? string? id)
-               (string->uri id))
-              ((? uri? id)
-               id))))
-    (make <apclient> #:id id)))
+(define* (make-apclient id #:key auth-token)
+  (let* ((id (match id
+               ((? string? id)
+                (string->uri id))
+               ((? uri? id)
+                id)))
+         (apclient
+          (make <apclient> #:id id)))
+    (if auth-token
+        (slot-set! apclient 'auth-token auth-token))
+    apclient))
 
 (define (apclient-user apclient)
   (define (retrieve-user)
@@ -92,11 +96,17 @@
   'TODO)
 
 (define (apclient-submit apclient asobj)
-  ;; TODO: Handle authentication!
+  (define headers
+    ;; @@: Maybe this shouldn't be optional
+    (let ((auth-token (slot-ref apclient 'auth-token)))
+      `((content-type application/activity+json (charset . "utf-8"))
+        ,@(if auth-token
+              `((authorization bearer . ,auth-token))
+              '()))))
   (receive (response body)
       (http-post (apclient-outbox-uri apclient)
                  #:body (asobj->string asobj)
-                 #:headers '((content-type application/activity+json (charset . "utf-8"))))
+                 #:headers headers)
     (values
      ;; Return an <asobj> built out of the body or #f
      (match (response-code response)
