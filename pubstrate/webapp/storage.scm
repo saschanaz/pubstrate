@@ -33,18 +33,23 @@
 
             storage-container-new! storage-container-append!
             storage-container-first-page storage-container-page
-            storage-container-fetch-all storage-container-member?))
+            storage-container-fetch-all storage-container-member?
+
+            storage-bearer-token-new! storage-bearer-token-valid?
+            storage-bearer-token-ref storage-bearer-token-delete!))
 
 ;;; Simple in-memory storage
 (define-class <memory-store> ()
   (asobjs #:init-thunk make-hash-table)
-  (containers #:init-thunk make-hash-table))
+  (containers #:init-thunk make-hash-table)
+  (bearer-tokens #:init-thunk make-hash-table))
 
 (define (make-memory-store)
   (make <memory-store>))
 
-(define-generic storage-asobj-set!)
-(define-generic storage-asobj-ref)
+;;; @@: Is it even helpful to have define-generic for these?
+;; (define-generic storage-asobj-set!)
+;; (define-generic storage-asobj-ref)
 
 (define-method (storage-asobj-set! (store <memory-store>) asobj)
   (let ((id (asobj-id asobj)))
@@ -63,9 +68,12 @@
 (define (storage-asobj-set-lean! store asobj)
   'TODO)
 
+
+;;; Containers
+;;; ==========
 
-(define-generic storage-container-new!)
-(define-generic storage-container-append!)
+;; (define-generic storage-container-new!)
+;; (define-generic storage-container-append!)
 
 ;; @@: Probabalistic method, but if this doesn't succeed, something is
 ;;   wrong with the universe, or your RNG...
@@ -140,3 +148,55 @@ page (or #f)"
       #t #f))
 
 ; (define-method (storage-container-))
+
+
+;;; Bearer token storage
+;;; ====================
+
+;;; Some day we'll have linked data signatures support and can nuke this
+;;; stuff.  I hope!
+
+(define-class <bearer-token> ()
+  (token #:init-keyword #:token
+         #:init-thunk gen-bearer-token
+         #:getter bearer-token-token)
+  (user-id #:init-keyword #:user-id
+           #:getter bearer-token-user-id)
+  (expires #:init-keyword #:expires
+           #:init-value #f
+           #:getter bearer-token-expires))
+
+(define (bearer-token->alist bearer-token)
+  `(("token" . ,(slot-ref bearer-token 'token))
+    ("user-id" . ,(slot-ref bearer-token 'user-id))
+    ("expires" . ,(slot-ref bearer-token 'expires))))
+
+(define (alist->bearer-token alist)
+  (make <bearer-token>
+    #:token (assoc-ref alist "token")
+    #:user-id (assoc-ref alist "user-id")
+    #:expires (assoc-ref alist "expires")))
+
+;;; Bearer tokens
+(define-method (storage-bearer-token-new! (store <memory-store>) user)
+  (let ((bearer-token (make <bearer-token>
+                        #:user-id (asobj-id user))))
+    (hash-set! (slot-ref store 'bearer-tokens)
+               (slot-ref bearer-token 'token)
+               bearer-token)
+    (slot-ref bearer-token 'token)))
+
+(define-method (storage-bearer-token-ref (store <memory-store>) token-key)
+  (hash-ref (slot-ref store 'bearer-tokens)
+            token-key))
+
+(define-method (storage-bearer-token-valid? (store <memory-store>)
+                                            token-key user)
+  "See if the bearer token with TOKEN-KEY is valid in the context of USER"
+  (let ((bearer-token (storage-bearer-token-ref store token-key)))
+    (and (is-a? bearer-token <bearer-token>)
+         ;; TODO: Check expires field
+         (equal? (asobj-id user) (slot-ref bearer-token 'user-id)))))
+
+(define-method (storage-bearer-token-delete! (store <memory-store>) token-key)
+  (hash-remove! (slot-ref store 'bearer-tokens) token-key))
