@@ -31,9 +31,10 @@
             make-gdbm-store
             gdbm-store-close))
 
-(define-class <gdbm-store> ()
+(define-class <gdbm-store> (<store>)
   (asobj-db #:init-keyword #:asobj-db)
-  (container-db #:init-keyword #:container-db))
+  (container-db #:init-keyword #:container-db)
+  (bearer-entry-db #:init-keyword #:bearer-entry-db))
 
 (define (directory-exists? dir)
   "Check to see if DIR exists."
@@ -67,7 +68,9 @@ procedure will not preserve it."
     #:asobj-db
     (gdbm-open (db-file "asobj.db") GDBM_WRCREAT)
     #:container-db
-    (gdbm-open (db-file "containers.db") GDBM_WRCREAT)))
+    (gdbm-open (db-file "containers.db") GDBM_WRCREAT)
+    #:bearer-entry-db
+    (gdbm-open (db-file "bearer-entries.db") GDBM_WRCREAT)))
 
 (define-method (storage-asobj-set! (store <gdbm-store>) asobj)
   (let ((id (asobj-id asobj)))
@@ -85,7 +88,9 @@ procedure will not preserve it."
         #f)))
 
 (define (gdbm-store-close store)
-  (gdbm-close (slot-ref store 'asobj-db)))
+  (gdbm-close (slot-ref store 'asobj-db))
+  (gdbm-close (slot-ref store 'container-db))
+  (gdbm-close (slot-ref store 'bearer-entry-db)))
 
 
 (define (write-to-string obj)
@@ -97,6 +102,10 @@ procedure will not preserve it."
   (with-input-from-string str
     (lambda ()
       (read (current-input-port)))))
+
+
+;;; Containers
+;;; ==========
 
 ;; Again, probabalistic, but safe... if even necessary!
 (define-method (storage-container-new! (store <gdbm-store>))
@@ -155,3 +164,24 @@ procedure will not preserve it."
                container-key)
               item)
       #t #f))
+
+
+;;; Bearer token storage
+;;; ====================
+
+(define-method (storage-bearer-token-new! (store <gdbm-store>) user)
+  (let ((bearer-entry (make <bearer-entry>
+                        #:user-id (asobj-id user))))
+    (gdbm-set! (slot-ref store 'bearer-entry-db)
+               (slot-ref bearer-entry 'token)
+               (write-to-string (bearer-entry->alist bearer-entry)))
+    (slot-ref bearer-entry 'token)))
+
+(define-method (storage-bearer-entry-ref (store <gdbm-store>) token-key)
+  (alist->bearer-entry
+   (read-from-string
+    (gdbm-ref (slot-ref store 'bearer-entry-db)
+              token-key))))
+
+(define-method (storage-bearer-token-delete! (store <gdbm-store>) token-key)
+  (gdbm-delete! (slot-ref store 'bearer-entrys) token-key))

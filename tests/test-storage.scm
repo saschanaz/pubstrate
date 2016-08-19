@@ -20,8 +20,10 @@
   #:use-module (ice-9 receive)
   #:use-module (srfi srfi-64)
   #:use-module (tests utils)
+  #:use-module (web uri)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate shorthand)
+  #:use-module (pubstrate webapp params)
   #:use-module (pubstrate webapp storage)
   #:use-module (pubstrate webapp user))
 
@@ -99,14 +101,15 @@
 ;;; Bearer token tests
 ;;; ==================
 
-(let* ((storage (make-memory-store))
-       (cwebber (store-add-new-user! storage "cwebber" "beep"))
-       (rhiaro (store-add-new-user! storage "rhiaro" "boop"))
-       (token-key (storage-bearer-token-new! storage cwebber)))
-  (test-assert (storage-bearer-token-valid? storage token-key cwebber))
-  (test-assert (not (storage-bearer-token-valid? storage token-key rhiaro)))
-  (storage-bearer-token-delete! storage token-key)
-  (test-assert (not (storage-bearer-token-valid? storage token-key cwebber))))
+(parameterize ((%base-uri (string->uri "https://coolsite.example/")))
+  (let* ((storage (make-memory-store))
+         (cwebber (store-add-new-user! storage "cwebber" "beep"))
+         (rhiaro (store-add-new-user! storage "rhiaro" "boop"))
+         (token-key (storage-bearer-token-new! storage cwebber)))
+    (test-assert (storage-bearer-token-valid? storage token-key cwebber))
+    (test-assert (not (storage-bearer-token-valid? storage token-key rhiaro)))
+    (storage-bearer-token-delete! storage token-key)
+    (test-assert (not (storage-bearer-token-valid? storage token-key cwebber)))))
 
 (test-end "test-list-storage")
 

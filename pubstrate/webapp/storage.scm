@@ -27,7 +27,9 @@
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp list-pagination)
   #:use-module (pubstrate webapp params)
-  #:export (<memory-store>
+  #:export (<store>
+
+            <memory-store>
             make-memory-store
             storage-asobj-ref storage-asobj-set!
 
@@ -35,14 +37,20 @@
             storage-container-first-page storage-container-page
             storage-container-fetch-all storage-container-member?
 
+            <bearer-entry>
+            bearer-entry-token bearer-entry-user-id bearer-entry-expires
+            bearer-entry->alist alist->bearer-entry
+
             storage-bearer-token-new! storage-bearer-token-valid?
-            storage-bearer-token-ref storage-bearer-token-delete!))
+            storage-bearer-entry-ref storage-bearer-token-delete!))
+
+(define-class <store> ())
 
 ;;; Simple in-memory storage
-(define-class <memory-store> ()
+(define-class <memory-store> (<store>)
   (asobjs #:init-thunk make-hash-table)
   (containers #:init-thunk make-hash-table)
-  (bearer-tokens #:init-thunk make-hash-table))
+  (bearer-entries #:init-thunk make-hash-table))
 
 (define (make-memory-store)
   (make <memory-store>))
@@ -156,47 +164,47 @@ page (or #f)"
 ;;; Some day we'll have linked data signatures support and can nuke this
 ;;; stuff.  I hope!
 
-(define-class <bearer-token> ()
+(define-class <bearer-entry> ()
   (token #:init-keyword #:token
          #:init-thunk gen-bearer-token
-         #:getter bearer-token-token)
+         #:getter bearer-entry-token)
   (user-id #:init-keyword #:user-id
-           #:getter bearer-token-user-id)
+           #:getter bearer-entry-user-id)
   (expires #:init-keyword #:expires
            #:init-value #f
-           #:getter bearer-token-expires))
+           #:getter bearer-entry-expires))
 
-(define (bearer-token->alist bearer-token)
-  `(("token" . ,(slot-ref bearer-token 'token))
-    ("user-id" . ,(slot-ref bearer-token 'user-id))
-    ("expires" . ,(slot-ref bearer-token 'expires))))
+(define (bearer-entry->alist bearer-entry)
+  `(("token" . ,(slot-ref bearer-entry 'token))
+    ("user-id" . ,(slot-ref bearer-entry 'user-id))
+    ("expires" . ,(slot-ref bearer-entry 'expires))))
 
-(define (alist->bearer-token alist)
-  (make <bearer-token>
+(define (alist->bearer-entry alist)
+  (make <bearer-entry>
     #:token (assoc-ref alist "token")
     #:user-id (assoc-ref alist "user-id")
     #:expires (assoc-ref alist "expires")))
 
 ;;; Bearer tokens
 (define-method (storage-bearer-token-new! (store <memory-store>) user)
-  (let ((bearer-token (make <bearer-token>
+  (let ((bearer-entry (make <bearer-entry>
                         #:user-id (asobj-id user))))
-    (hash-set! (slot-ref store 'bearer-tokens)
-               (slot-ref bearer-token 'token)
-               bearer-token)
-    (slot-ref bearer-token 'token)))
+    (hash-set! (slot-ref store 'bearer-entries)
+               (slot-ref bearer-entry 'token)
+               bearer-entry)
+    (slot-ref bearer-entry 'token)))
 
-(define-method (storage-bearer-token-ref (store <memory-store>) token-key)
-  (hash-ref (slot-ref store 'bearer-tokens)
+(define-method (storage-bearer-entry-ref (store <memory-store>) token-key)
+  (hash-ref (slot-ref store 'bearer-entries)
             token-key))
 
-(define-method (storage-bearer-token-valid? (store <memory-store>)
+(define-method (storage-bearer-token-valid? (store <store>)
                                             token-key user)
   "See if the bearer token with TOKEN-KEY is valid in the context of USER"
-  (let ((bearer-token (storage-bearer-token-ref store token-key)))
-    (and (is-a? bearer-token <bearer-token>)
+  (let ((bearer-entry (storage-bearer-entry-ref store token-key)))
+    (and (is-a? bearer-entry <bearer-entry>)
          ;; TODO: Check expires field
-         (equal? (asobj-id user) (slot-ref bearer-token 'user-id)))))
+         (equal? (asobj-id user) (slot-ref bearer-entry 'user-id)))))
 
 (define-method (storage-bearer-token-delete! (store <memory-store>) token-key)
-  (hash-remove! (slot-ref store 'bearer-tokens) token-key))
+  (hash-remove! (slot-ref store 'bearer-entries) token-key))
