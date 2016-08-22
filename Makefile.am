@@ -76,6 +76,7 @@ SOURCES =  \
 TESTS =							\
 	tests/test-asobj.scm				\
 	tests/test-auth.scm				\
+	tests/test-date-rfc3339.scm			\
 	tests/test-list-pagination.scm			\
 	tests/test-storage.scm				\
 	tests/test-web-utils.scm			\
