@@ -103,6 +103,7 @@
   (sre->irregex date-time-sre))
 
 (define (date-string->date str)
+  "Convert an RFC3339 formatted date string into an srfi-19 date type."
   (define (rx-match->date rx-match)
     (define (rx-part name)
       (irregex-match-substring rx-match name))
@@ -139,6 +140,7 @@
 ;; @@: Well, this isn't very fast either.  Only about 5k / second.
 ;;   I guess Guile 2.0 isn't very fast with strings :)
 (define (date->date-string date)
+  "Convert an srfi-19 date type into an RFC3339 formatted date string."
   (define (format-2-digits digit)
     (format #f "~2,'0d" digit))
 
