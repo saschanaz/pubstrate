@@ -26,6 +26,17 @@
 ;;;
 ;;; Pretty crude, but should do the job for now.
 
+;; Valid characters for cookie values
+;; (all printable ascii characters, excepting "," and ";")
+(define cookie-val-char-set
+  (char-set-difference (char-set-delete char-set:ascii #\, #\;)
+                       char-set:iso-control))
+;; Valid characters for cookie keys
+;; (same as cookie-val-char-set, minus "=")
+(define cookie-key-char-set
+  (char-set-delete cookie-val-char-set #\=))
+
+
 ;; TODO: Not the best implementation.  On known cookie-av pairs
 ;;   (see rfc6265) we should do proper parsing.
 (define (cookie-parser cookie-text)
