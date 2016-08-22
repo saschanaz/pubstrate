@@ -65,9 +65,19 @@
           "; ")))
     (display cookie-str port)))
 
+(define (valid-cookie-key? str)
+  "Check if STR is a valid cookie key"
+  (and (string? str)
+       (string-every cookie-key-char-set str)))
+
+(define (valid-cookie-val? str)
+  "Check if STR is a valid cookie value"
+  (and (string? str)
+       (string-every cookie-val-char-set str)))
+
 (define (cookie-validator cookie-alist)
   (match cookie-alist
-    ((((? string? key) . (or #t (? string? _))) ...)
+    ((((? valid-cookie-key? key) . (or #t (? valid-cookie-val? _))) ...)
      #t)
     (_ #f)))
 
