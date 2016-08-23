@@ -17,10 +17,10 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 
-;;; Storage stuff
-;;; =============
+;;; Store stuff
+;;; ===========
 
-(define-module (pubstrate webapp storage)
+(define-module (pubstrate webapp store)
   #:use-module (ice-9 receive)
   #:use-module (oop goops)
   #:use-module (pubstrate asobj)
@@ -34,18 +34,18 @@
 
             <memory-store>
             make-memory-store
-            storage-asobj-ref storage-asobj-set!
+            store-asobj-ref store-asobj-set!
 
-            storage-container-new! storage-container-append!
-            storage-container-first-page storage-container-page
-            storage-container-fetch-all storage-container-member?
+            store-container-new! store-container-append!
+            store-container-first-page store-container-page
+            store-container-fetch-all store-container-member?
 
             <bearer-entry>
             bearer-entry-token bearer-entry-user-id bearer-entry-expires
             bearer-entry->alist alist->bearer-entry
 
-            storage-bearer-token-new! storage-bearer-token-valid?
-            storage-bearer-entry-ref storage-bearer-token-delete!))
+            store-bearer-token-new! store-bearer-token-valid?
+            store-bearer-entry-ref store-bearer-token-delete!))
 
 (define-class <store> ())
 
@@ -56,7 +56,7 @@
   (serializers #:allocation #:class)
   (deserializers #:allocation #:class))
 
-;;; Simple in-memory storage
+;;; Simple in-memory store
 (define-class <memory-store> (<docustore>)
   (asobjs #:init-thunk make-hash-table)
   (containers #:init-thunk make-hash-table)
@@ -80,8 +80,8 @@
   (make <memory-store>))
 
 ;;; @@: Is it even helpful to have define-generic for these?
-;; (define-generic storage-asobj-set!)
-;; (define-generic storage-asobj-ref)
+;; (define-generic store-asobj-set!)
+;; (define-generic store-asobj-ref)
 
 (define-method (docustore-set! (store <memory-store>)
                                slot key val)
@@ -103,29 +103,29 @@
   (hash-remove! (slot-ref store slot) key))
 
 
-;;; Note that the default storage method assumes that this is a
+;;; Note that the default store method assumes that this is a
 ;;; simple docustore
-(define-method (storage-asobj-set! (store <docustore>) asobj)
+(define-method (store-asobj-set! (store <docustore>) asobj)
   (let ((id (asobj-id asobj)))
     (if (not id)
-        (throw 'asobj-storage-failure
+        (throw 'asobj-store-failure
                "Can't save an asobj if no id set"))
     (docustore-set! store 'asobjs id asobj)))
 
-(define-method (storage-asobj-ref (store <docustore>) id)
+(define-method (store-asobj-ref (store <docustore>) id)
   (docustore-ref store 'asobjs id))
 
-(define (storage-asobj-ref-fat store id)
+(define (store-asobj-ref-fat store id)
   'TODO)
-(define (storage-asobj-set-lean! store asobj)
+(define (store-asobj-set-lean! store asobj)
   'TODO)
 
 
 ;;; Containers
 ;;; ==========
 
-;; (define-generic storage-container-new!)
-;; (define-generic storage-container-append!)
+;; (define-generic store-container-new!)
+;; (define-generic store-container-append!)
 
 ;; @@: The serialize/deserialize docustore stuff seems to only work for our
 ;;   stupid lists method.  Which means all users of this are using a crappy
@@ -135,7 +135,7 @@
 ;;   wrong with the universe, or your RNG...
 ;;   Collisions are so unlikely, hopefully this procedure's check is
 ;;   unnecessary anyway...!
-(define-method (storage-container-new! (store <docustore>))
+(define-method (store-container-new! (store <docustore>))
   "Add a new container and return its key"
   (define (keep-trying)
     (let* ((token (gen-bearer-token))
@@ -148,24 +148,24 @@
             token))))
   (keep-trying))
 
-(define (get-container-or-error storage key)
+(define (get-container-or-error store key)
   (cond
-   ((docustore-ref storage 'containers key) => identity)
+   ((docustore-ref store 'containers key) => identity)
    (else (throw 'no-container-for-key
                 #:key key))))
 
-(define-method (storage-container-append! (store <docustore>)
+(define-method (store-container-append! (store <docustore>)
                                           container-key val)
   (define current-members
     (get-container-or-error store container-key))
   (docustore-set! store 'containers container-key
                   (cons val current-members)))
 
-(define-method (storage-container-fetch-all (store <docustore>)
+(define-method (store-container-fetch-all (store <docustore>)
                                             container-key)
   (docustore-ref store 'containers container-key))
 
-(define-method (storage-container-page (store <docustore>) container-key
+(define-method (store-container-page (store <docustore>) container-key
                                        member how-many)
   "Search for MEMBER in STORE's container KEY with a page of HOW-MANY
 items, as well as returning information on previous and next pages.
@@ -177,7 +177,7 @@ the prior page (or #f), and the key for the next page (or #f)."
    (get-container-or-error store container-key)
    member how-many))
 
-(define-method (storage-container-first-page (store <docustore>)
+(define-method (store-container-first-page (store <docustore>)
                                              container-key how-many)
   "Retrieve the first page of in STORE's container KEY with HOW-MANY items.
 
@@ -191,14 +191,12 @@ page (or #f)"
             how-many)
     (values (or page '()) prev next)))
 
-(define-method (storage-container-member? (store <docustore>)
+(define-method (store-container-member? (store <docustore>)
                                           container-key item)
   (if (member (get-container-or-error
                store container-key)
               item)
       #t #f))
-
-; (define-method (storage-container-))
 
 
 ;;; Bearer token storage
@@ -228,7 +226,7 @@ page (or #f)"
     #:user-id (assoc-ref alist "user-id")
     #:expires (assoc-ref alist "expires")))
 
-(define-method (storage-bearer-token-new! (store <docustore>) user)
+(define-method (store-bearer-token-new! (store <docustore>) user)
   "Define a new bearer token for USER and place its entry in STORE.
 The bearer token key is returned, but the full bearer entry is not."
   (let ((bearer-entry (make <bearer-entry>
@@ -238,18 +236,18 @@ The bearer token key is returned, but the full bearer entry is not."
                     bearer-entry)
     (slot-ref bearer-entry 'token)))
 
-(define-method (storage-bearer-entry-ref (store <docustore>) token-key)
+(define-method (store-bearer-entry-ref (store <docustore>) token-key)
   (docustore-ref store 'bearer-entries token-key))
 
 ;;; This one should work, docustore or not, because it relies on the heavy
 ;;; lifting of the other methods
-(define-method (storage-bearer-token-valid? (store <docustore>)
+(define-method (store-bearer-token-valid? (store <docustore>)
                                             token-key user)
   "See if the bearer token with TOKEN-KEY is valid in the context of USER"
-  (let ((bearer-entry (storage-bearer-entry-ref store token-key)))
+  (let ((bearer-entry (store-bearer-entry-ref store token-key)))
     (and (is-a? bearer-entry <bearer-entry>)
          ;; TODO: Check expires field
          (equal? (asobj-id user) (slot-ref bearer-entry 'user-id)))))
 
-(define-method (storage-bearer-token-delete! (store <docustore>) token-key)
+(define-method (store-bearer-token-delete! (store <docustore>) token-key)
   (docustore-remove! store 'bearer-entries token-key))

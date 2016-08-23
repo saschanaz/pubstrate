@@ -25,7 +25,7 @@
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp params)
-  #:use-module (pubstrate webapp storage)
+  #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp templates)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
@@ -101,7 +101,7 @@
                   body)
               (%default-env))
              "id" unique-id)))
-      (storage-asobj-set! (%store) asobj)
+      (store-asobj-set! (%store) asobj)
       (user-add-to-outbox! (%store) outbox-user (asobj-id asobj))
       (respond (asobj->string asobj)
                #:status status:created
@@ -115,7 +115,7 @@
     (match (assoc-ref (request-headers request) 'authorization)
       (('bearer . (? string? token))
        (pk 'valid?
-           (storage-bearer-token-valid?
+           (store-bearer-token-valid?
             (%store) token outbox-user)))
       (_ #f)))
   (match (request-method request)
@@ -138,7 +138,7 @@
 (define (display-post request body username post-id)
   ;; GET only.
   (let* ((post-url (abs-local-uri "u" username "p" post-id))
-         (asobj (storage-asobj-ref (%store) post-url)))
+         (asobj (store-asobj-ref (%store) post-url)))
     (match (request-method request)
       ('GET
        ;; TODO: authorization check?

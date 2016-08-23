@@ -26,7 +26,7 @@
   #:use-module (pubstrate generics)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp params)
-  #:use-module (pubstrate webapp storage)
+  #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp utils)
   #:export (make-user
             user-id-from-username
@@ -109,30 +109,30 @@ to the database (in this case, the collections!)"
           (new-collections
            (map
             (lambda (col)
-              (let* ((container-key (storage-container-new! store))
+              (let* ((container-key (store-container-new! store))
                      ;; Update with the private information set
                      ;; to the container key
                      (col (asobj-set-private*
                            col #:container container-key)))
                 ;; Store in the database
-                (storage-asobj-set! store col)
+                (store-asobj-set! store col)
                 col))
             collections)))
       ;; Add the user to the store
-      (storage-asobj-set! store user)
+      (store-asobj-set! store user)
 
       ;; Return both the user object and the list of collections
       ;; created
       (values user new-collections))))
 
 (define* (store-user-ref store username)
-  (storage-asobj-ref store (user-id-from-username username)))
+  (store-asobj-ref store (user-id-from-username username)))
 
 
 (define (store-user-container-key store user collection-name)
   "Get the container key for USER's COLLECTION-NAME"
   (let ((collection
-         (storage-asobj-ref store (asobj-ref user collection-name))))
+         (store-asobj-ref store (asobj-ref user collection-name))))
     (asobj-private-ref collection "container")))
 
 (define (user-inbox-container-key store user)
@@ -148,7 +148,7 @@ to the database (in this case, the collections!)"
 (define (store-user-add-to-collection! store user id-to-store
                                        collection-name)
   "Append item of ID-TO-STORE to USER's ourbox in STORE"
-  (storage-container-append!
+  (store-container-append!
    store (store-user-container-key store user collection-name)
    id-to-store))
 
@@ -166,11 +166,11 @@ to the database (in this case, the collections!)"
   (let*-values (((container-key)
                  (store-user-container-key store user collection-name))
                 ((page prev next)
-                 (storage-container-page store container-key
+                 (store-container-page store container-key
                                          member how-many)))
     (values (map
              (lambda (id)
-               (storage-asobj-ref store id))
+               (store-asobj-ref store id))
              page)
             prev next)))
 
@@ -179,10 +179,10 @@ to the database (in this case, the collections!)"
   (let*-values (((container-key)
                  (store-user-container-key store user collection-name))
                 ((page prev next)
-                 (storage-container-first-page store container-key how-many)))
+                 (store-container-first-page store container-key how-many)))
     (values (map
              (lambda (id)
-               (storage-asobj-ref store id))
+               (store-asobj-ref store id))
              page)
             prev next)))
 

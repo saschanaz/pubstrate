@@ -22,7 +22,7 @@
   #:use-module (web server)
   #:use-module (web uri)
   #:use-module (pubstrate webapp routes)
-  #:use-module (pubstrate webapp storage)
+  #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp params)
   #:use-module ((system repl server)
                 #:renamer (symbol-prefix-proc 'repl:))
@@ -48,7 +48,7 @@ the %debug-foo values."
   (set-params! #:store %debug-store
                #:base-uri %debug-base-uri))
 
-(define* (run-webapp #:key (storage (make <memory-store>))
+(define* (run-webapp #:key (store (make <memory-store>))
                      (host #f)
                      (port 8080)
                      (base-uri (base-uri-from-other-params
@@ -69,9 +69,9 @@ the %debug-foo values."
            (maybe-kwarg #:host host)
            (maybe-kwarg #:port port))
           '())))
-    (set! %debug-store storage)
+    (set! %debug-store store)
     (set! %debug-base-uri base-uri)
-    (parameterize ((%store storage)
+    (parameterize ((%store store)
                    (%base-uri base-uri))
       (run-server (lambda args (apply webapp-server-handler args))
                   'http server-args))))

@@ -18,7 +18,7 @@
 
 ;;; GDBM based store
 
-(define-module (pubstrate webapp storage-gdbm)
+(define-module (pubstrate webapp store-gdbm)
   #:use-module (gdbm)
   #:use-module (ice-9 receive)
   #:use-module (oop goops)
@@ -26,7 +26,7 @@
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp list-pagination)
-  #:use-module (pubstrate webapp storage)
+  #:use-module (pubstrate webapp store)
   #:export (<gdbm-store>
             make-gdbm-store
             gdbm-store-close))

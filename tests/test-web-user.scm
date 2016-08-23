@@ -21,7 +21,7 @@
   #:use-module (srfi srfi-64)
   #:use-module (web uri)
   #:use-module (pubstrate webapp params)
-  #:use-module (pubstrate webapp storage)
+  #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp user))
 
 (test-begin "test-web-user")

@@ -54,8 +54,8 @@ SOURCES =  \
 	pubstrate/json-ld.scm				\
 	pubstrate/shorthand.scm				\
 	pubstrate/paths.scm				\
-	pubstrate/webapp/storage.scm			\
-	pubstrate/webapp/storage-gdbm.scm		\
+	pubstrate/webapp/store.scm			\
+	pubstrate/webapp/store-gdbm.scm			\
 	pubstrate/webapp/http-status.scm		\
 	pubstrate/webapp/cookie.scm			\
 	pubstrate/webapp/app.scm			\
@@ -78,7 +78,7 @@ TESTS =							\
 	tests/test-auth.scm				\
 	tests/test-date.scm				\
 	tests/test-list-pagination.scm			\
-	tests/test-storage.scm				\
+	tests/test-store.scm				\
 	tests/test-web-utils.scm			\
 	tests/test-web-user.scm				\
 	tests/test-generics.scm

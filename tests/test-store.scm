@@ -16,7 +16,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (tests storage)
+(define-module (tests store)
   #:use-module (ice-9 receive)
   #:use-module (srfi srfi-64)
   #:use-module (tests utils)
@@ -24,10 +24,10 @@
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate shorthand)
   #:use-module (pubstrate webapp params)
-  #:use-module (pubstrate webapp storage)
+  #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp user))
 
-(test-begin "test-list-storage")
+(test-begin "test-list-store")
 
 
 ;;; Asobj storing tests 
@@ -35,26 +35,26 @@
 
 (let ((test-store (make-memory-store)))
   ;; Insert some stuff
-  (storage-asobj-set! test-store
+  (store-asobj-set! test-store
                       (note #:id "http://coolsite.example/posts/da-best-note"
                             #:name "Da best note!"
                             #:content "This post is just da best"))
 
   ;; You shouldn't be able to insert something that lacks an id though
   (test-error
-   (storage-asobj-set! test-store
+   (store-asobj-set! test-store
                        (note #:name "nope nope nope")))
 
   ;; Get the asobj, make sure it's pulled out
   (test-equal
       (asobj-ref
-       (storage-asobj-ref test-store
+       (store-asobj-ref test-store
                           "http://coolsite.example/posts/da-best-note")
        "name")
     "Da best note!")
 
   ;; This doesn't exist though
-  (test-eq (storage-asobj-ref test-store
+  (test-eq (store-asobj-ref test-store
                           "http://coolsite.example/posts/does-not-exist")
     #f))
 
@@ -65,34 +65,34 @@
 ;;; @@: We currently allow inserting things that are totally unrelated to any
 ;;;   asobj ids... so notice that we're not bothering to test that here.
 (let* ((test-store (make-memory-store))
-       (container-key (storage-container-new! test-store)))
+       (container-key (store-container-new! test-store)))
   ;; Well, the container-key shouldn't be #f
   (test-assert container-key)
 
   ;; Currently it should have nothing in it
-  (test-equal (storage-container-fetch-all test-store container-key)
+  (test-equal (store-container-fetch-all test-store container-key)
     '())
 
   ;; But we can add stuff to it..
-  (storage-container-append! test-store container-key "a")
-  (storage-container-append! test-store container-key "e")
-  (storage-container-append! test-store container-key "i")
-  (storage-container-append! test-store container-key "o")
-  (storage-container-append! test-store container-key "u")
-  (storage-container-append! test-store container-key "y")
+  (store-container-append! test-store container-key "a")
+  (store-container-append! test-store container-key "e")
+  (store-container-append! test-store container-key "i")
+  (store-container-append! test-store container-key "o")
+  (store-container-append! test-store container-key "u")
+  (store-container-append! test-store container-key "y")
 
   (test-equal
-      (storage-container-fetch-all test-store container-key)
+      (store-container-fetch-all test-store container-key)
     '("y" "u" "o" "i" "e" "a"))
 
   (receive (page prev next)
-      (storage-container-first-page test-store container-key 2)
+      (store-container-first-page test-store container-key 2)
     (test-equal page '("y" "u"))
     (test-equal prev #f)
     (test-equal next "o"))
   
   (receive (page prev next)
-      (storage-container-page test-store container-key "o" 2)
+      (store-container-page test-store container-key "o" 2)
     (test-equal page '("o" "i"))
     (test-equal prev "y")
     (test-equal next "e")))
@@ -102,15 +102,15 @@
 ;;; ==================
 
 (parameterize ((%base-uri (string->uri "https://coolsite.example/")))
-  (let* ((storage (make-memory-store))
-         (cwebber (store-add-new-user! storage "cwebber" "beep"))
-         (rhiaro (store-add-new-user! storage "rhiaro" "boop"))
-         (token-key (storage-bearer-token-new! storage cwebber)))
-    (test-assert (storage-bearer-token-valid? storage token-key cwebber))
-    (test-assert (not (storage-bearer-token-valid? storage token-key rhiaro)))
-    (storage-bearer-token-delete! storage token-key)
-    (test-assert (not (storage-bearer-token-valid? storage token-key cwebber)))))
+  (let* ((store (make-memory-store))
+         (cwebber (store-add-new-user! store "cwebber" "beep"))
+         (rhiaro (store-add-new-user! store "rhiaro" "boop"))
+         (token-key (store-bearer-token-new! store cwebber)))
+    (test-assert (store-bearer-token-valid? store token-key cwebber))
+    (test-assert (not (store-bearer-token-valid? store token-key rhiaro)))
+    (store-bearer-token-delete! store token-key)
+    (test-assert (not (store-bearer-token-valid? store token-key cwebber)))))
 
-(test-end "test-list-storage")
+(test-end "test-list-store")
 
 (test-exit)
