@@ -16,7 +16,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (pubstrate date-rfc3339)
+(define-module (pubstrate date)
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-19)

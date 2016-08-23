@@ -47,7 +47,7 @@ godir=$(libdir)/guile/2.0/ccache
 SOURCES =  \
 	pubstrate/asobj.scm				\
 	pubstrate/apclient.scm				\
-	pubstrate/date-rfc3339.scm			\
+	pubstrate/date.scm				\
 	pubstrate/generics.scm				\
 	pubstrate/vocab.scm				\
 	pubstrate/json-utils.scm			\
@@ -76,7 +76,7 @@ SOURCES =  \
 TESTS =							\
 	tests/test-asobj.scm				\
 	tests/test-auth.scm				\
-	tests/test-date-rfc3339.scm			\
+	tests/test-date.scm				\
 	tests/test-list-pagination.scm			\
 	tests/test-storage.scm				\
 	tests/test-web-utils.scm			\
