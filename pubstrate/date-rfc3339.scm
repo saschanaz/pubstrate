@@ -21,8 +21,8 @@
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-19)
   #:use-module (rx irregex)
-  #:export (date->date-string
-            date-string->date))
+  #:export (date->rfc3339-string rfc3339-string->date
+            date->http-date-string http-date-string->date))
 
 ;;;
 ;;; A not particularly fast but nice looking implementation of RFC 3339
@@ -102,7 +102,7 @@
 (define date-time-irx
   (sre->irregex date-time-sre))
 
-(define (date-string->date str)
+(define (rfc3339-string->date str)
   "Convert an RFC3339 formatted date string into an srfi-19 date type."
   (define (rx-match->date rx-match)
     (define (rx-part name)
@@ -139,7 +139,7 @@
 
 ;; @@: Well, this isn't very fast either.  Only about 5k / second.
 ;;   I guess Guile 2.0 isn't very fast with strings :)
-(define (date->date-string date)
+(define (date->rfc3339-string date)
   "Convert an srfi-19 date type into an RFC3339 formatted date string."
   (define (format-2-digits digit)
     (format #f "~2,'0d" digit))
@@ -168,3 +168,29 @@
                              (format-2-digits hour) ":"
                              (format-2-digits minute))))
            (else "")))))
+
+
+;;; HTTP style dates
+;;; ================
+
+(define http-parse-date
+  (@@ (web http) parse-date))
+(define http-write-date
+  (@@ (web http) write-date))
+
+(define (http-date-string->date str)
+  "Parse any of the date types defined in RFC2616 sec 3.3.1 into a <date>"
+  (catch 'bad-header
+    (lambda ()
+      (catch 'bad-header-component
+        (lambda ()
+          (http-parse-date str))
+        (const #f)))
+    (const #f)))
+
+(define (date->http-date-string date)
+  "Parse a <date> into a string acceptable for HTTP headers, as defined
+by RFC2616."
+  (with-output-to-string
+    (lambda ()
+      (http-write-date date (current-output-port)))))

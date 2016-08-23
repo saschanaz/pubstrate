@@ -24,7 +24,7 @@
 
 (test-begin "test-date-rfc3339")
 
-(let ((date (date-string->date "1985-04-12T23:20:50.52Z")))
+(let ((date (rfc3339-string->date "1985-04-12T23:20:50.52Z")))
   (test-eqv (date-year date) 1985)
   (test-eqv (date-month date) 04)
   (test-eqv (date-day date) 12)
@@ -35,7 +35,7 @@
   (test-eqv (date-zone-offset date) 0))
 
 ;; now without any second or microsecond
-(let ((date (date-string->date "1985-04-12T23:20Z")))
+(let ((date (rfc3339-string->date "1985-04-12T23:20Z")))
   (test-eqv (date-year date) 1985)
   (test-eqv (date-month date) 04)
   (test-eqv (date-day date) 12)
@@ -46,7 +46,7 @@
   (test-eqv (date-zone-offset date) 0))
 
 ;; now with time zone offset
-(let ((date (date-string->date "1996-12-19T16:39:57-08:30")))
+(let ((date (rfc3339-string->date "1996-12-19T16:39:57-08:30")))
   (test-eqv (date-year date) 1996)
   (test-eqv (date-month date) 12)
   (test-eqv (date-day date) 19)
@@ -57,8 +57,28 @@
   (test-eqv (date-zone-offset date) -30600))
 
 ;; Here and back again
-(test-equal (date->date-string (date-string->date "1996-12-19T16:39:57-08:30"))
+(test-equal (date->rfc3339-string (rfc3339-string->date "1996-12-19T16:39:57-08:30"))
   "1996-12-19T16:39:57-08:30")
+
+
+;;; Http dates
+
+;; Convert to <date>
+(let ((date (http-date-string->date "Sunday, 06-Nov-94 08:49:37 GMT")))
+  (test-eqv (date-year date) 1994)
+  (test-eqv (date-month date) 11)
+  (test-eqv (date-day date) 6)
+  (test-eqv (date-hour date) 8)
+  (test-eqv (date-minute date) 49)
+  (test-eqv (date-second date) 37)
+  (test-eqv (date-nanosecond date) 0)
+  (test-eqv (date-zone-offset date) 0))
+
+;; Convert to HTTP date string
+
+(test-equal (date->http-date-string (http-date-string->date
+                                     "Sunday, 06-Nov-94 08:49:37 GMT"))
+  "Sun, 06 Nov 1994 08:49:37 GMT")
 
 (test-end "test-date-rfc3339")
 (test-exit)
