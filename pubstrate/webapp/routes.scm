@@ -39,6 +39,10 @@
      (values render-static
              (list (string-append "/" (string-join
                                        static-path "/")))))
+    (("login")
+     (values login '()))
+    (("logout")
+     (values login '()))
     (("mockup")
      (values mockup '()))
     ;; Not found!
