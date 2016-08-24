@@ -24,6 +24,7 @@
   #:use-module (pubstrate paths)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp auth)
+  #:use-module (pubstrate webapp cookie)
   #:use-module (pubstrate webapp params)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp templates)
@@ -130,7 +131,16 @@
     (_ (respond #:status status:method-not-allowed))))
 
 (define (login request body)
-  'TODO)
+  (pk 'request-headers
+      (request-headers request))
+  (respond "Cookie party"
+           #:content-type 'text/plain
+           #:extra-headers
+           (list (set-cookie*
+                  "nextCookie" "abc123")
+                 (set-cookie*
+                  "beep" "boop")
+                 (delete-cookie* "sessionToken"))))
 
 (define (logout request body)
   'TODO)
