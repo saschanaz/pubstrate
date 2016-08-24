@@ -18,28 +18,34 @@
 
 
 (define-module (pubstrate webapp cookie)
-  #:use-module (ice-9 match)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
-  #:use-module (web http))
+  #:use-module (ice-9 control)
+  #:use-module (ice-9 match)
+  #:use-module (web http)
+  #:use-module (pubstrate date)
+  #:export (set-cookie))
 
 ;;; HTTP Cookie support
-;;;
-;;; Pretty crude, but should do the job for now.
+
+
+;;; Cookie, including utils used by Set-Cookie
+;;; ==========================================
 
 ;; Valid characters for cookie values
 ;; (all printable ascii characters, excepting "," and ";")
 (define cookie-val-char-set
   (char-set-difference (char-set-delete char-set:ascii #\, #\;)
                        char-set:iso-control))
-;; Valid characters for cookie keys
+;; Valid characters for cookie names
 ;; (same as cookie-val-char-set, minus "=")
-(define cookie-key-char-set
+(define cookie-name-char-set
   (char-set-delete cookie-val-char-set #\=))
 
 
 ;; TODO: Not the best implementation.  On known cookie-av pairs
 ;;   (see rfc6265) we should do proper parsing.
-(define (cookie-parser cookie-text)
+(define (parse-cookie cookie-text)
   (let ((parts (string-split cookie-text #\;)))
     (define (split-cookie-pair cookie-pair)
       (let* ((trimmed (string-trim cookie-pair))
@@ -53,42 +59,112 @@
         (cons attrib val)))
     (map split-cookie-pair parts)))
 
-(define (cookie-writer cookie-alist port)
+(define (write-cookie cookie-alist port)
   (let ((cookie-str
          (string-join 
           (map (match-lambda
-                 (((? string? attr) . (? string? val))
-                  (string-append attr "=" val))
-                 (((? string? attr) . #t)
-                  attr))
+                 ;; If the value is a string, we join it with =
+                 ((name . (? string? val))
+                  (string-append name "=" val))
+                 ;; If the value is a date, we convert it to
+                 ;; an HTTP-style date string, then join with =
+                 ((name . (? date? val))
+                  (string-append name "=" (date->http-date-string val)))
+                 ;; If the value is #t, we just use the name from the pair
+                 ((name . #t)
+                  name))
                cookie-alist)
           "; ")))
     (display cookie-str port)))
 
-(define (valid-cookie-key? str)
-  "Check if STR is a valid cookie key"
+(define (valid-cookie-name? str)
+  "Check if STR is a valid cookie name"
   (and (string? str)
-       (string-every cookie-key-char-set str)))
+       (string-every cookie-name-char-set str)))
 
 (define (valid-cookie-val? str)
   "Check if STR is a valid cookie value"
-  (and (string? str)
-       (string-every cookie-val-char-set str)))
+  (or (eq? str #t)
+      (and (string? str)
+           (string-every cookie-val-char-set str))
+      (date? str)))
 
-(define (cookie-validator cookie-alist)
+(define (validate-cookie cookie-alist)
   (match cookie-alist
-    ((((? valid-cookie-key? key) . (or #t (? valid-cookie-val? _))) ...)
+    ((((? valid-cookie-name? name) . (or #t (? valid-cookie-val? _))) ...)
      #t)
     (_ #f)))
 
-(define* (cookie-valid? cookie request #:optional (date (current-date)))
-  "See whether or not a cookie is valid (applies to domain/path/date)
+;; ;; @@: We might never need to do this unless we're a client...
+;; (define* (cookie-valid? cookie request #:optional (date (current-date)))
+;;   "See whether or not a cookie is valid (applies to domain/path/date)
 
-Not the same as cookie-validator, this isn't about syntax."
-  'TODO)
+;; Not the same as cookie-validator, this isn't about syntax."
+;;   'TODO)
 
-(declare-header! "Set-Cookie"
-                 cookie-parser cookie-validator cookie-writer
-                 #:multiple? #t)
 (declare-header! "Cookie"
                  cookie-parser cookie-validator cookie-writer)
+
+
+;;; Set-Cookie
+;;; ==========
+
+(define (parse-set-cookie str)
+  ;; We can utilize the parse-cookie code here.
+  ;; The difference between Set-Cookie representation and Cookie
+  ;; representation is that the Set-Cookie isn't *just* an alist,
+  ;; because the first pair is special (the actual cookie pair name
+  ;; and value) whereas the rest are just attributes (properties
+  ;; about the cookie that the browser looks at)
+  (match (parse-cookie str)
+    (((name . val) attrs ...)
+     (list name val attrs))))
+
+(define (validate-set-cookie obj)
+  (match obj
+    ;; See comment in parse-set-cookie.
+    ((name val attrs ...)
+     (validate-cookie
+      (cons (cons name val)
+            attrs)))
+    (_ #f)))
+
+(define (write-set-cookie obj port)
+  (match obj
+    ;; See comment in parse-set-cookie.
+    ((name val attrs ...)
+     (write-cookie
+      (cons (cons name val)
+            attrs)
+      port))))
+
+(declare-header! "Set-Cookie"
+                 parse-set-cookie validate-set-cookie write-set-cookie
+                 #:multiple? #t)
+
+;;; Utility for users to construct Set-Cookie headers easily.
+(define* (set-cookie name #:optional val
+                     #:key expires max-age domain
+                     path secure http-only
+                     (extensions '()))  ; extensions is its own alist
+  "Produce a Set-Cookie header"
+  (define (maybe-append name val)
+    (lambda (prev)
+      (if val
+          (cons (cons name val)
+                prev)
+          prev)))
+  (define basic-prop-alist
+    ((compose
+      (maybe-append "Expires" expires)
+      (maybe-append "Max-Age" max-age)
+      (maybe-append "Domain" domain)
+      (maybe-append "Path" path)
+      (maybe-append "Secure" secure)
+      (maybe-append "HttpOnly" http-only))
+     '()))
+  (define prop-alist
+    (append basic-prop-alist
+            extensions))
+
+  (list name val prop-alist))
