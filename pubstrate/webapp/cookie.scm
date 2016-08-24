@@ -24,7 +24,8 @@
   #:use-module (ice-9 match)
   #:use-module (web http)
   #:use-module (pubstrate date)
-  #:export (set-cookie set-cookie*))
+  #:export (set-cookie set-cookie*
+            delete-cookie delete-cookie*))
 
 ;;; HTTP Cookie support
 
@@ -143,7 +144,7 @@
                  #:multiple? #t)
 
 ;;; Utility for users to construct Set-Cookie headers easily.
-(define* (set-cookie name #:optional val
+(define* (set-cookie name #:optional (val "")
                      #:key expires max-age domain
                      path secure http-only
                      (extensions '()))  ; extensions is its own alist
@@ -172,3 +173,15 @@
 (define (set-cookie* . args)
   "Like set-cookie, but cons'es on 'set-cookie onto the front."
   (cons 'set-cookie (apply set-cookie args)))
+
+(define %the-epoch
+  (time-monotonic->date (make-time 'time-monotonic 0 0)))
+
+(define (delete-cookie name)
+  "Inform the client that we would like to delete the cookie by setting
+the Expires field in the past."
+  (set-cookie name #:expires %the-epoch))
+
+(define (delete-cookie* name)
+  "Like delete-cookie, but cons'es on 'set-cookie for you."
+  (cons 'set-cookie (delete-cookie name)))
