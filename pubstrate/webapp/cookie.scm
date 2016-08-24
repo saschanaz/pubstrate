@@ -24,7 +24,7 @@
   #:use-module (ice-9 match)
   #:use-module (web http)
   #:use-module (pubstrate date)
-  #:export (set-cookie))
+  #:export (set-cookie set-cookie*))
 
 ;;; HTTP Cookie support
 
@@ -103,7 +103,7 @@
 ;;   'TODO)
 
 (declare-header! "Cookie"
-                 cookie-parser cookie-validator cookie-writer)
+                 parse-cookie validate-cookie write-cookie)
 
 
 ;;; Set-Cookie
@@ -123,7 +123,7 @@
 (define (validate-set-cookie obj)
   (match obj
     ;; See comment in parse-set-cookie.
-    ((name val attrs ...)
+    ((name val (attrs ...))
      (validate-cookie
       (cons (cons name val)
             attrs)))
@@ -132,7 +132,7 @@
 (define (write-set-cookie obj port)
   (match obj
     ;; See comment in parse-set-cookie.
-    ((name val attrs ...)
+    ((name val (attrs ...))
      (write-cookie
       (cons (cons name val)
             attrs)
@@ -168,3 +168,7 @@
             extensions))
 
   (list name val prop-alist))
+
+(define (set-cookie* . args)
+  "Like set-cookie, but cons'es on 'set-cookie onto the front."
+  (cons 'set-cookie (apply set-cookie args)))
