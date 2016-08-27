@@ -26,6 +26,7 @@
   #:use-module (system foreign)
   #:use-module (srfi srfi-9)
   #:use-module (rnrs bytevectors)
+  ;; TODO: Obvs using guix modules is a problem :)
   #:use-module (guix gcrypt)
   #:use-module (guix base64))
 
