@@ -72,10 +72,6 @@
   (make-parameter current-time))
 (define (get-current-time)
   ((%current-time)))
-(define %current-date
-  (make-parameter current-date))
-(define (get-current-date)
-  ((%current-date)))
 
 (define* (http-date-in-future day hour minute)
   (let* ((secs-delta
