@@ -29,7 +29,8 @@
   ;; TODO: Obvs using guix modules is a problem :)
   #:use-module (guix gcrypt)
   #:use-module (guix base64)
-  #:export (sign-data sign-data-base64
+  #:export (gen-signing-key
+            sign-data sign-data-base64
             verify-data verify-data-base64))
 
 
@@ -119,6 +120,14 @@ The default TYPE is 'strong.  Possible values are:
               ('nonce
                (gen-random-nonce bv-length)))))
     (base64-encode bv 0 bv-length #f #t base64url-alphabet)))
+
+(define* (gen-signing-key #:optional (key-length 128))
+  "Generate a signing key (a bytevector).
+
+KEY-LENGTH is the length, in bytes, of the key.  The default is 128.
+This should be a multiple of 8."
+  (gen-random-bv key-length %gcry-very-strong-random))
+
 
 
 ;;; HMAC
