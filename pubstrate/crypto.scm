@@ -28,7 +28,8 @@
   #:use-module (rnrs bytevectors)
   #:use-module (pubstrate contrib gcrypt)
   #:use-module (pubstrate contrib base64)
-  #:export (gen-signing-key
+  #:export (random-token
+            gen-signing-key
             sign-data sign-data-base64
             verify-sig verify-sig-base64))
 
