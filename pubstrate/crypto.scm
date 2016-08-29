@@ -28,7 +28,9 @@
   #:use-module (rnrs bytevectors)
   ;; TODO: Obvs using guix modules is a problem :)
   #:use-module (guix gcrypt)
-  #:use-module (guix base64))
+  #:use-module (guix base64)
+  #:export (sign-data sign-data-base64
+            verify-data verify-data-base64))
 
 
 ;;; Error handling stuff.
@@ -155,7 +157,7 @@ The default TYPE is 'strong.  Possible values are:
       "Get expected length in bytes of mac yielded by algorithm SYM"
       (proc (mac-algo-ref sym)))))
 
-(define* (mac-open #:key (algorithm 'sha256))
+(define (mac-open algorithm)
   "Create a <mac> object set to use ALGORITHM"
   (let* ((mac (bytevector->pointer (make-bytevector (sizeof '*))))
          (algo (mac-algo-ref algorithm))
@@ -254,3 +256,31 @@ BV should be a bytevector with previously calculated data."
             ;;   parse it as the appropriate GPG error, GPG_ERR_CHECKSUM
             ;;   should be 10.
             (values #f err))))))
+
+(define* (sign-data key data #:key (algorithm 'sha512))
+  "Signs DATA with KEY for ALGORITHM.  Returns a bytevector."
+  (let ((mac (mac-open algorithm)))
+    (mac-setkey mac key)
+    (mac-write mac data)
+    (let ((result (mac-read mac algorithm)))
+      (mac-close mac)
+      result)))
+
+(define* (sign-data-base64 key data #:key (algorithm 'sha512))
+  "Like sign-data, but conveniently encodes to base64."
+  (base64-encode (sign-data key data #:algorithm algorithm)))
+
+
+(define* (verify-data key data sig #:key (algorithm 'sha512))
+  "Verify that DATA with KEY matches previous signature SIG for ALGORITHM."
+  (let ((mac (mac-open algorithm)))
+    (mac-setkey mac key)
+    (mac-write mac data)
+    (let ((result (mac-verify mac sig)))
+      (mac-close mac)
+      result)))
+
+(define* (verify-data-base64 key data b64-sig #:key (algorithm 'sha512))
+  (verify-data key data
+               (base64-decode b64-sig)
+               #:algorithm algorithm))
