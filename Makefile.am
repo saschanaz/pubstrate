@@ -55,6 +55,7 @@ SOURCES =  \
 	pubstrate/json-ld.scm				\
 	pubstrate/shorthand.scm				\
 	pubstrate/paths.scm				\
+	pubstrate/webapp/sessions.scm			\
 	pubstrate/webapp/store.scm			\
 	pubstrate/webapp/store-gdbm.scm			\
 	pubstrate/webapp/http-status.scm		\
@@ -81,6 +82,7 @@ TESTS =							\
 	tests/test-asobj.scm				\
 	tests/test-auth.scm				\
 	tests/test-date.scm				\
+	tests/test-crypto.scm				\
 	tests/test-list-pagination.scm			\
 	tests/test-store.scm				\
 	tests/test-web-utils.scm			\
