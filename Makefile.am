@@ -68,6 +68,7 @@ SOURCES =  \
 	pubstrate/webapp/user.scm			\
 	pubstrate/webapp/views.scm			\
 	pubstrate/contrib/base32.scm			\
+	pubstrate/contrib/base64.scm			\
 	pubstrate/contrib/html.scm			\
 	pubstrate/contrib/mime-types.scm		\
 	pubstrate/contrib/gcrypt-hash.scm		\
