@@ -48,6 +48,7 @@ SOURCES =  \
 	pubstrate/asobj.scm				\
 	pubstrate/apclient.scm				\
 	pubstrate/date.scm				\
+	pubstrate/crypto.scm				\
 	pubstrate/generics.scm				\
 	pubstrate/vocab.scm				\
 	pubstrate/json-utils.scm			\
@@ -58,6 +59,7 @@ SOURCES =  \
 	pubstrate/webapp/store-gdbm.scm			\
 	pubstrate/webapp/http-status.scm		\
 	pubstrate/webapp/cookie.scm			\
+	pubstrate/webapp/user.scm			\
 	pubstrate/webapp/app.scm			\
 	pubstrate/webapp/auth.scm			\
 	pubstrate/webapp/list-pagination.scm		\
@@ -71,6 +73,7 @@ SOURCES =  \
 	pubstrate/contrib/base64.scm			\
 	pubstrate/contrib/html.scm			\
 	pubstrate/contrib/mime-types.scm		\
+	pubstrate/contrib/gcrypt.scm			\
 	pubstrate/contrib/gcrypt-hash.scm		\
 	pubstrate/contrib/json.scm
 

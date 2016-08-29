@@ -19,19 +19,18 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (pubstrate webapp crypto)
+(define-module (pubstrate crypto)
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
   #:use-module (ice-9 hash-table)
   #:use-module (system foreign)
   #:use-module (srfi srfi-9)
   #:use-module (rnrs bytevectors)
-  ;; TODO: Obvs using guix modules is a problem :)
-  #:use-module (guix gcrypt)
-  #:use-module (guix base64)
+  #:use-module (pubstrate contrib gcrypt)
+  #:use-module (pubstrate contrib base64)
   #:export (gen-signing-key
             sign-data sign-data-base64
-            verify-data verify-data-base64))
+            verify-sig verify-sig-base64))
 
 
 ;;; Error handling stuff.
@@ -280,7 +279,7 @@ BV should be a bytevector with previously calculated data."
   (base64-encode (sign-data key data #:algorithm algorithm)))
 
 
-(define* (verify-data key data sig #:key (algorithm 'sha512))
+(define* (verify-sig key data sig #:key (algorithm 'sha512))
   "Verify that DATA with KEY matches previous signature SIG for ALGORITHM."
   (let ((mac (mac-open algorithm)))
     (mac-setkey mac key)
@@ -289,7 +288,7 @@ BV should be a bytevector with previously calculated data."
       (mac-close mac)
       result)))
 
-(define* (verify-data-base64 key data b64-sig #:key (algorithm 'sha512))
-  (verify-data key data
+(define* (verify-sig-base64 key data b64-sig #:key (algorithm 'sha512))
+  (verify-sig key data
                (base64-decode b64-sig)
                #:algorithm algorithm))

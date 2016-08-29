@@ -1,6 +1,5 @@
 ;;; GNU Guix --- Functional package management for GNU
 ;;; Copyright © 2012, 2013, 2014, 2015 Ludovic Courtès <ludo@gnu.org>
-;;; Copyright © 2013 Nikita Karetnikov <nikita@karetnikov.org>
 ;;;
 ;;; This file is part of GNU Guix.
 ;;;
@@ -19,35 +18,16 @@
 
 (define-module (pubstrate contrib gcrypt-hash)
   #:use-module (system foreign)
-  #:use-module (pubstrate paths)
   #:use-module (rnrs bytevectors)
+  #:use-module (pubstrate contrib gcrypt)
   #:export (sha256))
 
 ;;; Commentary:
 ;;;
-;;; Common code for the GNU Libgcrypt bindings.  Loading this module
-;;; initializes Libgcrypt as a side effect.
+;;; NOTE: This is borrowed from Guix, but considerably cut down.
+;;;   Maybe it should be consolidated in crypto.scm.
 ;;;
-;;; NOTE: This is mostly borrowed from Guix... two separate modules!
-;;;   guix/gcrypt.scm and guix/hash.scm ...!  (A bit cut down, though!)
 ;;; Code:
-
-(define libgcrypt-func
-  (let ((lib (dynamic-link %libgcrypt)))
-    (lambda (func)
-      "Return a pointer to symbol FUNC in libgcrypt."
-      (dynamic-func func lib))))
-
-(define gcrypt-version
-  ;; According to the manual, this function must be called before any other,
-  ;; and it's not clear whether it can be called more than once.  So call it
-  ;; right here from the top level.
-  (let* ((ptr     (libgcrypt-func "gcry_check_version"))
-         (proc    (pointer->procedure '* ptr '(*)))
-         (version (pointer->string (proc %null-pointer))))
-    (lambda ()
-      "Return the version number of libgcrypt as a string."
-      version)))
 
 (define-syntax GCRY_MD_SHA256
   ;; Value as of Libgcrypt 1.5.2.
