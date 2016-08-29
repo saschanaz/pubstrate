@@ -16,7 +16,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (tests test-asobj)
+(define-module (tests test-web-user)
   #:use-module (tests utils)
   #:use-module (srfi srfi-64)
   #:use-module (web uri)
