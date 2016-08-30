@@ -24,8 +24,7 @@
   #:use-module (ice-9 match)
   #:use-module (web http)
   #:use-module (pubstrate date)
-  #:export (set-cookie set-cookie*
-            delete-cookie delete-cookie*))
+  #:export (set-cookie delete-cookie))
 
 ;;; HTTP Cookie support
 
@@ -148,7 +147,9 @@
                      #:key expires max-age domain
                      path secure http-only
                      (extensions '()))  ; extensions is its own alist
-  "Produce a Set-Cookie header"
+  "Produce a Set-Cookie header.
+
+Includes the 'set-cookie symbol, so if you don't need that, just take the cdr."
   (define (maybe-append name val)
     (lambda (prev)
       (if val
@@ -168,11 +169,7 @@
     (append basic-prop-alist
             extensions))
 
-  (list name val prop-alist))
-
-(define (set-cookie* . args)
-  "Like set-cookie, but cons'es on 'set-cookie onto the front."
-  (cons 'set-cookie (apply set-cookie args)))
+  (cons 'set-cookie (list name val prop-alist)))
 
 (define %the-epoch
   (time-monotonic->date (make-time 'time-monotonic 0 0)))
@@ -181,7 +178,3 @@
   "Inform the client that we would like to delete the cookie by setting
 the Expires field in the past."
   (set-cookie name #:expires %the-epoch))
-
-(define (delete-cookie* name)
-  "Like delete-cookie, but cons'es on 'set-cookie for you."
-  (cons 'set-cookie (delete-cookie name)))
