@@ -280,6 +280,7 @@ BV should be a bytevector with previously calculated data."
   (base64-encode (sign-data key data #:algorithm algorithm)))
 
 
+;; @@: Shouldn't this be "valid-sig?"
 (define* (verify-sig key data sig #:key (algorithm 'sha512))
   "Verify that DATA with KEY matches previous signature SIG for ALGORITHM."
   (let ((mac (mac-open algorithm)))
