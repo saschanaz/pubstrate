@@ -20,9 +20,12 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp sessions)
+  #:use-module (ice-9 match)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-19)
+  #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-9 gnu)
+  #:use-module (web request)
   #:use-module (pubstrate date)
   #:use-module (pubstrate crypto)
   #:use-module (pubstrate webapp cookie)
@@ -146,7 +149,30 @@ contains valid session data in its header."
   ;;    combined utf8 bytevector).
   ;;  - If that's okay, then we return the read data using the
   ;;    session-manager's reader method.
-  'TODO)
+  (define session-str
+    (and=> (assoc-ref (request-headers request) 'cookie)
+           (cut assoc-ref <> (session-manager-cookie-name session-manager))))
+  (define (decode-data data)
+    (utf8->string (base64-decode data)))
+  (match (and=> session-str split-session-string)
+    ;; If it's false, we return false
+    (#f #f)
+    ((sig expires-str (= decode-data data))
+     (cond
+      ;; Return false if the date string is invalid
+      ((not (date-string-still-fresh? expires-str))
+       #f)
+      ;; Otherwise, check signature against data + data
+      (else
+       (let* ((date-and-data (string-append expires-str "$" data))
+              (valid-sig (verify-sig-base64
+                          (session-manager-key session-manager)
+                          (string->utf8 date-and-data) sig
+                          #:algorithm (session-manager-algorithm
+                                       session-manager))))
+         (if valid-sig
+             ((session-manager-reader session-manager) data)
+             #f)))))))
 
 (define (set-session session-manager obj)
   "Produce an HTTP cookie header containing signed OBJ, using SESSION-MANAGER."
