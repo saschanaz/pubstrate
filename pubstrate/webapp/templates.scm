@@ -30,6 +30,8 @@
   #:export (base-tmpl index-tmpl mockup-tmpl
             user-homepage-tmpl
 
+            login-tmpl
+
             asobj-page-tmpl
             toplevel-activity-tmpl))
 
@@ -144,6 +146,25 @@
               `(div (@ (class "post-and-replies-wrapper"))
                     ,(toplevel-activity-tmpl activity)))
             activities))))
+
+
+(define (login-tmpl)
+  (base-tmpl
+   `(div (@ (class "generic-content-box"))
+         (h1 "Log in:")
+         (form (@ (action ,(local-uri "login"))
+                  (method "POST")
+                  (enctype "application/x-www-form-urlencoded"))
+               (table
+                (tr (th "Username")
+                    (td (input (@ (type "text")
+                                  (name "username")))))
+                (tr (th "Password")
+                    (td (input (@ (type "password")
+                                  (name "password")))))
+                (tr (td)  ; empty cell
+                    (td (button (@ (type "submit"))
+                                "Submit"))))))))
 
 
 

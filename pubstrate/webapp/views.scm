@@ -136,16 +136,20 @@
       (request-headers request))
   (pk 'session
       (session-data (%session-manager) request))
-  (respond "Cookie party"
-           #:content-type 'text/plain
-           #:extra-headers
-           (list (set-cookie
-                  "nextCookie" "abc123")
-                 (set-cookie
-                  "beep" "boop")
-                 (set-session (%session-manager)
-                              '(everything is fine))
-                 (delete-cookie "sessionToken"))))
+  (pk 'body body)
+  (match (request-method request)
+    ('GET
+     (respond-html (login-tmpl)
+                   #:extra-headers
+                   (list (set-cookie
+                          "nextCookie" "abc123")
+                         (set-cookie
+                          "beep" "boop")
+                         (set-session (%session-manager)
+                                      '(everything is fine))
+                         (delete-cookie "sessionToken"))))
+    ('POST
+     'TODO)))
 
 (define (logout request body)
   'TODO)
