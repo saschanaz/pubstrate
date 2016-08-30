@@ -26,13 +26,15 @@
   #:use-module (pubstrate webapp params)
   #:use-module ((pubstrate webapp http-status)
                 #:renamer (symbol-prefix-proc 'status:))
+  #:use-module (rnrs bytevectors)
   #:use-module (web response)
   #:use-module (web request)
   #:use-module (web uri)
   #:export (local-uri abs-local-uri
             respond respond-html
             respond-not-found
-            requesting-asobj?))
+            requesting-asobj?
+            decode-urlencoded-form))
 
 ;; TODO: add local-uri* and abs-local-uri* which should allow
 ;;   optional GET parameters & fragments
@@ -113,3 +115,22 @@
           'application/ld+json) _ ...)
      #t)
     (_ #f)))
+
+(define (decode-urlencoded-form body)
+  "Decode application/x-www-form-urlencoded BODY"
+  (let ((str (match body
+               ((? bytevector? _) (utf8->string body))
+               ((? string? _) body))))
+    (map
+     (lambda (item)
+       (match (string-split item #\=)
+         ((key val)
+          (cons (uri-decode key)
+                (uri-decode val)))
+         (key
+          (cons (uri-decode key)
+                #f))
+         (_ (throw 'bad-urlencoded-string
+                   #:string str
+                   #:item item))))
+     (string-split str #\&))))
