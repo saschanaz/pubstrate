@@ -26,6 +26,7 @@
   #:use-module (pubstrate date)
   #:use-module (pubstrate crypto)
   #:use-module (pubstrate webapp cookie)
+  #:use-module (pubstrate contrib base64)
   #:use-module (rnrs bytevectors)
   #:export (<session-manager>
             make-session-manager session-manager?
@@ -37,13 +38,14 @@
 
 (define-record-type <session-manager>
   (make-session-manager-intern key expire-delta reader writer
-                               cookie-name)
+                               cookie-name algorithm)
   session-manager?
   (key session-manager-key)
   (expire-delta session-manager-expire-delta)
   (reader session-manager-reader)
   (writer session-manager-writer)
-  (cookie-name session-manager-cookie-name))
+  (cookie-name session-manager-cookie-name)
+  (algorithm session-manager-algorithm))
 
 ;; Intentionally opaque so as to hide the key
 (set-record-type-printer! <session-manager>
@@ -73,7 +75,7 @@
 (define (get-current-time)
   ((%current-time)))
 
-(define* (http-date-in-future day hour minute)
+(define* (date-in-future day hour minute)
   (let* ((secs-delta
           (+ (* 60 60 24 day)
              (* 60 60 hour)
@@ -81,7 +83,7 @@
          (current-secs (time-second (get-current-time)))
          (future-time (make-time 'time-utc 0 (+ current-secs secs-delta)))
          (future-date (time-utc->date future-time)))
-    (date->http-date-string future-date)))
+    future-date))
 
 (define* (make-session-manager key #:key
                                ;; expire in 30 days by default
@@ -89,39 +91,50 @@
                                 (make-expire-delta 30 0 0))
                                (reader read-from-string)
                                (writer write-to-string)
-                               (cookie-name "session"))
+                               (cookie-name "session")
+                               (algorithm 'sha512))
   (make-session-manager-intern key expire-delta reader writer
-                               cookie-name))
+                               cookie-name algorithm))
 
 (define (expire-delta-future-date expire-delta)
-  (http-date-in-future (expire-delta-days expire-delta)
-                       (expire-delta-hours expire-delta)
-                       (expire-delta-minutes expire-delta)))
+  (date-in-future (expire-delta-days expire-delta)
+                  (expire-delta-hours expire-delta)
+                  (expire-delta-minutes expire-delta)))
 
 (define (session-manager-future-expires session-manager)
   (and=> (session-manager-expire-delta session-manager)
          expire-delta-future-date))
 
 (define (split-session-string session-string)
-  "Split the session string into three strings: key, expire date, data
+  "Split the session string into three strings: key, expire date, encoded-data.
 
-Split on the semicolon character.  This is safe because the key is
+Note that the data is still base64 encoded at this point, and will not be
+decoded or read until later.
+
+Split on the dollar-sign character.  This is safe because the key is
 base64 encoded, and the date uses HTTP style dates, neither of which
-should ever contain a semicolon."
-  (let* ((first-semicolon (string-index session-string #\;))
-         (second-semicolon (and first-semicolon
-                                (string-index session-string #\;
-                                              (+ first-semicolon 1)))))
-    (if second-semicolon  ; no second without the first anyway
+should ever contain a dollar-sign."
+  (let* ((first-dollar-sign (string-index session-string #\$))
+         (second-dollar-sign (and first-dollar-sign
+                                (string-index session-string #\$
+                                              (+ first-dollar-sign 1)))))
+    (if second-dollar-sign  ; no second without the first anyway
         (list
-         (substring session-string 0 first-semicolon)
-         (substring session-string (+ first-semicolon 1) second-semicolon)
-         (substring session-string (+ second-semicolon 1)))
+         (substring session-string 0 first-dollar-sign)
+         (substring session-string (+ first-dollar-sign 1) second-dollar-sign)
+         (substring session-string (+ second-dollar-sign 1)))
         #f)))
 
-(define (expired-yet? date-string)
-  (time<=? (date->time-utc (http-date-string->date date-string))
-           (get-current-time)))
+(define (date-still-fresh? expires-date)
+  "Make sure that we haven't yet passed the expiration date"
+  (time<=? (get-current-time)
+           (date->time-utc expires-date)))
+
+(define (date-string-still-fresh? expires-date-string)
+  "Parse date string, if valid at all, and see if it's still within
+the expiration time"
+  (and=> (rfc3339-string->date expires-date-string)
+         date-still-fresh?))
 
 (define (get-session-data session-manager request)
   "Extract session data from REQUEST via SESSION-MANAGER, assuming it
@@ -137,10 +150,21 @@ contains valid session data in its header."
 
 (define (set-session session-manager obj)
   "Produce an HTTP cookie header containing signed OBJ, using SESSION-MANAGER."
-  ;; Sign the date + data, joined with a semicolon, as a bytevector.
-  ;(let* ((date (http-date-in-future))))
-
-  'TODO)
+  ;; Sign the date + data, joined with a dollar-sign, as a bytevector.
+  (let* ((expires-date (session-manager-future-expires session-manager))
+         (expires-str (date->rfc3339-string expires-date))
+         (written-data ((session-manager-writer session-manager)
+                        obj))
+         (date-and-data (string-append expires-str "$" written-data))
+         (sig (sign-data-base64 (session-manager-key session-manager)
+                                date-and-data
+                                #:algorithm (session-manager-algorithm
+                                             session-manager)))
+         (signed-string
+          (string-append sig "$" expires-str "$"
+                         (base64-encode (string->utf8 written-data)))))
+    (set-cookie* (session-manager-cookie-name session-manager)
+                 signed-string)))
 
 (define (delete-session session-manager)
   "Produce an HTTP header deleting the session cookie entirely.
