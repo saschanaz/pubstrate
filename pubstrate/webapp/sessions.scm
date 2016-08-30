@@ -37,7 +37,7 @@
             <expire-delta>
             make-expire-delta expire-delta?
 
-            get-session-data set-session delete-session))
+            session-data set-session delete-session))
 
 (define-record-type <session-manager>
   (make-session-manager-intern key expire-delta reader writer
@@ -139,7 +139,7 @@ the expiration time"
   (and=> (rfc3339-string->date expires-date-string)
          date-still-fresh?))
 
-(define (get-session-data session-manager request)
+(define (session-data session-manager request)
   "Extract session data from REQUEST via SESSION-MANAGER, assuming it
 contains valid session data in its header."
   ;; What's a valid session cookie?
@@ -189,8 +189,8 @@ contains valid session data in its header."
          (signed-string
           (string-append sig "$" expires-str "$"
                          (base64-encode (string->utf8 written-data)))))
-    (set-cookie* (session-manager-cookie-name session-manager)
-                 signed-string)))
+    (set-cookie (session-manager-cookie-name session-manager)
+                signed-string #:expires expires-date)))
 
 (define (delete-session session-manager)
   "Produce an HTTP header deleting the session cookie entirely.

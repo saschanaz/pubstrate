@@ -27,6 +27,7 @@
   #:use-module (pubstrate webapp cookie)
   #:use-module (pubstrate webapp params)
   #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp sessions)
   #:use-module (pubstrate webapp templates)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
@@ -133,14 +134,18 @@
 (define (login request body)
   (pk 'request-headers
       (request-headers request))
+  (pk 'session
+      (session-data (%session-manager) request))
   (respond "Cookie party"
            #:content-type 'text/plain
            #:extra-headers
-           (list (set-cookie*
+           (list (set-cookie
                   "nextCookie" "abc123")
-                 (set-cookie*
+                 (set-cookie
                   "beep" "boop")
-                 (delete-cookie* "sessionToken"))))
+                 (set-session (%session-manager)
+                              '(everything is fine))
+                 (delete-cookie "sessionToken"))))
 
 (define (logout request body)
   'TODO)

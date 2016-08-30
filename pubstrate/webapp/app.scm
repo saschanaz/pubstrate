@@ -21,8 +21,10 @@
   #:use-module (oop goops)
   #:use-module (web server)
   #:use-module (web uri)
+  #:use-module (pubstrate crypto)
   #:use-module (pubstrate webapp routes)
   #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp sessions)
   #:use-module (pubstrate webapp params)
   #:use-module ((system repl server)
                 #:renamer (symbol-prefix-proc 'repl:))
@@ -72,6 +74,9 @@ the %debug-foo values."
     (set! %debug-store store)
     (set! %debug-base-uri base-uri)
     (parameterize ((%store store)
-                   (%base-uri base-uri))
+                   (%base-uri base-uri)
+                   ;; TODO: This is TEMPORARY!  We should save the key
+                   ;;   and use that if provided...
+                   (%session-manager (make-session-manager (gen-signing-key))))
       (run-server (lambda args (apply webapp-server-handler args))
                   'http server-args))))

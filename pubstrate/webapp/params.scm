@@ -19,7 +19,7 @@
 (define-module (pubstrate webapp params)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-39)
-  #:export (%user %store %base-uri
+  #:export (%user %store %base-uri %session-manager
 
             set-params! with-pubstrate-params))
 
@@ -30,6 +30,7 @@
 (define %user (make-parameter #f))
 (define %store (make-parameter #f))
 (define %base-uri (make-parameter #f))
+(define %session-manager (make-parameter #f))
 
 
 ;;; Parameter utilities
@@ -38,7 +39,8 @@
 (define param-map
   `((store . ,%store)
     (user . ,%user)
-    (base-uri . ,%base-uri)))
+    (base-uri . ,%base-uri)
+    (session-manager . ,%session-manager)))
 
 (define (get-param sym)
   (assoc-ref param-map sym))
