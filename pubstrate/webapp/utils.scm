@@ -32,7 +32,7 @@
   #:use-module (web uri)
   #:export (local-uri abs-local-uri
             respond respond-html
-            respond-not-found
+            respond-redirect respond-not-found
             requesting-asobj?
             decode-urlencoded-form))
 
@@ -115,6 +115,21 @@
           'application/ld+json) _ ...)
      #t)
     (_ #f)))
+
+
+(define string->uri* (@@ (web uri) string->uri*))
+
+(define* (respond-redirect to #:key permanent
+                           (extra-headers '()))
+  (respond ""
+           #:extra-headers
+           `((location . ,(if (string? to)
+                              (string->uri* to)
+                              to))
+             ,@extra-headers)
+           #:status (if permanent
+                        status:moved-permanently
+                        status:found)))
 
 (define (decode-urlencoded-form body)
   "Decode application/x-www-form-urlencoded BODY"
