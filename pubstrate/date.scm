@@ -167,7 +167,7 @@
                                  "-" "+")
                              (format-2-digits hour) ":"
                              (format-2-digits minute))))
-           (else "")))))
+           (else "Z")))))
 
 
 ;;; HTTP style dates
