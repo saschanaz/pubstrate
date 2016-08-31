@@ -19,6 +19,7 @@
 (define-module (pubstrate webapp views)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-26)
   #:use-module (web request)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate paths)
@@ -139,17 +140,20 @@
   (pk 'body body)
   (match (request-method request)
     ('GET
-     (respond-html (login-tmpl)
-                   #:extra-headers
-                   (list (set-cookie
-                          "nextCookie" "abc123")
-                         (set-cookie
-                          "beep" "boop")
-                         (set-session (%session-manager)
-                                      '(everything is fine))
-                         (delete-cookie "sessionToken"))))
+     (respond-html (login-tmpl)))
     ('POST
-     'TODO)))
+     (let* ((form (decode-urlencoded-form body))
+            (username (assoc-ref form "username"))
+            (password (assoc-ref form "password"))
+            (user (if username
+                      (store-user-ref (%store) username)
+                      #f)))
+       (if (and (pk 'user user) (user-password-matches? user password))
+           (respond-redirect (abs-local-uri "")
+                             #:extra-headers
+                             (list (set-session (%session-manager)
+                                                `((user . ,username)))))
+           (respond-html (login-tmpl #:try-again #t)))))))
 
 (define (logout request body)
   'TODO)
