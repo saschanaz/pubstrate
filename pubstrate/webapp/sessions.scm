@@ -195,4 +195,4 @@ contains valid session data in its header."
 (define (delete-session session-manager)
   "Produce an HTTP header deleting the session cookie entirely.
 A great way to log users out!"
-  'TODO)
+  (delete-cookie (session-manager-cookie-name session-manager)))
