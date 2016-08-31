@@ -60,6 +60,7 @@ SOURCES =  \
 	pubstrate/webapp/store-gdbm.scm			\
 	pubstrate/webapp/http-status.scm		\
 	pubstrate/webapp/cookie.scm			\
+	pubstrate/webapp/ctx.scm			\
 	pubstrate/webapp/user.scm			\
 	pubstrate/webapp/app.scm			\
 	pubstrate/webapp/auth.scm			\
@@ -85,6 +86,7 @@ TESTS =							\
 	tests/test-crypto.scm				\
 	tests/test-list-pagination.scm			\
 	tests/test-store.scm				\
+	tests/test-web-ctx.scm				\
 	tests/test-web-utils.scm			\
 	tests/test-web-user.scm				\
 	tests/test-generics.scm
