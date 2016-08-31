@@ -172,7 +172,7 @@ Includes the 'set-cookie symbol, so if you don't need that, just take the cdr."
   (cons 'set-cookie (list name val prop-alist)))
 
 (define %the-epoch
-  (time-monotonic->date (make-time 'time-monotonic 0 0)))
+  (time-monotonic->date (make-time 'time-monotonic 0 0) 0))
 
 (define (delete-cookie name)
   "Inform the client that we would like to delete the cookie by setting
