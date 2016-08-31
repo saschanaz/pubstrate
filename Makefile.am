@@ -88,6 +88,7 @@ TESTS =							\
 	tests/test-store.scm				\
 	tests/test-web-ctx.scm				\
 	tests/test-web-utils.scm			\
+	tests/test-web-sessions.scm			\
 	tests/test-web-user.scm				\
 	tests/test-generics.scm
 

@@ -85,18 +85,19 @@
              (* 60 minute)))
          (current-secs (time-second (get-current-time)))
          (future-time (make-time 'time-utc 0 (+ current-secs secs-delta)))
-         (future-date (time-utc->date future-time)))
+         (future-date (time-utc->date future-time 0)))
     future-date))
 
 (define* (make-session-manager key #:key
                                ;; expire in 30 days by default
                                (expire-delta
-                                (make-expire-delta 30 0 0))
+                                '(30 0 0))
                                (reader read-from-string)
                                (writer write-to-string)
                                (cookie-name "session")
                                (algorithm 'sha512))
-  (make-session-manager-intern key expire-delta reader writer
+  (make-session-manager-intern key (apply make-expire-delta expire-delta)
+                               reader writer
                                cookie-name algorithm))
 
 (define (expire-delta-future-date expire-delta)
@@ -128,16 +129,16 @@ should ever contain a dollar-sign."
          (substring session-string (+ second-dollar-sign 1)))
         #f)))
 
-(define (date-still-fresh? expires-date)
+(define (still-fresh-by-date? expires-date)
   "Make sure that we haven't yet passed the expiration date"
   (time<=? (get-current-time)
            (date->time-utc expires-date)))
 
-(define (date-string-still-fresh? expires-date-string)
+(define (still-fresh-by-date-string? expires-date-string)
   "Parse date string, if valid at all, and see if it's still within
 the expiration time"
   (and=> (rfc3339-string->date expires-date-string)
-         date-still-fresh?))
+         still-fresh-by-date?))
 
 (define (session-data session-manager request)
   "Extract session data from REQUEST via SESSION-MANAGER, assuming it
@@ -160,7 +161,7 @@ contains valid session data in its header."
     ((sig expires-str (= decode-data data))
      (cond
       ;; Return false if the date string is invalid
-      ((not (date-string-still-fresh? expires-str))
+      ((not (still-fresh-by-date-string? expires-str))
        #f)
       ;; Otherwise, check signature against data + data
       (else
