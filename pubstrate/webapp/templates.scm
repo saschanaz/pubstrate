@@ -69,6 +69,20 @@
      (div (@ (id "site-footer"))
           "Copyright notice goes here!"))))
 
+
+;;; Utilities
+;;; =========
+
+(define (render-if exp)
+  (if exp (list exp) '()))
+
+(define (render-inline-if exp)
+  (if exp exp '()))
+
+
+;;; Individual pages
+;;; ================
+
 (define (index-tmpl)
   (base-tmpl "Beep boop, hello there!"))
 
@@ -148,10 +162,13 @@
             activities))))
 
 
-(define (login-tmpl)
+(define* (login-tmpl #:key try-again)
   (base-tmpl
    `(div (@ (class "generic-content-box"))
          (h1 "Log in:")
+         ,@(if try-again
+               (list '(em "Sorry, try again."))
+               '())
          (form (@ (action ,(local-uri "login"))
                   (method "POST")
                   (enctype "application/x-www-form-urlencoded"))
@@ -191,12 +208,6 @@
           (div (@ (class "feedish-content"))
                (div (@ (class "post-and-replies-wrapper"))
                     ,(toplevel-activity-tmpl asobj)))))))
-
-(define (render-if exp)
-  (if exp (list exp) '()))
-
-(define (render-inline-if exp)
-  (if exp exp '()))
 
 
 ;; @@: Maybe rename to display-activity?
