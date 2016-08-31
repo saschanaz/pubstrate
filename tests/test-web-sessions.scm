@@ -38,7 +38,7 @@
 ;; Fix the current time for easier testing
 (import-from-sessions %current-time)
 (define a-time
-  (make-time 'time-utc 0 1472514613))
+  (make-time 'time-utc 0 1472514613))  ; "2016-08-29T23:50:13"
 
 (define-syntax-rule (at-fixed-time body1 body2 ...)
   (parameterize ((%current-time (const a-time)))
@@ -46,7 +46,8 @@
 
 ;; This time shouldn't be expired yet
 (at-fixed-time
- (test-assert (still-fresh-by-date-string? "2016-08-31T14:01:59.977681000-05:00"))
+ (test-assert (still-fresh-by-date-string?
+               "2016-08-31T14:01:59.977681000-05:00"))  ; the expires-by time
  ;; Neither should the time it currently believes it is
  (test-assert (still-fresh-by-date?
                (session-manager-future-expires
@@ -54,7 +55,8 @@
 
 ;; This should be though
 (at-fixed-time
- (test-assert (not (still-fresh-by-date-string? "2016-02-28T14:01:59Z"))))
+ (test-assert (not (still-fresh-by-date-string?
+                    "2016-02-28T14:01:59Z")))) ; that was like, yesterday, man!
 
 ;; An invalid http date string will be considered not-fresh
 (at-fixed-time
