@@ -42,7 +42,7 @@
     (("login")
      (values login '()))
     (("logout")
-     (values login '()))
+     (values logout '()))
     (("mockup")
      (values mockup '()))
     ;; Not found!
