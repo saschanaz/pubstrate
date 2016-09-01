@@ -105,6 +105,7 @@
 ;;; Immutable and unique
 (define %the-nothing (cons '*the* '*nothing*))
 
+;; @@: Would it be preferable to just name this "with-ctx"?
 (define (with-extended-ctx alist thunk)
   "Run THUNK in extended %ctx with ALIST as its extended context."
   (define extended-ctx
