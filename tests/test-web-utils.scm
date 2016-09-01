@@ -20,20 +20,24 @@
   #:use-module (tests utils)
   #:use-module (srfi srfi-64)
   #:use-module (web uri)
-  #:use-module (pubstrate webapp params)
+  #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp utils))
 
 (test-begin "test-web-utils")
 
-(parameterize ((%base-uri (string->uri "https://coolsite.example/")))
-  (test-equal (local-uri) "/")
-  (test-equal (local-uri "foo" "bar") "/foo/bar")
-  (test-equal (abs-local-uri "foo" "bar") "https://coolsite.example/foo/bar"))
+(with-extended-ctx
+ `((base-uri . ,(string->uri "https://coolsite.example/")))
+ (lambda ()
+   (test-equal (local-uri) "/")
+   (test-equal (local-uri "foo" "bar") "/foo/bar")
+   (test-equal (abs-local-uri "foo" "bar") "https://coolsite.example/foo/bar")))
 
-(parameterize ((%base-uri (string->uri "https://coolsite.example/stuff")))
-  (test-equal (local-uri) "/stuff")
-  (test-equal (local-uri "foo" "bar") "/stuff/foo/bar")
-  (test-equal (abs-local-uri "foo" "bar") "https://coolsite.example/stuff/foo/bar"))
+(with-extended-ctx
+ `((base-uri . ,(string->uri "https://coolsite.example/stuff")))
+ (lambda ()
+   (test-equal (local-uri) "/stuff")
+   (test-equal (local-uri "foo" "bar") "/stuff/foo/bar")
+   (test-equal (abs-local-uri "foo" "bar") "https://coolsite.example/stuff/foo/bar")))
 
 (define stupid-l33t-form
   (decode-urlencoded-form "newbl33t=wow%20that%20%3D%3D%20a%20cool%20thing%21%20%23%20lol&ya=buddy"))

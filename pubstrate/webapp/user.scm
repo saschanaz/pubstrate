@@ -25,7 +25,7 @@
   #:use-module (pubstrate json-utils)
   #:use-module (pubstrate generics)
   #:use-module (pubstrate webapp auth)
-  #:use-module (pubstrate webapp params)
+  #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp utils)
   #:export (make-user
@@ -43,7 +43,7 @@
             user-password-matches?))
 
 (define (require-base-uri)
-  (if (not (%base-uri))
+  (if (not (ctx-ref 'base-uri))
       (throw 'base-uri-not-set
              "%base-uri not set")))
 

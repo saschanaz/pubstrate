@@ -23,7 +23,7 @@
 (define-module (pubstrate webapp utils)
   #:use-module (ice-9 match)
   #:use-module (pubstrate contrib html)
-  #:use-module (pubstrate webapp params)
+  #:use-module (pubstrate webapp ctx)
   #:use-module ((pubstrate webapp http-status)
                 #:renamer (symbol-prefix-proc 'status:))
   #:use-module (rnrs bytevectors)
@@ -41,19 +41,19 @@
 
 (define (local-uri . path)
   "Construct a local URI for this site based off the %base-uri parameter"
-  (if (not (%base-uri))
+  (if (not (ctx-ref 'base-uri))
       (throw 'base-uri-not-set
              "%base-uri parameter not set"))
   (string-append
      "/"
      (encode-and-join-uri-path
       (append (split-and-decode-uri-path
-               (uri-path (%base-uri)))
+               (uri-path (ctx-ref 'base-uri)))
               path))))
 
 (define (abs-local-uri . path)
   "Build an absolute local URI, as a string."
-  (let ((base-uri (%base-uri)))
+  (let ((base-uri (ctx-ref 'base-uri)))
     (uri->string
      (build-uri (uri-scheme base-uri)
                 #:host (uri-host base-uri)

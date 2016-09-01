@@ -24,7 +24,7 @@
   #:use-module (pubstrate generics)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp utils)
-  #:use-module (pubstrate webapp params)
+  #:use-module (pubstrate webapp ctx)
   ;; TODO: Move html parsing stuff into utils.html and remove this import
   #:use-module (htmlprag)
   #:export (base-tmpl index-tmpl mockup-tmpl
@@ -58,8 +58,8 @@
                         (b (a (@ (href ,(local-uri)))
                               "*pubstrate*")))
                   (span (@ (id "site-header-right-stuff"))
-                        ,@(if (%user)
-                              (list "Hello, " (user-username (%user)) "!"
+                        ,@(if (ctx-ref 'user)
+                              (list "Hello, " (user-username (ctx-ref 'user)) "!"
                                     ;; TODO: Add [inbox] [mentions] [direct] [meanwhile]
                                     " :: "
                                     (header-link "Log out" (local-uri "logout")))

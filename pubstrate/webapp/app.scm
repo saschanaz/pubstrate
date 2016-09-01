@@ -25,7 +25,7 @@
   #:use-module (pubstrate webapp routes)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp sessions)
-  #:use-module (pubstrate webapp params)
+  #:use-module (pubstrate webapp ctx)
   #:use-module ((system repl server)
                 #:renamer (symbol-prefix-proc 'repl:))
   #:export (run-webapp webapp-cli))
@@ -41,14 +41,12 @@
              #:port port
              #:path path))
 
-(define %debug-store #f)
-(define %debug-base-uri #f)
+(use-modules (ice-9 vlist))
+(define %debug-ctx vlist-null)
 
-(define (repl-set-params!)
-  "For debugging/hacking purposes, set the parameters from
-the %debug-foo values."
-  (set-params! #:store %debug-store
-               #:base-uri %debug-base-uri))
+(define (repl-set-ctx!)
+  "For debugging/hacking purposes, set %ctx to %debug-ctx"
+  (%ctx %debug-ctx))
 
 (define* (run-webapp #:key (store (make <memory-store>))
                      (host #f)
@@ -71,12 +69,12 @@ the %debug-foo values."
            (maybe-kwarg #:host host)
            (maybe-kwarg #:port port))
           '())))
-    (set! %debug-store store)
-    (set! %debug-base-uri base-uri)
-    (parameterize ((%store store)
-                   (%base-uri base-uri)
-                   ;; TODO: This is TEMPORARY!  We should save the key
-                   ;;   and use that if provided...
-                   (%session-manager (make-session-manager (gen-signing-key))))
-      (run-server (lambda args (apply webapp-server-handler args))
-                  'http server-args))))
+    (with-extended-ctx
+     `((store . ,store)
+       (base-uri . ,base-uri)
+       ;; TODO: This is TEMPORARY!  We should save the key
+       ;;   and use that if provided...
+       (session-manager . (make-session-manager (gen-signing-key))))
+     (lambda ()
+       (run-server (lambda args (apply webapp-server-handler args))
+                   'http server-args)))))

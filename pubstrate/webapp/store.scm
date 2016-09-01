@@ -26,7 +26,6 @@
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp list-pagination)
-  #:use-module (pubstrate webapp params)
   #:export (<store>
 
             <docustore>

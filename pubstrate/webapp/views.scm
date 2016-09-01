@@ -26,7 +26,7 @@
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp cookie)
-  #:use-module (pubstrate webapp params)
+  #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp sessions)
   #:use-module (pubstrate webapp templates)
@@ -60,12 +60,12 @@
   (define (render-user-page)
     (let ((activities
            (user-collection-first-page
-            (%store) user "outbox"
+            (ctx-ref 'store) user "outbox"
             %items-per-page)))
       (respond-html
        (user-homepage-tmpl user activities
                            #f #f))))
-  (define user (store-user-ref (%store) username))
+  (define user (store-user-ref (ctx-ref 'store) username))
   (cond
    ;; User not found, so 404
    ((not user)
@@ -83,11 +83,12 @@
 (define %debug-body #f)
 
 (define (user-outbox request body username)
+  (define store (ctx-ref 'store))
   (define oauth-user
     ;; TODO: Get this from OAUTH!
     'TODO)
   (define outbox-user
-    (store-user-ref (%store) username))
+    (store-user-ref (ctx-ref 'store) username))
   (define (post-to-outbox)
     ;; TODO: Handle side effects appropriately.
     ;;   Currently doing a "dumb" version of things where we just dump it
@@ -104,8 +105,8 @@
                   body)
               (%default-env))
              "id" unique-id)))
-      (store-asobj-set! (%store) asobj)
-      (user-add-to-outbox! (%store) outbox-user (asobj-id asobj))
+      (store-asobj-set! store asobj)
+      (user-add-to-outbox! store outbox-user (asobj-id asobj))
       (respond (asobj->string asobj)
                #:status status:created
                #:content-type 'application/activity+json)))
@@ -119,7 +120,7 @@
       (('bearer . (? string? token))
        (pk 'valid?
            (store-bearer-token-valid?
-            (%store) token outbox-user)))
+            store token outbox-user)))
       (_ #f)))
   (match (request-method request)
     ('GET
@@ -133,10 +134,13 @@
     (_ (respond #:status status:method-not-allowed))))
 
 (define (login request body)
+  (define store (ctx-ref 'store))
+  (define session-manager
+    (ctx-ref 'session-manager))
   (pk 'request-headers
       (request-headers request))
   (pk 'session
-      (session-data (%session-manager) request))
+      (session-data session-manager request))
   (pk 'body body)
   (match (request-method request)
     ('GET
@@ -146,12 +150,12 @@
             (username (assoc-ref form "username"))
             (password (assoc-ref form "password"))
             (user (if username
-                      (store-user-ref (%store) username)
+                      (store-user-ref store username)
                       #f)))
        (if (and (pk 'user user) (user-password-matches? user password))
            (respond-redirect (abs-local-uri "")
                              #:extra-headers
-                             (list (set-session (%session-manager)
+                             (list (set-session session-manager
                                                 `((user . ,username)))))
            (respond-html (login-tmpl #:try-again #t)))))))
 
@@ -161,7 +165,7 @@
 (define (display-post request body username post-id)
   ;; GET only.
   (let* ((post-url (abs-local-uri "u" username "p" post-id))
-         (asobj (store-asobj-ref (%store) post-url)))
+         (asobj (store-asobj-ref (ctx-ref 'store) post-url)))
     (match (request-method request)
       ('GET
        ;; TODO: authorization check?

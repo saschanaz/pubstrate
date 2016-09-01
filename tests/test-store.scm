@@ -23,7 +23,7 @@
   #:use-module (web uri)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate shorthand)
-  #:use-module (pubstrate webapp params)
+  #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp user))
 
@@ -101,15 +101,17 @@
 ;;; Bearer token tests
 ;;; ==================
 
-(parameterize ((%base-uri (string->uri "https://coolsite.example/")))
-  (let* ((store (make-memory-store))
-         (cwebber (store-add-new-user! store "cwebber" "beep"))
-         (rhiaro (store-add-new-user! store "rhiaro" "boop"))
-         (token-key (store-bearer-token-new! store cwebber)))
-    (test-assert (store-bearer-token-valid? store token-key cwebber))
-    (test-assert (not (store-bearer-token-valid? store token-key rhiaro)))
-    (store-bearer-token-delete! store token-key)
-    (test-assert (not (store-bearer-token-valid? store token-key cwebber)))))
+(with-extended-ctx
+ `((base-uri . ,(string->uri "https://coolsite.example/")))
+ (lambda ()
+   (let* ((store (make-memory-store))
+          (cwebber (store-add-new-user! store "cwebber" "beep"))
+          (rhiaro (store-add-new-user! store "rhiaro" "boop"))
+          (token-key (store-bearer-token-new! store cwebber)))
+     (test-assert (store-bearer-token-valid? store token-key cwebber))
+     (test-assert (not (store-bearer-token-valid? store token-key rhiaro)))
+     (store-bearer-token-delete! store token-key)
+     (test-assert (not (store-bearer-token-valid? store token-key cwebber))))))
 
 (test-end "test-list-store")
 
