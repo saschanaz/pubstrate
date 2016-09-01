@@ -118,9 +118,8 @@
     ;;  - See if the bearer token matches anything in the db
     (match (assoc-ref (request-headers request) 'authorization)
       (('bearer . (? string? token))
-       (pk 'valid?
-           (store-bearer-token-valid?
-            store token outbox-user)))
+       (store-bearer-token-valid?
+        store token outbox-user))
       (_ #f)))
   (match (request-method request)
     ('GET
@@ -137,11 +136,6 @@
   (define store (ctx-ref 'store))
   (define session-manager
     (ctx-ref 'session-manager))
-  (pk 'request-headers
-      (request-headers request))
-  (pk 'session
-      (session-data session-manager request))
-  (pk 'body body)
   (match (request-method request)
     ('GET
      (respond-html (login-tmpl)))
@@ -152,7 +146,7 @@
             (user (if username
                       (store-user-ref store username)
                       #f)))
-       (if (and (pk 'user user) (user-password-matches? user password))
+       (if (and  user (user-password-matches? user password))
            (respond-redirect (abs-local-uri "")
                              #:extra-headers
                              (list
