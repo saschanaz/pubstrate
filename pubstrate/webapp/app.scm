@@ -25,15 +25,30 @@
   #:use-module (pubstrate webapp routes)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp sessions)
+  #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp ctx)
   #:use-module ((system repl server)
                 #:renamer (symbol-prefix-proc 'repl:))
   #:export (run-webapp webapp-cli))
 
+(define (ctx-vars-from-request request)
+  (define session
+    (session-data (pk 'session-manager (ctx-ref 'session-manager)) request))
+  ;; Get the user based on session data, if there
+  (define user
+    (and=> (assoc-ref (pk 'session session) 'user)
+           (lambda (username)
+             (store-user-ref (ctx-ref 'store)
+                             username))))
+  `((user . ,(pk 'user user))))
+
 (define (webapp-server-handler request request-body)
   (receive (view args)
       (route request)
-    (apply view request request-body args)))
+    (with-extended-ctx
+     (ctx-vars-from-request request)
+     (lambda ()
+       (apply view request request-body args)))))
 
 (define (base-uri-from-other-params host port path)
   (build-uri 'http
@@ -74,7 +89,7 @@
        (base-uri . ,base-uri)
        ;; TODO: This is TEMPORARY!  We should save the key
        ;;   and use that if provided...
-       (session-manager . (make-session-manager (gen-signing-key))))
+       (session-manager . ,(make-session-manager (gen-signing-key))))
      (lambda ()
        (run-server (lambda args (apply webapp-server-handler args))
                    'http server-args)))))

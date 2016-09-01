@@ -59,7 +59,7 @@
                               "*pubstrate*")))
                   (span (@ (id "site-header-right-stuff"))
                         ,@(if (ctx-ref 'user)
-                              (list "Hello, " (user-username (ctx-ref 'user)) "!"
+                              (list "Hello, " (asobj-ref (ctx-ref 'user) "name") "!"
                                     ;; TODO: Add [inbox] [mentions] [direct] [meanwhile]
                                     " :: "
                                     (header-link "Log out" (local-uri "logout")))

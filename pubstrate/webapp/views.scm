@@ -155,12 +155,17 @@
        (if (and (pk 'user user) (user-password-matches? user password))
            (respond-redirect (abs-local-uri "")
                              #:extra-headers
-                             (list (set-session session-manager
-                                                `((user . ,username)))))
+                             (list
+                              ;; TODO: this should just *add to* the session,
+                              ;;   not clobber it...
+                              (set-session session-manager
+                                           `((user . ,username)))))
            (respond-html (login-tmpl #:try-again #t)))))))
 
 (define (logout request body)
-  'TODO)
+  (respond-redirect (abs-local-uri "")
+                    #:extra-headers
+                    (list (delete-session (ctx-ref 'session-manager)))))
 
 (define (display-post request body username post-id)
   ;; GET only.
