@@ -26,14 +26,26 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 pretty-print)
   #:use-module (web uri)
-  #:export (;; @@: Should we export <spec-var> and friends?
+  #:export (;; Methods for creating configuration specifications
+            make-config-spec make-config-spec*
+
+            ;; Users will use this to actually configure their
+            ;; application
+            configure
+
+            ;; Loading, referencing, printing configs
+            load-config config-ref config-pprint
+
+            ;; @@: Should we export <spec-var> and friends?
             ;;   Is it really useful?
-            <spec-var>
+            <spec-var> spec-var
             spec-var? spec-var-name spec-var-desc
             spec-var-validate spec-var-default
 
-            ;; Methods for 
-            make-config-spec make-config-spec*))
+            ;; Not sure we need to export this either.
+            <loaded-config> loaded-config?
+            loaded-config-fields loaded-config-spec))
+
 
 (define-record-type <spec-var>
   (make-spec-var name desc validate default)
@@ -99,18 +111,42 @@ read and pretty-print if generating a config file for a user."
   (fields loaded-config-fields)
   (spec loaded-config-spec)) ; not sure this is useful but why not
 
-(define %unresolvable-default
-  (cons '*unresolvable* '*default*))
-
+;; @@: Probably not the absolutely cleanest implementation, but
+;;   should be more than fast enough, and works.
 (define (load-config user-config spec)
   "Load and validate USER-CONFIG (an alist, possibly produced through
 the `configure' procedure) against SPEC.  Builds a vhash using vhash-consq.
 This will also handle all defaults."
-  ;; This is used at the end to verify that the user provided all
-  ;; mandatory keys.
+  ;; We do this *first* because if there are fields that absolutely
+  ;; are mandatory and are not handled, we need to error out early
+  ;; so that defaults with look at config won't try to access
+  ;; a value they need which isn't there.
   (define keys-in-user-config
-    (make-hash-table))
-  ;; Pre-defaults
+    ;; Build a list of all keys in user config..
+    ;; also make sure we aren't missing any critical
+    ;; defaults
+    (let ((table (make-hash-table)))
+      ;; Set up keys-in-user-config
+      (for-each
+       (match-lambda
+         ((key . val)
+          (hash-set! table key #t)))
+       user-config)
+      ;; Validate we aren't missing anything mandatory
+      (vhash-fold
+       (lambda (key spec-var prev)
+         (if (and (not (spec-var-default spec-var))
+                  (not (hash-ref table key)))
+             ;; if there's no default, it's mandatory
+             (throw 'config-error
+                    'mandatory-field
+                    "Field was mandatory but is not provided"
+                    #:key key)
+             ;; value we pass back doesn't matter
+             #f))
+       #f spec)
+      ;; Return table
+      table))
   (define initial-loaded-config
     (fold
      (match-lambda*
@@ -136,18 +172,13 @@ This will also handle all defaults."
                    "Invalid value for config field"
                    #:key key #:val val))))))
      vlist-null user-config))
-  (define keys-in-spec
+  (define keys-unhandled
     (vhash-fold
      (lambda (key val prev)
-       (cons key prev))
-     '() spec))
-  (define keys-unhandled
-    (fold
-     (lambda (key prev)
-       (if (not (hashq-ref keys-in-user-config key))
+       (if (not (hash-ref keys-in-user-config key))
            (cons key prev)
            prev))
-     '() keys-in-spec))
+     '() spec))
   ;; Produce final loaded config
   (define loaded-config
     (fold
@@ -163,8 +194,7 @@ This will also handle all defaults."
                     'mandatory-field
                     "Field was mandatory but is not provided"
                     #:key key))))
-     initial-loaded-config
-     keys-unhandled))
+     initial-loaded-config keys-unhandled))
   ;; And return it!
   (make-loaded-config loaded-config spec))
 
@@ -183,7 +213,11 @@ This will also handle all defaults."
                  '() (loaded-config-fields loaded-config))
                 port))
 
+
+;;; Pubstrate config stuff
+;;; ======================
 
+;;; TODO: Move to separate module
 
 (define (make-memory-store-but-warn)
   (display
