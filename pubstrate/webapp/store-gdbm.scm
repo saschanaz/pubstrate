@@ -102,9 +102,7 @@
   (define (db-file filename)
     (path-join db-dir filename))
   (if (not (directory-exists? db-dir))
-      (throw 'not-a-directory
-             "Provided db-dir is not a directory."
-             #:db-dir db-dir))
+      (mkdir-recursive db-dir))
   (make <gdbm-store>
     #:asobjs
     (gdbm-open (db-file "asobj.db") GDBM_WRCREAT)
