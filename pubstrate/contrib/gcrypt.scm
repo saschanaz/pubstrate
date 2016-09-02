@@ -17,7 +17,7 @@
 ;;; along with GNU Guix.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate contrib gcrypt)
-  #:use-module (pubstrate paths)
+  #:use-module (pubstrate package-config)
   #:use-module (system foreign)
   #:export (gcrypt-version
             libgcrypt-func))
