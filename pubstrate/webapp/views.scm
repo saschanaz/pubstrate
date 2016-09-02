@@ -80,8 +80,6 @@
 (define (user-inbox request body username)
   'TODO)
 
-(define %debug-body #f)
-
 (define (user-outbox request body username)
   (define store (ctx-ref 'store))
   (define oauth-user
@@ -179,6 +177,14 @@
       (_ (respond #:status status:method-not-allowed)))))
 
 (define (oauth-authorize request body)
+  (match (request-method request)
+    ('GET
+     
+     )
+
+    ('POST
+     ))
+
   'TODO)
 
 (define (standard-four-oh-four request body)
