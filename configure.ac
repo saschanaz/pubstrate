@@ -8,7 +8,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 GUILE_PROGS
 
-AC_CONFIG_FILES([Makefile pubstrate/paths.scm])
+AC_CONFIG_FILES([Makefile pubstrate/package-config.scm])
 AC_CONFIG_FILES([scripts/pubstrate-web], [chmod +x scripts/pubstrate-web])
 AC_CONFIG_FILES([env], [chmod +x env])
 AC_CONFIG_FILES([pre-inst-env], [chmod +x pre-inst-env])

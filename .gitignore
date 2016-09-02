@@ -16,5 +16,5 @@ Makefile.in
 /missing
 /test-driver
 /install-sh
-/pubstrate/paths.scm
 /scripts/pubstrate-web
+/pubstrate/package-config.scm

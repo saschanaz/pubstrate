@@ -22,7 +22,7 @@
   #:use-module (srfi srfi-26)
   #:use-module (web request)
   #:use-module (pubstrate asobj)
-  #:use-module (pubstrate paths)
+  #:use-module (pubstrate package-config)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp cookie)
@@ -183,9 +183,7 @@
      )
 
     ('POST
-     ))
-
-  'TODO)
+     )))
 
 (define (standard-four-oh-four request body)
   ;; TODO: Add 404 status message
