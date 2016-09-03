@@ -33,14 +33,14 @@
 
 (define (ctx-vars-from-request request)
   (define session
-    (session-data (pk 'session-manager (ctx-ref 'session-manager)) request))
+    (session-data (ctx-ref 'session-manager) request))
   ;; Get the user based on session data, if there
   (define user
-    (and=> (assoc-ref (pk 'session session) 'user)
+    (and=> (assoc-ref session 'user)
            (lambda (username)
              (store-user-ref (ctx-ref 'store)
                              username))))
-  `((user . ,(pk 'user user))))
+  `((user . ,user)))
 
 (define (webapp-server-handler request request-body)
   (receive (view args)
