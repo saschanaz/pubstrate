@@ -48,6 +48,7 @@ SOURCES =  \
 	pubstrate/asobj.scm				\
 	pubstrate/apclient.scm				\
 	pubstrate/date.scm				\
+	pubstrate/config.scm				\
 	pubstrate/crypto.scm				\
 	pubstrate/generics.scm				\
 	pubstrate/vocab.scm				\
@@ -60,6 +61,7 @@ SOURCES =  \
 	pubstrate/webapp/store.scm			\
 	pubstrate/webapp/store-gdbm.scm			\
 	pubstrate/webapp/http-status.scm		\
+	pubstrate/webapp/config.scm			\
 	pubstrate/webapp/cookie.scm			\
 	pubstrate/webapp/ctx.scm			\
 	pubstrate/webapp/user.scm			\
