@@ -30,6 +30,7 @@
   #:use-module (web response)
   #:use-module (web request)
   #:use-module (web uri)
+  #:use-module (web http)
   #:export (local-uri abs-local-uri
             respond respond-html
             respond-redirect respond-not-found
@@ -149,3 +150,91 @@
                    #:string str
                    #:item item))))
      (string-split str #\&))))
+
+
+;;; Location header fix
+;;; ===================
+
+;;; NOTE: Guile 2.0 didn't support Location options that were relative,
+;;;   so we add this kludge ported from Guile here.
+;;; Relevant copyright notice for code below!
+
+;; Copyright (C)  2010-2016 Free Software Foundation, Inc.
+;;
+;; This library is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU Lesser General Public
+;; License as published by the Free Software Foundation; either
+;; version 3 of the License, or (at your option) any later version.
+;;
+;; This library is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; Lesser General Public License for more details.
+;;
+;; You should have received a copy of the GNU Lesser General Public
+;; License along with this library; if not, write to the Free Software
+;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+;; 02110-1301 USA
+
+;; Location = URI-reference
+;;
+;; In RFC 2616, Location was specified as being an absolute URI.  This
+;; was changed in RFC 7231 to permit URI references generally, which
+;; matches web reality.
+;; 
+
+(use-modules (ice-9 control)
+             (ice-9 regex))
+
+(define make-uri (@@ (web uri) make-uri))
+(define parse-authority (@@ (web uri) parse-authority))
+(define bad-header-component (@@ (web http) bad-header-component))
+(define write-uri (@@ (web http) write-uri))
+
+(define scheme-pat
+  "[a-zA-Z][a-zA-Z0-9+.-]*")
+(define authority-pat
+  "[^/?#]*")
+(define path-pat
+  "[^?#]*")
+(define query-pat
+  "[^#]*")
+(define fragment-pat
+  ".*")
+(define uri-pat
+  (format #f "^((~a):)?(//~a)?(~a)(\\?(~a))?(#(~a))?$"
+          scheme-pat authority-pat path-pat query-pat fragment-pat))
+(define uri-regexp
+  (make-regexp uri-pat))
+
+(define (string->uri-reference string)
+  "Parse the URI reference written as STRING into a URI object.  Return
+‘#f’ if the string could not be parsed."
+  (% (let ((m (regexp-exec uri-regexp string)))
+       (if (not m) (abort))
+       (let ((scheme (let ((str (match:substring m 2)))
+                       (and str (string->symbol (string-downcase str)))))
+             (authority (match:substring m 3))
+             (path (match:substring m 4))
+             (query (match:substring m 6))
+             (fragment (match:substring m 8)))
+         (call-with-values
+             (lambda ()
+               (if authority
+                   (parse-authority authority abort)
+                   (values #f #f #f)))
+           (lambda (userinfo host port)
+             (make-uri scheme userinfo host port path query fragment)))))
+     (lambda (k)
+       #f)))
+
+(define (declare-uri-reference-header! name)
+  (declare-header! name
+    (lambda (str)
+      (or (string->uri-reference str)
+          (bad-header-component 'uri str)))
+    uri?
+    write-uri))
+
+(if (equal? (effective-version) "2.0")
+    (declare-uri-reference-header! "Location"))
