@@ -145,7 +145,7 @@
                       (store-user-ref store username)
                       #f)))
        (if (and  user (user-password-matches? user password))
-           (respond-redirect (abs-local-uri "")
+           (respond-redirect (local-uri "")
                              #:extra-headers
                              (list
                               ;; TODO: this should just *add to* the session,
@@ -155,7 +155,7 @@
            (respond-html (login-tmpl #:try-again #t)))))))
 
 (define (logout request body)
-  (respond-redirect (abs-local-uri "")
+  (respond-redirect (local-uri "")
                     #:extra-headers
                     (list (delete-session (ctx-ref 'session-manager)))))
 
