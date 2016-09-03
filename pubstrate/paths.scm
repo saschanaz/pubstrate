@@ -24,7 +24,7 @@
 ;;; Patches welcome.
 
 (define-module (pubstrate paths)
-  #:export (path-join))
+  #:export (path-join mkdir-recursive))
 
 (define file-name-separator-char
   (string-ref file-name-separator-string 0))
