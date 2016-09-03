@@ -25,7 +25,6 @@
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
   #:use-module (ice-9 pretty-print)
-  #:use-module (web uri)
   #:export (;; Methods for creating configuration specifications
             make-config-spec make-config-spec*
 
@@ -170,7 +169,7 @@ This will also handle all defaults."
             (throw 'config-error
                    'invalid-var
                    "Invalid value for config field"
-                   #:key key #:val val))))))
+                   #:key key #:val val #:spec-var spec-var))))))
      vlist-null user-config))
   (define keys-unhandled
     (vhash-fold
@@ -212,67 +211,3 @@ This will also handle all defaults."
                          prev))
                  '() (loaded-config-fields loaded-config))
                 port))
-
-
-;;; Pubstrate config stuff
-;;; ======================
-
-;;; TODO: Move to separate module
-
-(define (make-memory-store-but-warn)
-  (display
-   "WARNING: db-path not provided, so using memory store only\n"
-   (current-error-port))
-  (make-memory-store))
-
-(use-modules (pubstrate webapp store-gdbm))
-
-(define *pubstrate-config-spec*
-  (make-config-spec*
-   (base-uri "Base URI this application is running at.
-This should be a uri type."
-             #:validate uri?)
-   (store "Storage subsystem.
-This should be a procedure to produce a storage system, or a list
-of (storage-system args ...) where storage-system is a procedure
-to initialize a storage system and args are arguments to that
-procedure."
-          #:validate (match-lambda
-                       ((? procedure? _) #t)
-                       (((? procedure? _) rest ...) #t)
-                       (_ #f))
-          ;;;; If nothing is provided, the application will
-          ;;;; initialize a memory store but will throw a warning.
-          ;; #:default (const make-memory-store-but-warn)
-          #:default (lambda (cfg)
-                      (list make-gdbm-store
-                            (path-join (assoc-ref cfg 'state-base-dir)
-                                       "gdbm-db"))))
-
-   ;; State stuff
-   (state-base-dir
-    "This is a base directory for storing state of the application (ie, data)."
-    #:validate string?)
-
-   (signing-key-path
-    "Filename to keep the private key at.
-If not provided, will be constructed from state-base-dir.
-If the file does not exist, it will be created at initialization
-time."
-    #:validate string?
-    #:default (lambda (cfg)
-                (path-join (assoc-ref cfg 'state-base-dir)
-                           "crypto" "signing-key.txt")))
-   ;; (https-only
-   ;;  "Whether Pubstrate should only communicate with other servers over HTTPS."
-   ;;  #:default #f)
-   ))
-
-(use-modules (pubstrate webapp store-gdbm))
-(define cfg
-  (configure
-   (store (list
-           make-gdbm-store
-            #:path "/path/too/foo.gdbm"))
-   (base-uri (string->uri "https://pub.dustycloud.org/strate/"))
-   (https-only #t)))
