@@ -19,6 +19,7 @@
 (define-module (pubstrate webapp cli)
   #:use-module (pubstrate package-config)
   #:use-module (pubstrate webapp cli runserver)
+  #:use-module (pubstrate webapp cli configure)
   #:use-module (ice-9 format)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 match)
@@ -27,10 +28,6 @@
 
 ;;; Main / subcommand dispatch CLI
 ;;; ==============================
-
-;; TODO
-(define (configure-cli args)
-  'TODO)
 
 (define subcommands
   `(("run" . (,run-cli "Run the web server"))
