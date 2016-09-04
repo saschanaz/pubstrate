@@ -1,5 +1,5 @@
 #!@GUILE@ \
---no-auto-compile -e webapp-cli -s
+--no-auto-compile -e dispatch-subcommand -s
 !#
 
 (use-modules (pubstrate webapp app)
@@ -10,10 +10,13 @@
              ((system repl server)
               #:renamer (symbol-prefix-proc 'repl:)))
 
+
+;;; "run" subcommand
+
 ;; I guess for now we just want to be able to set a prefix
 ;; and a store location.
 
-(define option-spec
+(define run-option-spec
   '((help (single-char #\h) (value #f))
     (db-dir (single-char #\d) (value #t))
     (host (single-char #\h) (value #t))
@@ -31,9 +34,9 @@
              (current-error-port)))
         (make-memory-store))))
 
-(define *help-text*
+(define %webapp-help-text
   "\
-pubstrate-webapp [options]
+pubstrate-web run [options] configfile
   -h, --help           Display this help
   -d, --db-dir=PATH    Path to a directory where GDBM databases will be stored.
   -h, --host=HOST      Server host address.  Defaults to localhost.
@@ -47,7 +50,7 @@ pubstrate-webapp [options]
                        Run a REPL server (on REPL-PORT if provided, otherwise
                        on port 37146)")
 
-(define (webapp-cli args)
+(define (run-cli args)
   ;; Maybe append a keyword argument to a list of existing
   ;; keyword arguments
   (define (maybe-kwarg kwarg val)
@@ -56,10 +59,10 @@ pubstrate-webapp [options]
           (append (list kwarg val)
                   current-kwargs)
           current-kwargs)))
-  (let ((options (getopt-long args option-spec)))
+  (let ((options (getopt-long args run-option-spec)))
     (cond
      ((option-ref options 'help #f)
-      (display *help-text*) (newline))
+      (display %webapp-help-text) (newline))
      (else
       (let* ((store (get-store-from-db-path
                        (option-ref options 'db-dir #f)))
@@ -81,7 +84,7 @@ pubstrate-webapp [options]
           ;; If it's a string and a number, serve the repl on this
           ;; port number on localhost
           ((and (? string? _) (= string->number repl-port-number))
-           (repl:spawn-server (make-tcp-server-socket #:port repl-port-number)))
+           (repl:spawn-server (repl:make-tcp-server-socket #:port repl-port-number)))
           ;; Anything else, start with the default port
           (_ (repl:spawn-server)))
         ;; Now run the server! :)
@@ -89,3 +92,44 @@ pubstrate-webapp [options]
                ;; Announce that we're running on start-up
                #:announce (current-output-port)  ; @@: maybe STDERR instead?
                kwargs))))))
+
+
+;;; Main / subcommand dispatch CLI
+;;; ==============================
+
+;; TODO
+(define (init-cli args)
+  'TODO)
+
+(define subcommands
+  `(("run" . ,run-cli)
+    ;; ("demo" . ,demo-cli)
+    ("init" . ,init-cli)))
+
+(define main-option-spec
+  '((help (single-char #\h) (value #f))
+    (version (value #f))))
+
+(define (dispatch-subcommand args)
+  (define options (getopt-long args main-option-spec
+                               #:stop-at-first-non-option #t))
+  (define main-args
+    (assoc-ref options '()))
+
+  (cond
+   ;; Main help goes here!
+   ((assoc-ref options 'help)
+    (display "Main help goes here!\n"))
+   ;; Show verison number
+   ((assoc-ref options 'version)
+    (display "This would be a great place to display our version!\n"))
+   ;; Also show help, since no command given
+   ((eq? main-args '())
+    (display "Also show help, since no command given\n"))
+   ;; Dispatch to subcommand
+   ((assoc-ref subcommands (car main-args)) =>
+    (lambda (subcmd)
+      (subcmd main-args)))
+   ;; Invalid subcommand, list available subcommands
+   (else
+    (display "Inform this was invalid subcommand, list subcommand options\n"))))
