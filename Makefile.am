@@ -57,6 +57,7 @@ SOURCES =  \
 	pubstrate/shorthand.scm				\
 	pubstrate/paths.scm				\
 	pubstrate/package-config.scm			\
+	pubstrate/webapp/cli.scm			\
 	pubstrate/webapp/sessions.scm			\
 	pubstrate/webapp/store.scm			\
 	pubstrate/webapp/store-gdbm.scm			\
