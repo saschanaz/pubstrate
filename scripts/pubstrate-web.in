@@ -2,9 +2,11 @@
 --no-auto-compile -e dispatch-subcommand -s
 !#
 
-(use-modules (pubstrate webapp app)
+(use-modules (pubstrate package-config)
+             (pubstrate webapp app)
              (pubstrate webapp store)
              (pubstrate webapp store-gdbm)
+             (ice-9 format)
              (ice-9 getopt-long)
              (ice-9 match)
              ((system repl server)
@@ -98,38 +100,56 @@ pubstrate-web run [options] configfile
 ;;; ==============================
 
 ;; TODO
-(define (init-cli args)
+(define (configure-cli args)
   'TODO)
 
 (define subcommands
-  `(("run" . ,run-cli)
+  `(("run" . (,run-cli "Run the web server"))
     ;; ("demo" . ,demo-cli)
-    ("init" . ,init-cli)))
+    ("configure" . (,configure-cli "Write out initial configuration file"))))
+
+(define (show-main-help)
+  (display "Usage: pubstrate-web [--help | --version] [command [command-options]]\n")
+  (newline)
+  (display "Available subcommands:\n")
+  (for-each
+   (match-lambda
+     ((name . (cmd desc))
+      (format #t " - ~a: ~a\n"
+              name desc)))
+   subcommands))
 
 (define main-option-spec
   '((help (single-char #\h) (value #f))
     (version (value #f))))
+
+(define additional-version-string
+  "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.")
 
 (define (dispatch-subcommand args)
   (define options (getopt-long args main-option-spec
                                #:stop-at-first-non-option #t))
   (define main-args
     (assoc-ref options '()))
-
   (cond
    ;; Main help goes here!
    ((assoc-ref options 'help)
-    (display "Main help goes here!\n"))
+    (show-main-help))
    ;; Show verison number
    ((assoc-ref options 'version)
-    (display "This would be a great place to display our version!\n"))
-   ;; Also show help, since no command given
+    (format #t "~a version ~a\n"
+            %pubstrate-package-name %pubstrate-version)
+    (display additional-version-string) (newline))
    ((eq? main-args '())
-    (display "Also show help, since no command given\n"))
+    (show-main-help))
    ;; Dispatch to subcommand
    ((assoc-ref subcommands (car main-args)) =>
-    (lambda (subcmd)
-      (subcmd main-args)))
+    (match-lambda
+      ((subcmd help)
+       (subcmd main-args))))
    ;; Invalid subcommand, list available subcommands
    (else
-    (display "Inform this was invalid subcommand, list subcommand options\n"))))
+    (display "Invalid subcommand.\n\n")
+    (show-main-help))))

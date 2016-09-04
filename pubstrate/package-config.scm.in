@@ -23,7 +23,9 @@
   #:export (%datadir
             scope-datadir web-static-filepath
 
-            %libgcrypt))
+            %libgcrypt
+
+            %pubstrate-package-name %pubstrate-version))
 
 ;; Thanks to David Thompson for this tip!
 (define %datadir
@@ -38,3 +40,17 @@
 
 (define %libgcrypt
   "@LIBGCRYPT@")
+
+
+(define %pubstrate-package-name
+  "@PACKAGE_NAME@")
+
+(define %pubstrate-version
+  "@PACKAGE_VERSION@")
+
+;; (define %pubstrate-bug-report-address
+;;   "@PACKAGE_BUGREPORt")
+
+;; (define %pubstrate-home-page-url
+;;   "@PACKAGE_URL@")
+
