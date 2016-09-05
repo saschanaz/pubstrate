@@ -60,6 +60,7 @@ SOURCES =  \
 	pubstrate/webapp/cli.scm			\
 	pubstrate/webapp/cli/configure.scm		\
 	pubstrate/webapp/cli/runserver.scm		\
+	pubstrate/webapp/form-widgets.scm		\
 	pubstrate/webapp/sessions.scm			\
 	pubstrate/webapp/store.scm			\
 	pubstrate/webapp/store-gdbm.scm			\

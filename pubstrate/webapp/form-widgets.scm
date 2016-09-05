@@ -16,7 +16,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-(define-module (pubstrate webapp widgets)
+(define-module (pubstrate webapp form-widgets)
   #:use-module (ice-9 control)
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
@@ -24,7 +24,29 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (oop goops)
-  #:use-module (pubstrate webapp template-utils))
+  #:use-module (pubstrate webapp template-utils)
+
+  #:export (not-nil?
+
+            <field>
+            field-name field-label field-default
+            field-validators field-data field-value field-errors
+            field-has-data? field-valid?
+
+            field-submit field-submitted?
+
+            simple-input
+
+            field-render-html field-parse
+            <text-field> <checkbox> <textarea>
+
+            <form> make-form
+            form-fields form-data form-validators form-errors
+            form-fields-ref form-data-ref
+
+            form-submit form-submitted?
+            form-valid?
+            form-render-table))
 
 ;;; Form handling library based on GOOPS with validation support,
 ;;; and a functional interface
@@ -172,7 +194,7 @@ Otherwise use the name field."
 (define-method (field-render-html (field <text-field>))
   (simple-input "text" field))
 (define-method (field-parse (field <text-field>) raw-data)
-  data)
+  raw-data)
 
 (define-class <checkbox> (<field>))
 (define-method (field-render-html (field <checkbox>))
@@ -293,7 +315,7 @@ Otherwise use the name field."
   (map-in-order
    (lambda (field)
      (cons field
-           (field-process field (form-data-ref form (field-name field)))))
+           (field-submit field (form-data-ref form (field-name field)))))
    (form-fields form)))
 
 (define-method (form-submitted? (form <form>))
