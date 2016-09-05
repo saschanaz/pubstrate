@@ -23,6 +23,7 @@
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate generics)
   #:use-module (pubstrate vocab)
+  #:use-module (pubstrate webapp template-utils)
   #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate webapp ctx)
   ;; TODO: Move html parsing stuff into utils.html and remove this import
@@ -68,16 +69,6 @@
                ,body))
      (div (@ (id "site-footer"))
           "Copyright notice goes here!"))))
-
-
-;;; Utilities
-;;; =========
-
-(define (render-if exp)
-  (if exp (list exp) '()))
-
-(define (render-inline-if exp)
-  (if exp exp '()))
 
 
 ;;; Individual pages
@@ -255,7 +246,7 @@ Arguments: (asobj)")
                    (alt "Red ghostie test"))))
           ;; Information about this post
           (header (@ (class "feedish-header-right"))
-                  ,@(render-if title)
+                  ,@(maybe-render title)
                   (div (@ (class "feedish-byline"))
                        (b "By: ")
                        (a (@ (href ,(asobj-ref actor "id")))
@@ -276,4 +267,4 @@ Arguments: (asobj)")
          (and-let* ((content (asobj-ref asobj "content")))
            (cdr (html->shtml content)))))
     `(div (@ (class "feedish-entry-content"))
-          ,@(render-if content-html))))
+          ,@(maybe-render content-html))))

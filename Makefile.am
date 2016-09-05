@@ -73,6 +73,7 @@ SOURCES =  \
 	pubstrate/webapp/list-pagination.scm		\
 	pubstrate/webapp/routes.scm			\
 	pubstrate/webapp/templates.scm			\
+	pubstrate/webapp/template-utils.scm		\
 	pubstrate/webapp/utils.scm			\
 	pubstrate/webapp/user.scm			\
 	pubstrate/webapp/views.scm			\

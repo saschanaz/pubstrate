@@ -23,7 +23,8 @@
   #:use-module (ice-9 vlist)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
-  #:use-module (oop goops))
+  #:use-module (oop goops)
+  #:use-module (pubstrate webapp template-utils))
 
 ;;; Form handling library based on GOOPS with validation support,
 ;;; and a functional interface
@@ -35,20 +36,6 @@
 
 (define (not-nil? x)
   (not (eq? x #nil)))
-
-(define (maybe-render exp)
-  (if exp (list exp) '()))
-
-(define (maybe-render-inline exp)
-  (if exp exp '()))
-
-(define-syntax-rule (render-if test exp)
-  (if test
-      (list exp) '()))
-
-(define-syntax-rule (render-inline-if test exp)
-  (if test
-      exp '()))
 
 
 ;;; Fields
