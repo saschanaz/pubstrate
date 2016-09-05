@@ -185,7 +185,7 @@ Otherwise use the name field."
 (define-method (field-render-html (field <text-field>))
   (simple-input "text" field))
 (define-method (field-parse (field <text-field>) raw-data)
-  raw-data)
+  data)
 
 (define-class <checkbox> (<field>))
 (define-method (field-render-html (field <checkbox>))
