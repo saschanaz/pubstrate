@@ -25,12 +25,30 @@
   #:use-module (srfi srfi-9)
   #:use-module (oop goops))
 
+;;; Form handling library based on GOOPS with validation support,
+;;; and a functional interface
+;;;
+
 
 ;;; Utilities
 ;;; =========
 
 (define (not-nil? x)
   (not (eq? x #nil)))
+
+(define (maybe-render exp)
+  (if exp (list exp) '()))
+
+(define (maybe-render-inline exp)
+  (if exp exp '()))
+
+(define-syntax-rule (render-if test exp)
+  (if test
+      (list exp) '()))
+
+(define-syntax-rule (render-inline-if test exp)
+  (if test
+      exp '()))
 
 
 ;;; Fields
@@ -50,7 +68,15 @@
   ;; A validator returns a list of errors.
   (validators #:init-keyword #:validators
               #:init-value '()
-              #:getter field-validators))
+              #:getter field-validators)
+  (submitted #:init-value #f
+             #:getter field-submitted?)
+
+  ;; These are only used for submitted fields
+  (data #:init-value #nil
+        #:getter field-data)
+  (errors #:init-value '()
+          #:getter field-errors))
 
 (define-method (initialize (field <field>) initargs)
   (next-method)
@@ -60,6 +86,14 @@
      (if (not (string? name))
          (throw 'field-missing-name field initargs)))
    initargs))
+
+(define-method (field-copy-for-submit (field <field>))
+  "Copy a field object so we can put the new one through the submit process."
+  (make (class-of field)
+    #:name (field-name field)
+    #:label (slot-ref field 'label)
+    #:default (field-default field)
+    #:validators (field-validators field)))
 
 (define-method (write (field <field>) port)
   (format port "#<~s #:name: ~s>"
@@ -77,6 +111,17 @@ Otherwise use the name field."
      str)
     (_ (field-name field))))
 
+(define-method (field-has-data? (field <field>))
+  (not-nil? (field-data field)))
+
+(define-method (field-value (field <field>))
+  (if (field-has-data? field)
+      (field-data field)
+      (field-default field)))
+
+(define-method (field-has-value? (field <field>))
+  (not-nil? (field-value field)))
+
 (define-record-type <parse-failure>
   (parse-failure error)
   parse-failure?
@@ -87,29 +132,23 @@ Otherwise use the name field."
   ;; If we did hit an error, we would wrap an error description in a <parse-failure>
   data)
 
-(define-record-type <field-result>
-  (make-field-result data errors)
-  field-result?
-  (data field-result-data)
-  (errors field-result-errors))
+(define-method (field-valid? (field <field>))
+  (cond ((not (field-submitted? field))
+         'not-applicable)
+        ((eq? (field-errors field) '())
+         #t)
+        (else #f)))
 
-(define (field-result-valid? field-result)
-  (eq? (field-result-errors field-result)
-       '()))
-
-(define (field-result-data? field-result)
-  "Check to see if field-result contains data.
-It might contain #nil instead."
-  (not (eq? (field-result-data field-result)
-            #nil)))
-
-(define-method (field-process (field <field>) data)
+(define-method (field-submit (field <field>) data)
+  (define new-field (field-copy-for-submit field))
+  (slot-set! new-field 'submitted #t)
   (match (field-parse field data)
     ;; Look like there was a problem parsing, so we can stop
     ((? parse-failure? parse-failure)
-     (make-field-result #nil
-                        (list (parse-failure-error
-                               parse-failure))))
+     (slot-set! new-field 'data #:nil)
+     (slot-set! new-field 'errors
+                (list (parse-failure-error
+                       parse-failure))))
     (val
      (let* ((errors
              (fold
@@ -120,34 +159,80 @@ It might contain #nil instead."
                   ((errors ...)
                    (append errors prev))))
               '() (field-validators field))))
-       (make-field-result data errors)))))
+       (slot-set! new-field 'data data)
+       (slot-set! new-field 'errors
+                  errors))))
+  ;; return the new field
+  new-field)
 
 
 
 ;;; Field types
 ;;; 
 
-(define* (simple-input type name #:optional (value #nil))
-  `(input (@ (type ,type)
-             (name ,name)
-             ,@(if (not-nil? value)
-                   `((value value))
-                   '()))))
+(define* (simple-input type field #:key (extra-attribs '()))
+  (let ((value (field-value field)))
+    `(input (@ (type ,type)
+               (name ,(field-name field))
+               ,@(render-if (not-nil? value)
+                            `(value ,value))
+               ,@extra-attribs))))
 
+;; @@: *-field is appended in the case of ambiguity.
+;;   Should it be in all cases?
 (define-class <text-field> (<field>))
 
-(define-method (field-render-html (field <text>) value)
-  (simple-input "text" (field-name field) value))
-(define-method (field-parse (field <text>) data)
-  data)
+(define-method (field-render-html (field <text-field>))
+  (simple-input "text" field))
+(define-method (field-parse (field <text-field>) raw-data)
+  raw-data)
 
-(define-class <checkbox-field> (<field>))
-
-(define-method (field-render-html (field <checkbox>) data)
+(define-class <checkbox> (<field>))
+(define-method (field-render-html (field <checkbox>))
   'TODO)
-(define-method (field-parse (field <checkbox>) data)
+(define-method (field-parse (field <checkbox>) raw-data)
   'TODO)
 
+(define-class <textarea> (<field>)
+  (cols #:init-keyword #:cols
+        #:init-value #f
+        #:getter textarea-cols)
+  (rows #:init-keyword #:rows
+        #:init-value #f
+        #:getter textarea-rows))
+
+(define-method (field-render-html (field <textarea>))
+  `(textbox (@ (name ,(field-name field))
+               ,@(render-if (textarea-cols field)
+                            `(cols ,(textarea-cols field)))
+               ,@(render-if (textarea-rows field)
+                            `(cols ,(textarea-rows field))))
+            ,(let ((val (field-value field)))
+               (if val
+                   val ""))))
+
+(define (render-number field)
+  (simple-input "number" field))
+
+(define-class <integer-field> (<field>))
+(define-method (field-parse (field <integer-field>) raw-data)
+  (define to-number
+    (string->number raw-data))
+  (if (integer? to-number)
+      to-number
+      (parse-failure "not an integer")))
+(define-method (field-render-html (field <integer-field>))
+  (render-number field))
+
+(define-class <float-field> (<field>))
+(define-method (field-parse (field <float-field>) raw-data)
+  (define to-number
+    (string->number raw-data))
+  (if to-number
+      to-number
+      (parse-failure "neither an integer or floating point number")))
+(define-method (field-render-html (field <float-field>))
+  (render-number field))
 
 
 ;;; The Form (TM)
@@ -158,8 +243,6 @@ It might contain #nil instead."
           #:getter form-fields)
   (data #:init-value #f
         #:getter form-data)
-  (results #:init-value #f
-           #:getter form-results)
   ;; TODO: This isn't used yet, but should be for form-level errors.
   (validators #:init-keyword #:validators
               #:getter form-validators
@@ -201,13 +284,22 @@ It might contain #nil instead."
 
 (define-method (form-submit (form <form>) data)
   "Return new form with submitted and processed DATA"
+  (define data-table
+    (alist->vhash data))
+  (define new-fields
+    (map-in-order
+     (lambda (field)
+       (define datum
+         (match (vhash-assoc (field-name field) data-table)
+           (#f #nil)
+           ((key . val) val)))
+       (field-submit field datum))
+     (form-fields form)))
   (define new-form
     (make <form>
-      #:fields (form-fields form)))
+      #:fields new-fields))
   (slot-set! new-form 'data data)
-  (slot-set! new-form '%data-table (alist->vhash data))
-  (slot-set! new-form 'results
-             (form-results-compute new-form))
+  (slot-set! new-form '%data-table data-table)
   new-form)
 
 (define-method (form-results-compute (form <form>))
@@ -236,20 +328,26 @@ the symbol 'not-applicable as the value... which is truthy, but not #t"
      (if (not (eq? (form-errors form)
                    '()))
          (return #f))
-     ;; Check each of the field results
+     ;; Check each of the fields
      (for-each
-      (match-lambda
-        ((field . result)
-         (if (not (field-result-valid? result))
-             (return #f))))
-      (form-results form))
+      (lambda (field)
+        (if (not (field-valid? field))
+            (return #f)))
+      (form-fields form))
      ;; Ok, return #t... must be fine
      #t)))
 
 (define-method (form-render-table (form <form>))
   "Renders the inner part of a table."
   (map
-   
-   
-   )
-  )
+   (lambda (field)
+     (define errors (field-errors field))
+     `(tr (th ,(field-label field))
+          (td ,(field-render-html field)
+              ,@(render-if (not (null? errors))
+                           `(ul (@ (class "field-errors"))
+                                ,(map
+                                  (lambda (error)
+                                    `(li ,error))
+                                  errors))))))
+   (form-fields form)))
