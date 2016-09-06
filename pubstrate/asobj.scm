@@ -108,24 +108,22 @@
     (define (try-type-without-expanding)
       ;; Here's where you turn into list of <astype>s
       ;; (and strings if unknown?)
-      (call/ec
-       (lambda (return)
-         (fold
-          (lambda (type-str prev)
-            (cond
-             ;; Try looking up without expanding
-             ((asenv-type-by-str env type-str) =>
-              (lambda (astype)
-                (cons astype prev)))
-             ;; TODO: Add expanding... but make it optional, depending
-             ;;   on an object set in the <asenv>.
-             ;; So eventually:
-             ;;   (call/ec '*gotta-expand*)
-             (else
-              ;; Otherwise, just fold forward and skip this one
-              prev)))
-          '()
-          types-as-list))))
+      (fold
+       (lambda (type-str prev)
+         (cond
+          ;; Try looking up without expanding
+          ((asenv-type-by-str env type-str) =>
+           (lambda (astype)
+             (cons astype prev)))
+          ;; TODO: Add expanding... but make it optional, depending
+          ;;   on an object set in the <asenv>.
+          ;; So eventually:
+          ;;   (call/ec '*gotta-expand*)
+          (else
+           ;; Otherwise, just fold forward and skip this one
+           prev)))
+       '()
+       types-as-list))
 
     ;; Not used... yet!
     (define (try-expanding)
