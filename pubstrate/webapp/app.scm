@@ -91,5 +91,6 @@
        ;;   and use that if provided...
        (session-manager . ,(make-session-manager (gen-signing-key))))
      (lambda ()
+       (set! %debug-ctx (%ctx))
        (run-server (lambda args (apply webapp-server-handler args))
                    'http server-args)))))
