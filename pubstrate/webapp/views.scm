@@ -73,7 +73,7 @@
    ;; Looks like they want the activitystreams object version..
    ((requesting-asobj? request)
     (respond (asobj->string user)
-             #:accept 'application/activity+json))
+             #:content-type 'application/activity+json))
    ;; Otherwise, give them the human-readable HTML!
    (else (render-user-page))))
 
