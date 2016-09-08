@@ -21,6 +21,7 @@
 ;;;
 
 (define-module (pubstrate webapp utils)
+  #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (pubstrate contrib html)
   #:use-module (pubstrate webapp ctx)
@@ -111,11 +112,12 @@
            #:status status:not-found))
 
 (define (requesting-asobj? request)
-  (match (request-content-type request)
-    (((or 'application/activity+json
-          'application/ld+json) _ ...)
-     #t)
-    (_ #f)))
+  (any (match-lambda
+         (((or 'application/activity+json
+               'application/ld+json) _ ...)
+          #t)
+         (_ #f))
+       (request-accept request)))
 
 
 (define string->uri* (@@ (web uri) string->uri*))
