@@ -45,5 +45,8 @@
      (values logout '()))
     (("mockup")
      (values mockup '()))
+    (("api" "get-auth-token")
+     (values oauth-authorize '()))
+
     ;; Not found!
     (_ (values standard-four-oh-four '()))))

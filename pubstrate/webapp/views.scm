@@ -27,6 +27,7 @@
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp cookie)
   #:use-module (pubstrate webapp ctx)
+  #:use-module (pubstrate webapp form-widgets)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp sessions)
   #:use-module (pubstrate webapp templates)
@@ -184,10 +185,31 @@
 (define (oauth-authorize request body)
   (match (request-method request)
     ('GET
-     'TODO)
-
+     (respond-html
+      (base-tmpl
+       (generic-content-tmpl
+        `(div (h1 "Authorize application?")
+              (p "An application is requesting access to your stream. "
+                 "Grant them access?")
+              (form (@ (action "")
+                       (method "POST")
+                       (enctype "application/x-www-form-urlencoded"))
+                    (div (button (@ (type "submit")
+                                    (name "access")
+                                    (value "granted"))
+                                 "Yes")
+                         (button (@ (type "submit")
+                                    (name "access")
+                                    (value "denied"))
+                                 "No")))))
+       #:title "Authorize application?")))
     ('POST
-     'TODO)))
+     (cond ((equal? (assoc-ref (decode-urlencoded-form body)
+                               "access")
+                    "granted")
+            (respond "Horray!"))
+           (else
+            (respond "Oh, ok!"))))))
 
 (define (standard-four-oh-four request body)
   ;; TODO: Add 404 status message

@@ -31,6 +31,8 @@
   #:export (base-tmpl index-tmpl mockup-tmpl
             user-homepage-tmpl
 
+            generic-content-tmpl
+
             login-tmpl
 
             asobj-page-tmpl
@@ -137,6 +139,10 @@
                           (div (@ (class "share-plain"))
                                "♻ Share")))))))))
 
+
+(define (generic-content-tmpl . content)
+  `(div (@ (class "generic-content-box"))
+        ,@content))
 
 (define (user-homepage-tmpl user activities prev-url next-url)
   (base-tmpl
