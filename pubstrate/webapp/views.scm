@@ -184,11 +184,10 @@
 (define (oauth-authorize request body)
   (match (request-method request)
     ('GET
-     
-     )
+     'TODO)
 
     ('POST
-     )))
+     'TODO)))
 
 (define (standard-four-oh-four request body)
   ;; TODO: Add 404 status message
