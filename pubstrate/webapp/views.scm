@@ -66,13 +66,18 @@
        (user-homepage-tmpl user activities
                            #f #f))))
   (define user (store-user-ref (ctx-ref 'store) username))
+  (define (user-with-extra-endpoints)
+    (asobj-cons user "endpoints"
+                `(@ ("getAuthToken" . ,(abs-local-uri "api" "get-auth-token"))
+                    ("uploadMedia" . ,(abs-local-uri "api" "upload-media")))))
+
   (cond
    ;; User not found, so 404
    ((not user)
     (respond-not-found))
    ;; Looks like they want the activitystreams object version..
    ((requesting-asobj? request)
-    (respond (asobj->string user)
+    (respond (asobj->string (user-with-extra-endpoints))
              #:content-type 'application/activity+json))
    ;; Otherwise, give them the human-readable HTML!
    (else (render-user-page))))
