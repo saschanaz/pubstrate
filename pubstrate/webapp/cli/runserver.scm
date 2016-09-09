@@ -37,7 +37,7 @@
     (host (single-char #\h) (value #t))
     (port (single-char #\p) (value #t))
     (base-uri (value #t))
-    (repl-server (single-char #\r) (value #f))))
+    (repl-server (single-char #\r) (value optional))))
 
 (define* (get-store-from-db-path db-path #:key (warn-if-memory-store #t))
   (if db-path
@@ -61,9 +61,10 @@ pubstrate-web run [options] configfile
                        Base URI to generate URLs from.  Normally generated from
                        host and port.
 
-  -r, --repl-server[=REPL-PORT]
-                       Run a REPL server (on REPL-PORT if provided, otherwise
-                       on port 37146)")
+  -r, --repl-server[=REPL-PORT|REPL-SOCKET-FILE]
+                       Run a REPL server (on REPL-PORT if provided and a number,
+                       or filename REPL-SOCKET-FILE if a string, otherwise on
+                       port 37146)")
 
 (define (run-cli args)
   ;; Maybe append a keyword argument to a list of existing
@@ -91,20 +92,36 @@ pubstrate-web run [options] configfile
                 (maybe-kwarg #:host (get-option 'host))
                 (maybe-kwarg #:port (get-option 'port))
                 (maybe-kwarg #:base-uri (get-option 'base-uri)))
-               (list #:store store))))
+               (list #:store store)))
+             ;; @@: Maybe (ice-9 q) is better...
+             (cleanup-steps '()))
         ;; Enable the REPL server if requested
         (match (option-ref options 'repl-server #f)
           ;; If false, do nothing
           (#f #f)
           ;; If it's a string and a number, serve the repl on this
           ;; port number on localhost
-          ((and (? string? _) (= string->number repl-port-number))
+          ((and (? string? _) (? string->number _) (= string->number repl-port-number))
            (repl:spawn-server (repl:make-tcp-server-socket #:port repl-port-number)))
+          ((and (? string? socket-path))
+           (repl:spawn-server (repl:make-unix-domain-server-socket #:path socket-path))
+           (set! cleanup-steps
+                 (cons (lambda ()
+                         (delete-file socket-path))
+                       cleanup-steps)))
           ;; Anything else, start with the default port
           (_ (repl:spawn-server)))
         ;; Now run the server! :)
-        (apply run-webapp
-               ;; Announce that we're running on start-up
-               #:announce (current-output-port)  ; @@: maybe STDERR instead?
-               kwargs))))))
+        (dynamic-wind
+          (const #f) ; no-op
+          (lambda ()
+            (apply run-webapp
+                   ;; Announce that we're running on start-up
+                   #:announce (current-output-port)  ; @@: maybe STDERR instead?
+                   kwargs))
+          ;; Do cleanup (if any)
+          (lambda ()
+            (for-each (lambda (step)
+                        (step))
+                      cleanup-steps))))))))
 
