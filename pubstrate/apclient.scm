@@ -62,7 +62,7 @@
   (define (retrieve-user)
     (receive (response body)
         (http-get (apclient-id apclient)
-                  #:headers '((accept . (application/activity+json))))
+                  #:headers '((accept . ((application/activity+json)))))
       (make-asobj
        (read-json-from-string
         (if (bytevector? body)
