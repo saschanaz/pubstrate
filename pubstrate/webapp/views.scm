@@ -21,6 +21,7 @@
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-26)
   #:use-module (web request)
+  #:use-module (web uri)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate package-config)
   #:use-module (pubstrate vocab)
@@ -142,23 +143,28 @@
     (ctx-ref 'session-manager))
   (match (request-method request)
     ('GET
-     (respond-html (login-tmpl)))
+     (let* ((form (decode-urlencoded-form (uri-query (request-uri request))))
+            (next (assoc-ref form "next")))
+       (respond-html (login-tmpl #:next next))))
     ('POST
      (let* ((form (decode-urlencoded-form body))
             (username (assoc-ref form "username"))
             (password (assoc-ref form "password"))
             (user (if username
                       (store-user-ref store username)
-                      #f)))
+                      #f))
+            (next (assoc-ref form "next"))
+            (redirect-to (or next (local-uri ""))))
        (if (and  user (user-password-matches? user password))
-           (respond-redirect (local-uri "")
+           (respond-redirect (pk 'redirect-to redirect-to)
                              #:extra-headers
                              (list
                               ;; TODO: this should just *add to* the session,
                               ;;   not clobber it...
                               (set-session session-manager
                                            `((user . ,username)))))
-           (respond-html (login-tmpl #:try-again #t)))))))
+           (respond-html (login-tmpl #:try-again #t
+                                     #:next next)))))))
 
 (define (logout request body)
   (respond-redirect (local-uri "")
@@ -183,33 +189,36 @@
       (_ (respond #:status status:method-not-allowed)))))
 
 (define (oauth-authorize request body)
-  (match (request-method request)
-    ('GET
-     (respond-html
-      (base-tmpl
-       (generic-content-tmpl
-        `(div (h1 "Authorize application?")
-              (p "An application is requesting access to your stream. "
-                 "Grant them access?")
-              (form (@ (action "")
-                       (method "POST")
-                       (enctype "application/x-www-form-urlencoded"))
-                    (div (button (@ (type "submit")
-                                    (name "access")
-                                    (value "granted"))
-                                 "Yes")
-                         (button (@ (type "submit")
-                                    (name "access")
-                                    (value "denied"))
-                                 "No")))))
-       #:title "Authorize application?")))
-    ('POST
-     (cond ((equal? (assoc-ref (decode-urlencoded-form body)
-                               "access")
-                    "granted")
-            (respond "Horray!"))
-           (else
-            (respond "Oh, ok!"))))))
+  (require-login
+   request
+   (lambda ()
+     (match (request-method request)
+       ('GET
+        (respond-html
+         (base-tmpl
+          (generic-content-tmpl
+           `(div (h1 "Authorize application?")
+                 (p "An application is requesting access to your stream. "
+                    "Grant them access?")
+                 (form (@ (action "")
+                          (method "POST")
+                          (enctype "application/x-www-form-urlencoded"))
+                       (div (button (@ (type "submit")
+                                       (name "access")
+                                       (value "granted"))
+                                    "Yes")
+                            (button (@ (type "submit")
+                                       (name "access")
+                                       (value "denied"))
+                                    "No")))))
+          #:title "Authorize application?")))
+       ('POST
+        (cond ((equal? (assoc-ref (decode-urlencoded-form body)
+                                  "access")
+                       "granted")
+               (respond "Horray!"))
+              (else
+               (respond "Oh, ok!"))))))))
 
 (define (standard-four-oh-four request body)
   ;; TODO: Add 404 status message

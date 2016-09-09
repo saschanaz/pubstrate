@@ -35,6 +35,7 @@
   #:export (local-uri abs-local-uri
             respond respond-html
             respond-redirect respond-not-found
+            require-login
             requesting-asobj?
             decode-urlencoded-form))
 
@@ -123,35 +124,70 @@
 (define string->uri* (@@ (web uri) string->uri*))
 
 (define* (respond-redirect to #:key permanent
+                           query
                            (extra-headers '()))
+  "Respond with a redirect.
+
+TO is either a URI or a string to be converted to a URI.
+PERMANENT will specify status \"301 Moved Permanently\", otherwise
+the default status \"302 Found\" will be used.
+
+QUERY may be supplied, and should be an alist of query parameters.
+
+EXTRA-HEADERS may supply additional HTTP headers."
+  (define to-uri
+    (let ((uri (if (string? to)
+                   (string->uri* to)
+                   to)))
+      ;; Maybe append query parameters
+      (if query
+          (let ((query-str (string-join
+                            (map (match-lambda
+                                   ((key . val)
+                                    (string-append (uri-encode key)
+                                                   "="
+                                                   (uri-encode val))))
+                                 query)
+                            "&")))
+            (make-uri (uri-scheme uri) (uri-userinfo uri) (uri-host uri)
+                      (uri-port uri) (uri-path uri)
+                      query-str
+                      (uri-fragment uri)))
+          uri)))
   (respond ""
-           #:extra-headers
-           `((location . ,(if (string? to)
-                              (string->uri* to)
-                              to))
-             ,@extra-headers)
+           #:extra-headers `((location . ,to-uri)
+                             ,@extra-headers)
            #:status (if permanent
                         status:moved-permanently
                         status:found)))
 
-(define (decode-urlencoded-form body)
-  "Decode application/x-www-form-urlencoded BODY"
-  (let ((str (match body
-               ((? bytevector? _) (utf8->string body))
-               ((? string? _) body))))
-    (map
-     (lambda (item)
-       (match (string-split item #\=)
-         ((key val)
-          (cons (uri-decode key)
-                (uri-decode val)))
-         (key
-          (cons (uri-decode key)
-                #f))
-         (_ (throw 'bad-urlencoded-string
-                   #:string str
-                   #:item item))))
-     (string-split str #\&))))
+(define (decode-urlencoded-form form)
+  "Decode application/x-www-form-urlencoded FORM"
+  (if form
+      (let ((str (match form
+                   ((? bytevector? _) (utf8->string form))
+                   ((? string? _) form))))
+        (map
+         (lambda (item)
+           (match (string-split item #\=)
+             ((key val)
+              (cons (uri-decode key)
+                    (uri-decode val)))
+             (key
+              (cons (uri-decode key)
+                    #f))
+             (_ (throw 'bad-urlencoded-string
+                       #:string str
+                       #:item item))))
+         (string-split str #\&)))
+      '()))
+
+(define (require-login request thunk)
+  (if (not (ctx-ref 'user))
+      (respond-redirect
+       (local-uri "login")
+       #:query `(("next" . ,(uri-path (request-uri request)))))
+      (thunk)))
 
 
 ;;; Location header fix

@@ -159,7 +159,7 @@
             activities))))
 
 
-(define* (login-tmpl #:key try-again)
+(define* (login-tmpl #:key next try-again)
   (base-tmpl
    `(div (@ (class "generic-content-box"))
          (h1 "Log in:")
@@ -169,6 +169,10 @@
          (form (@ (action ,(local-uri "login"))
                   (method "POST")
                   (enctype "application/x-www-form-urlencoded"))
+               ,@(render-if next
+                            `(input (@ (name "next")
+                                       (type "hidden")
+                                       (value ,next))))
                (table
                 (tr (th "Username")
                     (td (input (@ (type "text")
@@ -178,7 +182,8 @@
                                   (name "password")))))
                 (tr (td)  ; empty cell
                     (td (button (@ (type "submit"))
-                                "Submit"))))))))
+                                "Submit"))))))
+   #:title "Login"))
 
 
 
