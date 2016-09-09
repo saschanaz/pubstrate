@@ -95,6 +95,12 @@ pubstrate-web run [options] configfile
                (list #:store store)))
              ;; @@: Maybe (ice-9 q) is better...
              (cleanup-steps '()))
+        (define (spawn-repl-socket-file socket-path)
+          (repl:spawn-server (repl:make-unix-domain-server-socket #:path socket-path))
+          (set! cleanup-steps
+                (cons (lambda ()
+                        (delete-file socket-path))
+                      cleanup-steps)))
         ;; Enable the REPL server if requested
         (match (option-ref options 'repl-server #f)
           ;; If false, do nothing
@@ -104,13 +110,9 @@ pubstrate-web run [options] configfile
           ((and (? string? _) (? string->number _) (= string->number repl-port-number))
            (repl:spawn-server (repl:make-tcp-server-socket #:port repl-port-number)))
           ((and (? string? socket-path))
-           (repl:spawn-server (repl:make-unix-domain-server-socket #:path socket-path))
-           (set! cleanup-steps
-                 (cons (lambda ()
-                         (delete-file socket-path))
-                       cleanup-steps)))
+           (spawn-repl-socket-file socket-path))
           ;; Anything else, start with the default port
-          (_ (repl:spawn-server)))
+          (_ (spawn-repl-socket-file "/tmp/guile-socket")))
         ;; Now run the server! :)
         (dynamic-wind
           (const #f) ; no-op
