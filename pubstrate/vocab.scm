@@ -20,6 +20,7 @@
   #:use-module (pubstrate asobj)
   #:export (^Object ^Link ^Activity ^IntransitiveActivity
             ^Collection ^OrderedCollection
+            ^CollectionPage ^OrderedCollectionPage
 
             ^Accept ^TentativeAccept ^Add ^Arrive ^Create
             ^Delete ^Follow ^Ignore ^Join ^Leave ^Like
