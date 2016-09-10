@@ -40,7 +40,9 @@
 
             user-collection-page user-collection-first-page
 
-            user-password-matches?))
+            user-password-matches?
+
+            user-name-str))
 
 (define (require-base-uri)
   (if (not (ctx-ref 'base-uri))
@@ -193,3 +195,9 @@ to the database (in this case, the collections!)"
   "Check if PASSWORD matches that of asobj USER"
   (salted-hash-matches? (user-password-hash user)
                         password))
+
+(define (user-name-str user)
+  "Return the best human-readable name we can get for USER"
+  (or (asobj-ref user "name")
+      (asobj-ref user "preferredUsername")
+      (asobj-ref user "id")))
