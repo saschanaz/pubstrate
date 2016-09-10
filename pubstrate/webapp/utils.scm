@@ -168,18 +168,7 @@ EXTRA-HEADERS may supply additional HTTP headers."
                    to)))
       ;; Maybe append query parameters
       (if query
-          (let ((query-str (string-join
-                            (map (match-lambda
-                                   ((key . val)
-                                    (string-append (uri-encode key)
-                                                   "="
-                                                   (uri-encode val))))
-                                 query)
-                            "&")))
-            (make-uri (uri-scheme uri) (uri-userinfo uri) (uri-host uri)
-                      (uri-port uri) (uri-path uri)
-                      query-str
-                      (uri-fragment uri)))
+          (uri-set uri #:query query)
           uri)))
   (respond ""
            #:extra-headers `((location . ,to-uri)
