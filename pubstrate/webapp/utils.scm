@@ -37,7 +37,8 @@
             respond-redirect respond-not-found
             require-login
             requesting-asobj?
-            decode-urlencoded-form))
+            uri-set
+            urlencode urldecode request-query-form))
 
 ;; TODO: add local-uri* and abs-local-uri* which should allow
 ;;   optional GET parameters & fragments
@@ -123,6 +124,32 @@
 
 (define string->uri* (@@ (web uri) string->uri*))
 
+(define* (uri-set orig-uri #:key
+                  (scheme #nil) (userinfo #nil)
+                  (host #nil) (port #nil)
+                  (path #nil) (query #nil)
+                  (fragment #nil))
+  "Functional setter for URIs"
+  (define (maybe-val val orig-getter)
+    (if (not (eq? val #nil))
+        val
+        (orig-getter orig-uri)))
+
+  (define parsed-query
+    (match query
+      (#f #f)
+      ((? (lambda (x) (eq? x #nil)) _) #nil)
+      ((? string? _) query)
+      ((? pair? _) (urlencode query))))
+
+  (make-uri (maybe-val scheme uri-scheme)
+            (maybe-val userinfo uri-userinfo)
+            (maybe-val host uri-host)
+            (maybe-val port uri-port)
+            (maybe-val path uri-path)
+            (maybe-val parsed-query uri-query)
+            (maybe-val fragment uri-fragment)))
+
 (define* (respond-redirect to #:key permanent
                            query
                            (extra-headers '()))
@@ -161,8 +188,10 @@ EXTRA-HEADERS may supply additional HTTP headers."
                         status:moved-permanently
                         status:found)))
 
-(define (decode-urlencoded-form form)
-  "Decode application/x-www-form-urlencoded FORM"
+(define (urldecode form)
+  "Decode application/x-www-form-urlencoded FORM
+
+FORM may be a utf8-encoded bytevector or a string."
   (if form
       (let ((str (match form
                    ((? bytevector? _) (utf8->string form))
@@ -181,6 +210,25 @@ EXTRA-HEADERS may supply additional HTTP headers."
                        #:item item))))
          (string-split str #\&)))
       '()))
+
+
+(define (urlencode query-alist)
+  "Urlencode QUERY-ALIST into a string"
+  (string-join
+   (map (match-lambda
+          ((key . val)
+           (string-append (uri-encode (match key
+                                        ((? string? _) key)
+                                        ((? symbol? _) (symbol->string key))))
+                          "="
+                          (uri-encode val))))
+        query-alist)
+   "&"))
+
+(define (request-query-form request)
+  "Return parsed alist from query parameter of REQUEST's uri"
+  (and=> (uri-query (request-uri request))
+         urldecode))
 
 (define (require-login request thunk)
   (if (not (ctx-ref 'user))

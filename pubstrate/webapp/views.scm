@@ -19,6 +19,7 @@
 (define-module (pubstrate webapp views)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
   #:use-module (web request)
   #:use-module (web uri)
@@ -87,6 +88,9 @@
 (define (user-inbox request body username)
   'TODO)
 
+;; Fixed, for now...
+(define %items-per-page 10)
+
 (define (user-outbox request body username)
   (define store (ctx-ref 'store))
   (define oauth-user
@@ -115,8 +119,40 @@
       (respond (asobj->string asobj)
                #:status status:created
                #:content-type 'application/activity+json)))
-  (define (read-from-outbox oauth-user)
-    'TODO)
+  (define* (abs-outbox-url #:optional page)
+    (abs-local-uri )
+
+    )
+  (define (read-from-outbox)
+    ;; TODO: in the future, we'll want to filter this based upon
+    ;;   who's logged in / supplied auth.  For now, everything is public
+    ;;   anyway.
+    (let*-values (((form) (request-query-form request))
+                  ((page-id) (assoc-ref form "page"))
+                  ((is-first) (not page-id))
+                  ((page prev next)
+                   (if is-first
+                       (user-collection-first-page (ctx-ref 'store)
+                                                   outbox-user "outbox"
+                                                   %items-per-page)
+                       (user-collection-page (ctx-ref 'store)
+                                             outbox-user "outbox"
+                                             page-id %items-per-page)))
+                  ((ocp)
+                   (make-as ^OrderedCollectionPage (%default-env)
+                            )))
+      (if is-first
+          ;; So, we want to return the toplevel of the paging
+          (make-as ^OrderedCollection (%default-env)
+                   #:name (format #t "~a's Outbox"
+                                  (user-name-str outbox-user))
+                   #:first
+                   (make-as ^OrderedCollectionPage (%default-env)
+                            ;; TODO
+                            ))
+          ;; Get the first page
+          'TODO
+          )))
   (define (user-can-post?)
     ;; TODO!  Right now we just accept it.
     ;;  - Extract the bearer token
@@ -128,7 +164,7 @@
       (_ #f)))
   (match (request-method request)
     ('GET
-     (read-from-outbox oauth-user))
+     (read-from-outbox))
     ('POST
      (if (user-can-post?)
          (post-to-outbox)
@@ -143,11 +179,11 @@
     (ctx-ref 'session-manager))
   (match (request-method request)
     ('GET
-     (let* ((form (decode-urlencoded-form (uri-query (request-uri request))))
+     (let* ((form (request-query-form request))
             (next (assoc-ref form "next")))
        (respond-html (login-tmpl #:next next))))
     ('POST
-     (let* ((form (decode-urlencoded-form body))
+     (let* ((form (urldecode body))
             (username (assoc-ref form "username"))
             (password (assoc-ref form "password"))
             (user (if username
@@ -213,12 +249,20 @@
                                     "No")))))
           #:title "Authorize application?")))
        ('POST
-        (cond ((equal? (assoc-ref (decode-urlencoded-form body)
-                                  "access")
-                       "granted")
-               (respond "Horray!"))
-              (else
-               (respond "Oh, ok!"))))))))
+        (cond
+         ((equal? (assoc-ref (urldecode body)
+                             "access")
+                  "granted")
+          (respond-html
+           (let ((token (store-bearer-token-new!
+                         (ctx-ref 'store) (ctx-ref 'user))))
+             (base-tmpl
+              (generic-content-tmpl
+               '(h1 "Authorization granted!")
+               '(p "Paste this token back in the application:")
+               `(blockquote (pre ,token)))))))
+         (else
+          (respond-redirect (local-uri "")))))))))
 
 (define (standard-four-oh-four request body)
   ;; TODO: Add 404 status message

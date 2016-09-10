@@ -25,6 +25,7 @@
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp template-utils)
   #:use-module (pubstrate webapp utils)
+  #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp ctx)
   ;; TODO: Move html parsing stuff into utils.html and remove this import
   #:use-module (htmlprag)

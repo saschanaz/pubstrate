@@ -40,7 +40,7 @@
    (test-equal (abs-local-uri "foo" "bar") "https://coolsite.example/stuff/foo/bar")))
 
 (define stupid-l33t-form
-  (decode-urlencoded-form "newbl33t=wow%20that%20%3D%3D%20a%20cool%20thing%21%20%23%20lol&ya=buddy"))
+  (urldecode "newbl33t=wow%20that%20%3D%3D%20a%20cool%20thing%21%20%23%20lol&ya=buddy"))
 
 ;; This is the worst test variable I have ever made
 (test-equal (assoc-ref stupid-l33t-form "newbl33t")
@@ -48,10 +48,22 @@
 (test-equal (assoc-ref stupid-l33t-form "ya")
   "buddy")
 ;; Should also work if a bytevector
-(test-equal (assoc-ref (decode-urlencoded-form
+(test-equal (assoc-ref (urldecode
                         #vu8(121 97 61 98 117 100 100 121)) ; "ya=buddy"
                        "ya")
   "buddy")
+
+(test-equal (urlencode '((banana . "peanut butter")
+                         ("cookie" . "party")))
+  "banana=peanut%20butter&cookie=party")
+
+(test-equal (uri->string
+             (uri-set (string->uri "http://foo.example")
+                      #:scheme 'https
+                      #:port '8080
+                      #:path "/yeah"
+                      #:query '((cookie . "party"))))
+  "https://foo.example:8080/yeah?cookie=party")
 
 (test-end "test-web-utils")
 (test-exit)
