@@ -82,7 +82,7 @@
 (define (user-tmpl user)
   (base-tmpl
    `(p "Hi!  This is "
-       ,(user-username user)
+       ,(user-name-str user)
        "'s page.")))
 
 (define (mockup-tmpl)
