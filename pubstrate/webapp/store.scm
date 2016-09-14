@@ -38,6 +38,7 @@
             store-container-new! store-container-append!
             store-container-first-page store-container-page
             store-container-fetch-all store-container-member?
+            store-container-remove!
 
             <bearer-entry>
             bearer-entry-token bearer-entry-user-id bearer-entry-expires
@@ -154,11 +155,18 @@
                 #:key key))))
 
 (define-method (store-container-append! (store <docustore>)
-                                          container-key val)
+                                        container-key val)
   (define current-members
     (get-container-or-error store container-key))
   (docustore-set! store 'containers container-key
                   (cons val current-members)))
+
+(define-method (store-container-remove! (store <docustore>)
+                                        container-key val)
+  (define current-members
+    (get-container-or-error store container-key))
+  (docustore-set! store 'containers container-key
+                  (delete val current-members)))
 
 (define-method (store-container-fetch-all (store <docustore>)
                                             container-key)
