@@ -65,6 +65,7 @@
            (user-collection-first-page
             (ctx-ref 'store) user "outbox"
             %items-per-page)))
+      (pk 'activities activities)
       (respond-html
        (user-homepage-tmpl user activities
                            #f #f))))
@@ -102,18 +103,20 @@
     ;; TODO: Handle side effects appropriately.
     ;;   Currently doing a "dumb" version of things where we just dump it
     ;;   into the database.
-    (let* ((unique-id
-            (abs-local-uri "u" username "p"
-                           (gen-bearer-token 30)))
-           ;; TODO: Also strip out any @id that may have been attached...
-           (asobj
-            (asobj-cons
-             (string->asobj
-              (if (bytevector? body)
-                  (utf8->string body)
-                  body)
-              (%default-env))
-             "id" unique-id)))
+    (define tweak-incoming-asobj
+      (compose (lambda (asobj)
+                 (let ((unique-id (abs-local-uri "u" username "p"
+                                                 (gen-bearer-token 30))))
+                   (asobj-cons asobj "id" unique-id)))
+               ;; TODO: this should be on the inner object...
+               (lambda (asobj)
+                 (asobj-cons asobj "actor" outbox-user))))
+    (let ((asobj  ; TODO: Also strip out any @id that may have been attached...
+           (tweak-incoming-asobj (string->asobj
+                                  (if (bytevector? body)
+                                      (utf8->string body)
+                                      body)
+                                  (%default-env)))))
       (store-asobj-set! store asobj)
       (user-add-to-outbox! store outbox-user (asobj-id asobj))
       (respond (asobj->string asobj)
