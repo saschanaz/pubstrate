@@ -171,7 +171,7 @@
                                 #:first ordered-collection-page)
                        ;; This is some page
                        ordered-collection-page)))
-      (respond (asobj->string (pk 'return-asobj return-asobj))
+      (respond (asobj->string return-asobj)
                #:content-type 'application/activity+json)))
   (define (user-can-post?)
     ;; TODO!  Right now we just accept it.
@@ -212,7 +212,7 @@
             (next (assoc-ref form "next"))
             (redirect-to (or next (local-uri ""))))
        (if (and  user (user-password-matches? user password))
-           (respond-redirect (pk 'redirect-to redirect-to)
+           (respond-redirect redirect-to
                              #:extra-headers
                              (list
                               ;; TODO: this should just *add to* the session,
