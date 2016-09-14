@@ -80,12 +80,6 @@
 (define (index-tmpl)
   (base-tmpl "Beep boop, hello there!"))
 
-(define (user-tmpl user)
-  (base-tmpl
-   `(p "Hi!  This is "
-       ,(user-name-str user)
-       "'s page.")))
-
 (define (mockup-tmpl)
   (base-tmpl
    `(;; Input elements... TODO
