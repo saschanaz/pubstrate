@@ -17,10 +17,12 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp app)
+  #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (oop goops)
   #:use-module (web server)
   #:use-module (web uri)
+  #:use-module (pubstrate config)
   #:use-module (pubstrate crypto)
   #:use-module (pubstrate webapp routes)
   #:use-module (pubstrate webapp store)
@@ -63,11 +65,27 @@
   "For debugging/hacking purposes, set %ctx to %debug-ctx"
   (%ctx %debug-ctx))
 
-(define* (run-webapp #:key (store (make <memory-store>))
-                     (host #f)
-                     (port 8080)
-                     (base-uri (base-uri-from-other-params
-                                host port "/"))
+(define (set-app-ctx-from-config! config)
+  "Set the %ctx parameter based on the application context built from CONFIG
+
+Only for debugging / REPL hacking!  Use with-app-ctx-from-config for real code."
+  'TODO)
+
+(define (with-app-ctx-from-config config thunk)
+  "Evaluate THUNK in application context built from CONFIG"
+  (define store
+    (match (config-ref config 'store)
+      ((store-proc . store-args)
+       (apply store-proc store-args))))
+  (define ctx-alist
+    `((store . ,store)
+      (base-uri . ,(config-ref config 'base-uri))
+      ;; TODO: signing-key-path
+      (session-manager . ,(make-session-manager (gen-signing-key)))))
+  (with-extended-ctx ctx-alist thunk))
+
+(define* (run-webapp config
+                     #:key (host #f) (port 8080)
                      (announce #f))
   (define (maybe-kwarg kwarg val)
     (lambda (current-kwargs)
@@ -75,22 +93,18 @@
           (append (list kwarg val)
                   current-kwargs)
           current-kwargs)))
-  (display (string-append
-            "Running on "
-            (uri->string base-uri)
-            "\n"))
   (let ((server-args
          ((compose
            (maybe-kwarg #:host host)
            (maybe-kwarg #:port port))
           '())))
-    (with-extended-ctx
-     `((store . ,store)
-       (base-uri . ,base-uri)
-       ;; TODO: This is TEMPORARY!  We should save the key
-       ;;   and use that if provided...
-       (session-manager . ,(make-session-manager (gen-signing-key))))
+    (with-app-ctx-from-config
+     config
      (lambda ()
        (set! %debug-ctx (%ctx))
+       (display (string-append
+                 "Running on "
+                 (uri->string (ctx-ref 'base-uri))
+                 "\n"))
        (run-server (lambda args (apply webapp-server-handler args))
                    'http server-args)))))

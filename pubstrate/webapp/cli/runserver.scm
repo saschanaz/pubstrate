@@ -20,6 +20,8 @@
   #:use-module (pubstrate webapp app)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp store-gdbm)
+  #:use-module (pubstrate config)
+  #:use-module (pubstrate webapp config)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
@@ -34,10 +36,9 @@
 
 (define run-option-spec
   '((help (single-char #\h) (value #f))
-    (db-dir (single-char #\d) (value #t))
     (host (single-char #\h) (value #t))
     (port (single-char #\p) (value #t))
-    (base-uri (value #t))
+    (config (single-char #\c) (value #t) (required? #t))
     (repl-server (single-char #\r) (value optional))))
 
 (define* (get-store-from-db-path db-path #:key (warn-if-memory-store #t))
@@ -54,13 +55,8 @@
   "\
 pubstrate-web run [options] configfile
   -h, --help           Display this help
-  -d, --db-dir=PATH    Path to a directory where GDBM databases will be stored.
   -h, --host=HOST      Server host address.  Defaults to localhost.
   -p, --port=PORT      Server port.  Defaults to 8080.
-
-      --base-uri=BASE-URI
-                       Base URI to generate URLs from.  Normally generated from
-                       host and port.
 
   -r, --repl-server[=REPL-PORT|REPL-SOCKET-FILE]
                        Run a REPL server (on REPL-PORT if provided and a number,
@@ -76,13 +72,16 @@ pubstrate-web run [options] configfile
           (append (list kwarg val)
                   current-kwargs)
           current-kwargs)))
-  (let ((options (getopt-long args run-option-spec)))
+  (let ((options (getopt-long args run-option-spec
+                              #:stop-at-first-non-option #t)))
     (cond
      ((option-ref options 'help #f)
       (display %webapp-help-text) (newline))
      (else
-      (let* ((store (get-store-from-db-path
-                       (option-ref options 'db-dir #f)))
+      (let* ((config-filename
+              (option-ref options 'config #f))
+             (config (load-config (load-from-path config-filename)
+                                  pubstrate-config-spec))
              (get-option
               (lambda (option)
                 (option-ref options option #f)))
@@ -91,13 +90,13 @@ pubstrate-web run [options] configfile
              (kwargs
               ((compose
                 (maybe-kwarg #:host (get-option 'host))
-                (maybe-kwarg #:port (get-option 'port))
-                (maybe-kwarg #:base-uri (get-option 'base-uri)))
-               (list #:store store)))
+                (maybe-kwarg #:port (get-option 'port)))
+               '()))
              ;; @@: Maybe (ice-9 q) is better...
              (cleanup-steps '()))
         (define (spawn-repl-socket-file socket-path)
-          (repl:spawn-server (repl:make-unix-domain-server-socket #:path socket-path))
+          (repl:spawn-server (repl:make-unix-domain-server-socket
+                              #:path socket-path))
           (set! cleanup-steps
                 (cons (lambda ()
                         (delete-file socket-path))
@@ -108,9 +107,11 @@ pubstrate-web run [options] configfile
           (#f #f)
           ;; If it's a string and a number, serve the repl on this
           ;; port number on localhost
-          ((and (? string? _) (? string->number _) (= string->number repl-port-number))
+          ((and (? string? _) (? string->number _)
+                (= string->number repl-port-number))
            (format #t "Starting REPL on port ~a\n" repl-port-number)
-           (repl:spawn-server (repl:make-tcp-server-socket #:port repl-port-number)))
+           (repl:spawn-server (repl:make-tcp-server-socket
+                               #:port repl-port-number)))
           ((and (? string? socket-path))
            (format #t "Starting REPL at socket ~a\n" socket-path)
            (spawn-repl-socket-file socket-path))
@@ -122,7 +123,7 @@ pubstrate-web run [options] configfile
         (dynamic-wind
           (const #f) ; no-op
           (lambda ()
-            (apply run-webapp
+            (apply run-webapp config
                    ;; Announce that we're running on start-up
                    #:announce (current-output-port)  ; @@: maybe STDERR instead?
                    kwargs))
