@@ -22,6 +22,7 @@
   #:use-module (pubstrate webapp store-gdbm)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 format)
   #:use-module ((system repl server)
                 #:renamer (symbol-prefix-proc 'repl:))
   #:export (run-cli))
@@ -108,11 +109,15 @@ pubstrate-web run [options] configfile
           ;; If it's a string and a number, serve the repl on this
           ;; port number on localhost
           ((and (? string? _) (? string->number _) (= string->number repl-port-number))
+           (format #t "Starting REPL on port ~a\n" repl-port-number)
            (repl:spawn-server (repl:make-tcp-server-socket #:port repl-port-number)))
           ((and (? string? socket-path))
+           (format #t "Starting REPL at socket ~a\n" socket-path)
            (spawn-repl-socket-file socket-path))
           ;; Anything else, start with the default port
-          (_ (spawn-repl-socket-file "/tmp/guile-socket")))
+          (_
+           (display "Starting REPL at socket /tmp/guile-socket\n")
+           (spawn-repl-socket-file "/tmp/guile-socket")))
         ;; Now run the server! :)
         (dynamic-wind
           (const #f) ; no-op
