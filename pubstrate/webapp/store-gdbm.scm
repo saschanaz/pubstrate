@@ -111,7 +111,7 @@
     #:bearer-entries
     (gdbm-open (db-file "bearer-entries.db") GDBM_WRCREAT)))
 
-(define (gdbm-store-close store)
+(define-method (store-close (store <gdbm-store>))
   (gdbm-close (slot-ref store 'asobjs))
   (gdbm-close (slot-ref store 'containers))
   (gdbm-close (slot-ref store 'bearer-entries)))

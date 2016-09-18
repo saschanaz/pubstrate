@@ -65,24 +65,35 @@
   "For debugging/hacking purposes, set %ctx to %debug-ctx"
   (%ctx %debug-ctx))
 
+(define (app-ctx-from-config config)
+  (define store
+    (match (config-ref config 'store)
+      ((store-proc . store-args)
+       (apply store-proc store-args))))
+  `((store . ,store)
+    (base-uri . ,(config-ref config 'base-uri))
+    ;; TODO: signing-key-path
+    (session-manager . ,(make-session-manager (gen-signing-key))))  )
+
 (define (set-app-ctx-from-config! config)
   "Set the %ctx parameter based on the application context built from CONFIG
 
 Only for debugging / REPL hacking!  Use with-app-ctx-from-config for real code."
   'TODO)
 
+(define (app-ctx-clean-up!)
+  (store-close (ctx-ref 'store)))
+
 (define (with-app-ctx-from-config config thunk)
   "Evaluate THUNK in application context built from CONFIG"
-  (define store
-    (match (config-ref config 'store)
-      ((store-proc . store-args)
-       (apply store-proc store-args))))
-  (define ctx-alist
-    `((store . ,store)
-      (base-uri . ,(config-ref config 'base-uri))
-      ;; TODO: signing-key-path
-      (session-manager . ,(make-session-manager (gen-signing-key)))))
-  (with-extended-ctx ctx-alist thunk))
+  (with-extended-ctx
+   (app-ctx-from-config config)
+   (lambda ()
+     (dynamic-wind
+       (const #t)  ; no-op in-guard
+       thunk
+       (lambda ()  ; clean up
+         (app-ctx-clean-up!))))))
 
 (define* (run-webapp config
                      #:key (host #f) (port 8080)

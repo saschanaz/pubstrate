@@ -27,6 +27,7 @@
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp list-pagination)
   #:export (<store>
+            store-close
 
             <docustore>
             docustore-set! docustore-ref docustore-remove!
@@ -48,6 +49,10 @@
             store-bearer-entry-ref store-bearer-token-delete!))
 
 (define-class <store> ())
+
+(define-method (store-close (store <store>))
+  "Shut down and clean up the store."
+  #f)  ; no-op by default
 
 (define-class <docustore> (<store>)
   (asobjs)
