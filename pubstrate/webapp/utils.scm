@@ -23,6 +23,7 @@
 (define-module (pubstrate webapp utils)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
+  #:use-module (pubstrate asobj)
   #:use-module (pubstrate contrib html)
   #:use-module (pubstrate webapp ctx)
   #:use-module ((pubstrate webapp http-status)
@@ -38,7 +39,8 @@
             require-login
             requesting-asobj?
             uri-set
-            urlencode urldecode request-query-form))
+            urlencode urldecode request-query-form
+            asobj-local?))
 
 ;; TODO: add local-uri* and abs-local-uri* which should allow
 ;;   optional GET parameters & fragments
@@ -225,6 +227,23 @@ FORM may be a utf8-encoded bytevector or a string."
        (local-uri "login")
        #:query `(("next" . ,(uri-path (request-uri request)))))
       (thunk)))
+
+(define (asobj-local? asobj)
+  "Return whether ASOBJ has an id relative to the base-uri in %ctx"
+  (let ((base-uri (ctx-ref 'base-uri))
+        (asobj-uri (and=> (asobj-id asobj)
+                          string->uri)))
+    ;; @@: We're not looking at fragment URIs as being a base, but
+    ;;  that doesn't likely make sense anyway for our purposes
+    (and asobj-uri
+         (eq? (uri-scheme base-uri)   ; TODO: make http/https equiv?
+              (uri-scheme asobj-uri))
+         (equal? (uri-host base-uri)
+                 (uri-host asobj-uri))
+         (equal? (uri-port base-uri)
+                 (uri-port asobj-uri))
+         (string-prefix? (or (uri-path base-uri) "")
+                         (uri-path asobj-uri)))))
 
 
 ;;; Location header fix

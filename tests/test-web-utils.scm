@@ -20,6 +20,7 @@
   #:use-module (tests utils)
   #:use-module (srfi srfi-64)
   #:use-module (web uri)
+  #:use-module (pubstrate shorthand)
   #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp utils))
 
@@ -64,6 +65,21 @@
                       #:path "/yeah"
                       #:query '((cookie . "party"))))
   "https://foo.example:8080/yeah?cookie=party")
+
+;; asobj-local? tests
+(with-extended-ctx
+ `((base-uri . ,(string->uri "http://beepboop.example:8080/bop/")))
+ (lambda ()
+   (test-assert (asobj-local? (note #:id "http://beepboop.example:8080/bop/")))
+   (test-assert (asobj-local? (note #:id "http://beepboop.example:8080/bop/bonk")))
+   (test-assert
+       (not (asobj-local? (note #:id "http://wrongplace.example:8080/bop/bonk"))))
+   (test-assert
+       (not (asobj-local? (note #:id "http://beepboop.example:9999/bop/bonk"))))
+   (test-assert
+       (not (asobj-local? (note #:id "http://beepboop.example/bop/bonk"))))
+   (test-assert
+       (not (asobj-local? (note #:id "email://beepboop.example:8080/bop/bonk"))))))
 
 (test-end "test-web-utils")
 (test-exit)
