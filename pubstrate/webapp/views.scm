@@ -65,7 +65,6 @@
            (user-collection-first-page
             (ctx-ref 'store) user "outbox"
             %items-per-page)))
-      (pk 'activities activities)
       (respond-html
        (user-homepage-tmpl user activities
                            #f #f))))
