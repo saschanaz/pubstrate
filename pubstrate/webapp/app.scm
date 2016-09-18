@@ -28,10 +28,14 @@
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp sessions)
   #:use-module (pubstrate webapp user)
+  #:use-module (pubstrate webapp config)
   #:use-module (pubstrate webapp ctx)
   #:use-module ((system repl server)
                 #:renamer (symbol-prefix-proc 'repl:))
-  #:export (run-webapp webapp-cli))
+  #:export (run-webapp
+
+            with-app-ctx-from-config with-app-ctx-from-config-file
+            set-app-ctx-from-config! app-ctx-clean-up!))
 
 (define (ctx-vars-from-request request)
   (define session
@@ -79,7 +83,14 @@
   "Set the %ctx parameter based on the application context built from CONFIG
 
 Only for debugging / REPL hacking!  Use with-app-ctx-from-config for real code."
-  'TODO)
+  (ctx-extend! (app-ctx-from-config config)))
+
+(define (set-app-ctx-from-config-file! config-file)
+  "Set the %ctx parameter based on the application context built from CONFIG
+
+Only for debugging / REPL hacking!  Use with-app-ctx-from-config for real code."
+  (set-app-ctx-from-config! (load-config (load config-file)
+                                         pubstrate-config-spec)))
 
 (define (app-ctx-clean-up!)
   (store-close (ctx-ref 'store)))
@@ -94,6 +105,12 @@ Only for debugging / REPL hacking!  Use with-app-ctx-from-config for real code."
        thunk
        (lambda ()  ; clean up
          (app-ctx-clean-up!))))))
+
+(define (with-app-ctx-from-config-file config-file thunk)
+  "Like `with-app-ctx-from-config' but load config-file's config"
+  (with-app-ctx-from-config (load-config (load config-file)
+                                         pubstrate-config-spec)
+                            thunk))
 
 (define* (run-webapp config
                      #:key (host #f) (port 8080)

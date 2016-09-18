@@ -21,7 +21,11 @@
   #:use-module (ice-9 vlist)
   #:use-module (srfi srfi-1)
   #:export (%ctx ctx-ref
-            with-extended-ctx ctx=> ctx=>*))
+            with-extended-ctx
+
+            ctx-extend! ctx-reset!
+
+            ctx=> ctx=>*))
 
 ;;; Context system (aka ctx)
 ;;; ========================
@@ -105,17 +109,29 @@
 ;;; Immutable and unique
 (define %the-nothing (cons '*the* '*nothing*))
 
+(define (build-extended-ctx alist)
+  (fold (match-lambda*
+          (((key . val) prev)
+           (vhash-consq key val prev)))
+        (%ctx) alist))
+
 ;; @@: Would it be preferable to just name this "with-ctx"?
 (define (with-extended-ctx alist thunk)
   "Run THUNK in extended %ctx with ALIST as its extended context."
-  (define extended-ctx
-    (fold (match-lambda*
-            (((key . val) prev)
-             (vhash-consq key val prev)))
-          (%ctx) alist))
-
-  (parameterize ((%ctx extended-ctx))
+  (parameterize ((%ctx (build-extended-ctx alist)))
     (thunk)))
+
+(define (ctx-extend! alist)
+  "Sets the %ctx parameter to th extended ctx built from ALIST
+
+Note, this is for REPL hacking purposes only!"
+  (%ctx (build-extended-ctx alist)))
+
+(define (ctx-reset!)
+  "Wipes the %ctx clean.
+
+For REPL hacking only!"
+  (%ctx vlist-null))
 
 (define* (ctx=> key proc #:optional proc-if-not)
   "Call PROC with value of KEY in %ctx, but only if KEY is defined.
