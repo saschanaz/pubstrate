@@ -106,10 +106,8 @@
                        body)
                    (%default-env)))
     (define id (asobj-id asobj))
-    (pk 'pre-here)
     (case (asobj-acceptability asobj)
       ((accept)
-       (pk 'here)
        ;; Add this object to the store if it's not there already
        (if (not (store-asobj-ref store id))
            (store-asobj-set! store asobj))
@@ -123,7 +121,7 @@
   ;; TODO: This should require authenticating 
   (define (read-from-inbox)
     'TODO)
-  (match (pk 'method (request-method request))
+  (match (request-method request)
     ('GET
      (if (user-can-read?)
          (read-from-inbox)
@@ -164,7 +162,7 @@
                                   (%default-env)))))
       (store-asobj-set! store asobj)
       (user-add-to-outbox! store outbox-user (asobj-id asobj))
-      ;; (federate-asobj asobj)
+      (federate-asobj asobj)
       (respond (asobj->string asobj)
                #:status status:created
                #:content-type 'application/activity+json)))
