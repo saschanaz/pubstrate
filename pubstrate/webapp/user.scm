@@ -38,6 +38,10 @@
             user-add-to-inbox! user-add-to-outbox!
             user-add-to-followers! user-add-to-following!
 
+            store-user-collection-member?
+            user-inbox-member? user-outbox-member?
+            user-followers-member? user-following-member?
+
             user-collection-page user-collection-first-page
 
             user-password-matches?
@@ -162,6 +166,21 @@ to the database (in this case, the collections!)"
   (store-user-add-to-collection! store user id-to-store "followers"))
 (define (user-add-to-following! store user id-to-store)
   (store-user-add-to-collection! store user id-to-store "following"))
+
+(define (store-user-collection-member? store user id
+                                       collection-name)
+  (store-container-member?
+   store (store-user-container-key store user collection-name)
+   id))
+
+(define (user-inbox-member? store user id)
+  (store-user-collection-member? store user id "inbox"))
+(define (user-outbox-member? store user id)
+  (store-user-collection-member? store user id "outbox"))
+(define (user-followers-member? store user id)
+  (store-user-collection-member? store user id "followers"))
+(define (user-following-member? store user id)
+  (store-user-collection-member? store user id "following"))
 
 (define (user-collection-page store user collection-name
                               member how-many)
