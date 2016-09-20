@@ -137,8 +137,9 @@ in the store!"
 
 (define (asobj-list-inboxes asobj-lst)
   "Extract a list of inboxes from a list of activitystreams actors."
-  )
-
+  (filter-map (lambda (asobj)
+                (asobj-ref asobj "inbox"))
+              asobj-lst))
 
 (define (federate-asobj asobj)
   "Send activitystreams object to recipients."
