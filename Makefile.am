@@ -68,6 +68,7 @@ SOURCES =  \
 	pubstrate/webapp/config.scm			\
 	pubstrate/webapp/cookie.scm			\
 	pubstrate/webapp/ctx.scm			\
+	pubstrate/webapp/federation.scm			\
 	pubstrate/webapp/user.scm			\
 	pubstrate/webapp/app.scm			\
 	pubstrate/webapp/auth.scm			\

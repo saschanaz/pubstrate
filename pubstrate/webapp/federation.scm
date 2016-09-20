@@ -21,12 +21,15 @@
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
+  #:use-module (logging logger)
   #:use-module (web uri)
+  #:use-module (web client)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate json-utils)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
   #:use-module (ice-9 receive)
   #:use-module (rnrs bytevectors)
@@ -138,30 +141,49 @@ in the store!"
 
   (collect-em-all '()))
 
-(define (asobj-list-inboxes asobj-lst)
-  "Extract a list of inboxes from a list of activitystreams actors."
-  (filter-map (lambda (asobj)
-                (asobj-ref asobj "inbox"))
-              asobj-lst))
+
+(define (actor-post-asobj-to-inbox! actor asobj)
+  "Add ASOBJ to actor's inbox, posibly saving in the process.
+
+Returns #t if the object is added to the inbox, #f otherwise."
+  (define store (ctx-ref 'store))
+  (define id (asobj-id asobj))
+  (define (asobj-acceptability asobj)
+    ;; TODO
+    ;; accept not-authorized invalid reject
+    'accept)
+  (case (asobj-acceptability asobj)
+    ((accept)
+     ;; Add this object to the store if it's not there already
+     (if (not (store-asobj-ref store id))
+         (store-asobj-set! store asobj))
+     ;; Add to the actor's inbox
+     (if (not (user-inbox-member? store actor id))
+         (user-add-to-inbox! store actor id)))
+    (else
+     'TODO)))
 
 ;; TODO: Provide auth of any sort?
-(define (post-asobj-to-inbox asobj inbox-uri)
+(define (post-asobj-to-actor asobj actor)
   "Post ASOBJ to inbox-uri"
   (define (post-remotely)
     (define headers
       '((content-type application/activity+json (charset . "utf-8"))))
     ;; TODO: retry if this fails
-    (http-post inbox-uri
-               #:body (asobj->string asobj)
-               #:headers headers))
+    (define inbox-uri (asobj-ref asobj "inbox"))
+    (if inbox-uri
+        (http-post inbox-uri
+                   #:body (asobj->string asobj)
+                   #:headers headers)))
   (define (post-locally)
-    'TODO)
+    (actor-post-asobj-to-inbox! actor asobj))
   ;; TODO: Treat posting locally differently
-  (post-remotely))
+  (if (asobj-local? asobj)
+      (post-locally)
+      (post-remotely)))
 
 (define* (federate-asobj asobj #:key (store-new #t))
   "Send activitystreams object to recipients."
-  (let* ((recipients (collect-recipients asobj #:store-new store-new))
-         (inboxes (asobj-list-inboxes recipients)))
-    (for-each (cut post-asobj-to-inbox asobj <>)
-              inboxes)))
+  (let ((recipients (collect-recipients asobj #:store-new store-new)))
+    (for-each (cut post-asobj-to-actor asobj <>)
+              recipients)))

@@ -30,6 +30,7 @@
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp cookie)
   #:use-module (pubstrate webapp ctx)
+  #:use-module (pubstrate webapp federation)
   #:use-module (pubstrate webapp form-widgets)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp sessions)
@@ -89,14 +90,18 @@
 (define (user-inbox request body username)
   (define store (ctx-ref 'store))
   ;; Obviously needs to be changed
-  (define (asobj-acceptability asobj)
-    ;; TODO
-    ;; accept not-authorized invalid reject
-    'accept)
   (define inbox-user
     (store-user-ref (ctx-ref 'store) username))
-  (define user-can-read?
-    'TODO)
+  ;; TODO: This is basically the same as in user-outbox.  DRY!
+  (define (api-user-can-read?)
+    ;; TODO!  Right now we just accept it.
+    ;;  - Extract the bearer token
+    ;;  - See if the bearer token matches anything in the db
+    (match (assoc-ref (request-headers request) 'authorization)
+      (('bearer . (? string? token))
+       (store-bearer-token-valid?
+        store token outbox-user))
+      (_ #f)))
   (define (post-to-inbox)
     ;; TODO: Add filtering hooks here
     ;; TODO: Validate content here
@@ -105,25 +110,13 @@
                        (utf8->string body)
                        body)
                    (%default-env)))
-    (define id (asobj-id asobj))
-    (case (asobj-acceptability asobj)
-      ((accept)
-       ;; Add this object to the store if it's not there already
-       (if (not (store-asobj-ref store id))
-           (store-asobj-set! store asobj))
-       ;; Add to the user's inbox
-       (if (not (user-inbox-member? store inbox-user id))
-           (begin (user-add-to-inbox! store inbox-user id)
-                  (respond "" #:status status:created))
-           (respond "")))
-      (else
-       'TODO)))
-  ;; TODO: This should require authenticating 
+    (user-post-asobj-to-inbox! inbox-user asobj)
+    (respond ""))
   (define (read-from-inbox)
     'TODO)
   (match (request-method request)
     ('GET
-     (if (user-can-read?)
+     (if (api-user-can-read?)
          (read-from-inbox)
          (respond "Sorry, you don't have permission to read that."
                   #:status status:unauthorized
@@ -137,9 +130,6 @@
 
 (define (user-outbox request body username)
   (define store (ctx-ref 'store))
-  (define oauth-user
-    ;; TODO: Get this from OAUTH!
-    'TODO)
   (define outbox-user
     (store-user-ref (ctx-ref 'store) username))
   (define (post-to-outbox)
@@ -220,7 +210,7 @@
                        ordered-collection-page)))
       (respond (asobj->string return-asobj)
                #:content-type 'application/activity+json)))
-  (define (user-can-post?)
+  (define (api-user-can-post?)
     ;; TODO!  Right now we just accept it.
     ;;  - Extract the bearer token
     ;;  - See if the bearer token matches anything in the db
@@ -233,7 +223,7 @@
     ('GET
      (read-from-outbox))
     ('POST
-     (if (user-can-post?)
+     (if (api-user-can-post?)
          (post-to-outbox)
          (respond "Sorry, you don't have permission to post that."
                   #:status status:unauthorized
