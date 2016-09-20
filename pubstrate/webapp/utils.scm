@@ -40,7 +40,7 @@
             requesting-asobj?
             uri-set
             urlencode urldecode request-query-form
-            asobj-local?))
+            asobj-local? uri-local?))
 
 ;; TODO: add local-uri* and abs-local-uri* which should allow
 ;;   optional GET parameters & fragments
@@ -230,20 +230,29 @@ FORM may be a utf8-encoded bytevector or a string."
 
 (define (asobj-local? asobj)
   "Return whether ASOBJ has an id relative to the base-uri in %ctx"
-  (let ((base-uri (ctx-ref 'base-uri))
-        (asobj-uri (and=> (asobj-id asobj)
-                          string->uri)))
+  (let ((asobj-uri (asobj-id asobj)))
+    (uri-local? asobj-uri)))
+
+(define (uri-local? uri)
+  "Return whether URI is relative to the base-uri in %ctx"
+  (let ((uri (match uri
+               (#f #f)
+               ((? string? _)
+                (string->uri uri))
+               ((? uri? _)
+                uri)))
+        (base-uri (ctx-ref 'base-uri)))
     ;; @@: We're not looking at fragment URIs as being a base, but
     ;;  that doesn't likely make sense anyway for our purposes
-    (and asobj-uri
+    (and uri
          (eq? (uri-scheme base-uri)   ; TODO: make http/https equiv?
-              (uri-scheme asobj-uri))
+              (uri-scheme uri))
          (equal? (uri-host base-uri)
-                 (uri-host asobj-uri))
+                 (uri-host uri))
          (equal? (uri-port base-uri)
-                 (uri-port asobj-uri))
+                 (uri-port uri))
          (string-prefix? (or (uri-path base-uri) "")
-                         (uri-path asobj-uri)))))
+                         (uri-path uri)))))
 
 
 ;;; Location header fix
