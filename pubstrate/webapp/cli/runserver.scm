@@ -90,7 +90,8 @@ pubstrate-web run [options] configfile
              (kwargs
               ((compose
                 (maybe-kwarg #:host (get-option 'host))
-                (maybe-kwarg #:port (get-option 'port)))
+                (maybe-kwarg #:port (and=> (get-option 'port)
+                                           string->number)))
                '()))
              ;; @@: Maybe (ice-9 q) is better...
              (cleanup-steps '()))

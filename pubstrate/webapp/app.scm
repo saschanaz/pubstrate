@@ -124,7 +124,7 @@ Only for debugging / REPL hacking!  Use with-app-ctx-from-config for real code."
   (let ((server-args
          ((compose
            (maybe-kwarg #:host host)
-           (maybe-kwarg #:port (and=> port string->number)))
+           (maybe-kwarg #:port port))
           '())))
     (with-app-ctx-from-config
      config
