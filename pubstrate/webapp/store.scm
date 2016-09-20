@@ -205,9 +205,8 @@ page (or #f)"
 
 (define-method (store-container-member? (store <docustore>)
                                           container-key item)
-  (if (member (get-container-or-error
-               store container-key)
-              item)
+  (if (member item (get-container-or-error
+                    store container-key))
       #t #f))
 
 
