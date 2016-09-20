@@ -18,6 +18,7 @@
 
 (define-module (pubstrate webapp federation)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
   #:use-module (web uri)
@@ -26,6 +27,7 @@
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp utils)
   #:use-module (ice-9 receive)
   #:use-module (rnrs bytevectors)
   #:use-module (pubstrate vocab)
@@ -49,6 +51,7 @@
           body))
      (%default-env))))
 
+;; @@: Maybe store-new should 
 ;; TODO: This needs *way* more async support
 (define* (get-asobj id #:key (store-new #t))
   "Retrieve an asobj, either from the current store or by fetching
@@ -141,7 +144,24 @@ in the store!"
                 (asobj-ref asobj "inbox"))
               asobj-lst))
 
-(define (federate-asobj asobj)
-  "Send activitystreams object to recipients."
-  'TODO)
+;; TODO: Provide auth of any sort?
+(define (post-asobj-to-inbox asobj inbox-uri)
+  "Post ASOBJ to inbox-uri"
+  (define (post-remotely)
+    (define headers
+      '((content-type application/activity+json (charset . "utf-8"))))
+    ;; TODO: retry if this fails
+    (http-post inbox-uri
+               #:body (asobj->string asobj)
+               #:headers headers))
+  (define (post-locally)
+    'TODO)
+  ;; TODO: Treat posting locally differently
+  (post-remotely))
 
+(define* (federate-asobj asobj #:key (store-new #t))
+  "Send activitystreams object to recipients."
+  (let* ((recipients (collect-recipients asobj #:store-new store-new))
+         (inboxes (asobj-list-inboxes recipients)))
+    (for-each (cut post-asobj-to-inbox asobj <>)
+              inboxes)))
