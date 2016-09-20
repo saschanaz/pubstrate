@@ -35,7 +35,7 @@
   #:use-module (rnrs bytevectors)
   #:use-module (pubstrate vocab)
   #:export (collect-recipients
-            federate-asobj))
+            deliver-asobj))
 
 
 ;;; Federation delivery tooling
@@ -182,7 +182,7 @@ Returns #t if the object is added to the inbox, #f otherwise."
       (post-locally)
       (post-remotely)))
 
-(define* (federate-asobj asobj #:key (store-new #t))
+(define* (deliver-asobj asobj #:key (store-new #t))
   "Send activitystreams object to recipients."
   (let ((recipients (collect-recipients asobj #:store-new store-new)))
     (for-each (cut post-asobj-to-actor asobj <>)

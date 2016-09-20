@@ -152,7 +152,7 @@
                                   (%default-env)))))
       (store-asobj-set! store asobj)
       (user-add-to-outbox! store outbox-user (asobj-id asobj))
-      (federate-asobj asobj)
+      (deliver-asobj asobj)
       (respond (asobj->string asobj)
                #:status status:created
                #:content-type 'application/activity+json)))
