@@ -18,6 +18,7 @@
 
 (define-module (pubstrate webapp views)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 control)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
@@ -86,7 +87,52 @@
    (else (render-user-page))))
 
 (define (user-inbox request body username)
-  'TODO)
+  (define store (ctx-ref 'store))
+  ;; Obviously needs to be changed
+  (define (asobj-acceptability asobj)
+    ;; TODO
+    ;; accept not-authorized invalid reject
+    'accept)
+  (define inbox-user
+    (store-user-ref (ctx-ref 'store) username))
+  (define user-can-read?
+    'TODO)
+  (define (post-to-inbox)
+    ;; TODO: Add filtering hooks here
+    ;; TODO: Validate content here
+    (define asobj (string->asobj
+                   (if (bytevector? body)
+                       (utf8->string body)
+                       body)
+                   (%default-env)))
+    (define id (asobj-id asobj))
+    (pk 'pre-here)
+    (case (asobj-acceptability asobj)
+      ((accept)
+       (pk 'here)
+       ;; Add this object to the store if it's not there already
+       (if (not (store-asobj-ref store id))
+           (store-asobj-set! store asobj))
+       ;; Add to the user's inbox
+       (if (not (user-inbox-member? store inbox-user id))
+           (begin (user-add-to-inbox! store inbox-user id)
+                  (respond "" #:status status:created))
+           (respond "")))
+      (else
+       'TODO)))
+  ;; TODO: This should require authenticating 
+  (define (read-from-inbox)
+    'TODO)
+  (match (pk 'method (request-method request))
+    ('GET
+     (if (user-can-read?)
+         (read-from-inbox)
+         (respond "Sorry, you don't have permission to read that."
+                  #:status status:unauthorized
+                  #:content-type 'text/plain)))
+    ('POST
+     (post-to-inbox))
+    (_ (respond #:status status:method-not-allowed))))
 
 ;; Fixed, for now...
 (define %items-per-page 10)
@@ -118,6 +164,7 @@
                                   (%default-env)))))
       (store-asobj-set! store asobj)
       (user-add-to-outbox! store outbox-user (asobj-id asobj))
+      ;; (federate-asobj asobj)
       (respond (asobj->string asobj)
                #:status status:created
                #:content-type 'application/activity+json)))
