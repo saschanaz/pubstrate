@@ -27,6 +27,7 @@
   #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp ctx)
+
   ;; TODO: Move html parsing stuff into utils.html and remove this import
   #:use-module (htmlprag)
   #:export (base-tmpl index-tmpl mockup-tmpl
@@ -232,8 +233,8 @@ Arguments: (asobj)")
         "Unknown activity type!"))
 
 (define-as-method (toplevel-activity-tmpl (asobj ^Object))
-  (use-modules (pubstrate shorthand))
-  (toplevel-activity-tmpl (create #:object asobj)))
+  (toplevel-activity-tmpl (make-as ^Create (%default-env)
+                                   #:object asobj)))
 
 
 (define-as-generic asobj-header-tmpl
