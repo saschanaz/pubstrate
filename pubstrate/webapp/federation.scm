@@ -35,7 +35,8 @@
   #:use-module (rnrs bytevectors)
   #:use-module (pubstrate vocab)
   #:export (collect-recipients
-            deliver-asobj))
+            deliver-asobj
+            actor-post-asobj-to-inbox!))
 
 
 ;;; Federation delivery tooling

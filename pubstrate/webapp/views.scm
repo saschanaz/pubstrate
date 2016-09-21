@@ -100,7 +100,7 @@
     (match (assoc-ref (request-headers request) 'authorization)
       (('bearer . (? string? token))
        (store-bearer-token-valid?
-        store token outbox-user))
+        store token inbox-user))
       (_ #f)))
   (define (post-to-inbox)
     ;; TODO: Add filtering hooks here
@@ -110,10 +110,10 @@
                        (utf8->string body)
                        body)
                    (%default-env)))
-    (user-post-asobj-to-inbox! inbox-user asobj)
+    (actor-post-asobj-to-inbox! inbox-user asobj)
     (respond ""))
   (define (read-from-inbox)
-    'TODO)
+    (as2-paginated-user-collection request inbox-user username "inbox"))
   (match (request-method request)
     ('GET
      (if (api-user-can-read?)
@@ -127,6 +127,64 @@
 
 ;; Fixed, for now...
 (define %items-per-page 10)
+
+;; Not an actual view, but used to build inbox/outbox views
+(define (as2-paginated-user-collection request user username collection)
+  (define* (abs-col-url-str #:optional page)
+    (let ((url-str (abs-local-uri "u" username collection)))
+      (if page
+          (uri->string
+           (uri-set (string->uri url-str)
+                    #:query '((page . page))))
+          url-str)))
+
+  ;; TODO: in the future, we'll want to filter this based upon
+  ;;   who's logged in / supplied auth.  For now, everything is public
+  ;;   anyway.
+  (define (maybe-add-next-prev ocp next prev)
+    ((compose (lambda (ocp)
+                (if next
+                    (asobj-cons ocp "next"
+                                (abs-col-url-str next))
+                    ocp))
+              (lambda (ocp)
+                (if next
+                    (asobj-cons ocp "prev"
+                                (abs-col-url-str prev))
+                    ocp)))
+     ocp))
+
+  (let*-values (((form) (request-query-form request))
+                ((page-id) (assoc-ref form "page"))
+                ((is-first) (not page-id))
+                ((col-url) (abs-col-url-str))
+                ((page-items prev next)
+                 (if is-first
+                     (user-collection-first-page (ctx-ref 'store)
+                                                 user collection
+                                                 %items-per-page)
+                     (user-collection-page (ctx-ref 'store)
+                                           user collection
+                                           page-id %items-per-page)))
+                ((ordered-collection-page)
+                 (maybe-add-next-prev
+                  (make-as ^OrderedCollectionPage (%default-env)
+                           #:partOf col-url
+                           #:orderedItems page-items)
+                  prev next))
+                ((return-asobj)
+                 (if is-first
+                     ;; So, we want to return the toplevel of the paging
+                     (make-as ^OrderedCollection (%default-env)
+                              #:name (format #f "~a's ~a"
+                                             (user-name-str user)
+                                             collection)
+                              #:id col-url
+                              #:first ordered-collection-page)
+                     ;; This is some page
+                     ordered-collection-page)))
+    (respond (asobj->string return-asobj)
+             #:content-type 'application/activity+json)))
 
 (define (user-outbox request body username)
   (define store (ctx-ref 'store))
@@ -167,49 +225,7 @@
     ;; TODO: in the future, we'll want to filter this based upon
     ;;   who's logged in / supplied auth.  For now, everything is public
     ;;   anyway.
-    (define (maybe-add-next-prev ocp next prev)
-      ((compose (lambda (ocp)
-                  (if next
-                      (asobj-cons ocp "next"
-                                  (abs-outbox-url-str next))
-                      ocp))
-                (lambda (ocp)
-                  (if next
-                      (asobj-cons ocp "prev"
-                                  (abs-outbox-url-str prev))
-                      ocp)))
-       ocp))
-
-    (let*-values (((form) (request-query-form request))
-                  ((page-id) (assoc-ref form "page"))
-                  ((is-first) (not page-id))
-                  ((outbox-url) (abs-outbox-url-str))
-                  ((page-items prev next)
-                   (if is-first
-                       (user-collection-first-page (ctx-ref 'store)
-                                                   outbox-user "outbox"
-                                                   %items-per-page)
-                       (user-collection-page (ctx-ref 'store)
-                                             outbox-user "outbox"
-                                             page-id %items-per-page)))
-                  ((ordered-collection-page)
-                   (maybe-add-next-prev
-                    (make-as ^OrderedCollectionPage (%default-env)
-                             #:partOf outbox-url
-                             #:orderedItems page-items)
-                    prev next))
-                  ((return-asobj)
-                   (if is-first
-                       ;; So, we want to return the toplevel of the paging
-                       (make-as ^OrderedCollection (%default-env)
-                                #:name (format #f "~a's Outbox"
-                                               (user-name-str outbox-user))
-                                #:id outbox-url
-                                #:first ordered-collection-page)
-                       ;; This is some page
-                       ordered-collection-page)))
-      (respond (asobj->string return-asobj)
-               #:content-type 'application/activity+json)))
+    (as2-paginated-user-collection request outbox-user username "outbox"))
   (define (api-user-can-post?)
     ;; TODO!  Right now we just accept it.
     ;;  - Extract the bearer token
