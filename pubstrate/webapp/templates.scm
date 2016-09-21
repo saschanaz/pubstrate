@@ -227,6 +227,14 @@ Arguments: (asobj)")
              (div (@ (class "reply-plain"))
                   "⌨ Reply"))))
 
+(define-as-method (toplevel-activity-tmpl (asobj ^Activity))
+  `(div (@ (class "feedish-top-post feedish-post"))
+        "Unknown activity type!"))
+
+(define-as-method (toplevel-activity-tmpl (asobj ^Object))
+  (use-modules (pubstrate shorthand))
+  (toplevel-activity-tmpl (create #:object asobj)))
+
 
 (define-as-generic asobj-header-tmpl
   "Display a header in a toplevel asobj")
