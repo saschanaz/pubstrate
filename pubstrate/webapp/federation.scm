@@ -178,7 +178,7 @@ Returns #t if the object is added to the inbox, #f otherwise."
   (define (post-locally)
     (actor-post-asobj-to-inbox! actor asobj))
   ;; TODO: Treat posting locally differently
-  (if (asobj-local? asobj)
+  (if (asobj-local? actor)
       (post-locally)
       (post-remotely)))
 
