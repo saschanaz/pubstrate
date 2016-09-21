@@ -171,7 +171,7 @@ Returns #t if the object is added to the inbox, #f otherwise."
     (define headers
       '((content-type application/activity+json (charset . "utf-8"))))
     ;; TODO: retry if this fails
-    (define inbox-uri (asobj-ref asobj "inbox"))
+    (define inbox-uri (asobj-ref actor "inbox"))
     (if inbox-uri
         (http-post inbox-uri
                    #:body (asobj->string asobj)
