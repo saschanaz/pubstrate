@@ -43,6 +43,7 @@
              (gnu packages guile)
              (gnu packages pkg-config)
              (gnu packages texinfo)
+             (gnu packages gnupg)
              (guix licenses))
 
 (define %source-dir (dirname (current-filename)))
@@ -81,7 +82,8 @@
        ("automake" ,automake)
        ("texinfo" ,texinfo)))
     (inputs
-     `(("guile" ,guile-2.0)))
+     `(("guile" ,guile-2.0)
+       ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
      `(("guile-gdbm-ffi" ,guile-gdbm-ffi)
        ("guile-lib" ,guile-lib)))
