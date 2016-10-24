@@ -38,7 +38,7 @@
   '((help (single-char #\h) (value #f))
     (host (single-char #\h) (value #t))
     (port (single-char #\p) (value #t))
-    (config (single-char #\c) (value #t) (required? #t))
+    (config (single-char #\c) (value #t))
     (repl-server (single-char #\r) (value optional))))
 
 (define* (get-store-from-db-path db-path #:key (warn-if-memory-store #t))
@@ -72,15 +72,19 @@ pubstrate-web run [options] configfile
           (append (list kwarg val)
                   current-kwargs)
           current-kwargs)))
-  (let ((options (getopt-long args run-option-spec
-                              #:stop-at-first-non-option #t)))
+  (let* ((options (getopt-long args run-option-spec
+                               #:stop-at-first-non-option #t))
+         (config-filename
+          (match (assoc-ref options '())
+            ((config-filename _ ...)
+             config-filename)
+            (_ #f))))
     (cond
-     ((option-ref options 'help #f)
+     ((or (option-ref options 'help #f)
+          (not config-filename))
       (display %webapp-help-text) (newline))
      (else
-      (let* ((config-filename
-              (option-ref options 'config #f))
-             (config (load-config (load-from-path config-filename)
+      (let* ((config (load-config (load-from-path config-filename)
                                   pubstrate-config-spec))
              (get-option
               (lambda (option)
