@@ -86,6 +86,7 @@
        ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
      `(("guile-gdbm-ffi" ,guile-gdbm-ffi)
+       ("guile-irregex" ,guile-irregex)
        ("guile-lib" ,guile-lib)))
     (home-page #f)
     (description "ActivityStreams and ActivityPub implementation in Guile.")
