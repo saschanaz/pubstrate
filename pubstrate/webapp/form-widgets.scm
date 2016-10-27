@@ -38,7 +38,8 @@
             simple-input
 
             field-render-html field-parse
-            <text-field> <checkbox> <textarea>
+            <text-field> <password-field>
+            <checkbox> <textarea>
 
             <form> make-form
             form-fields form-data form-validators form-errors
@@ -195,6 +196,12 @@ Otherwise use the name field."
   (simple-input "text" field))
 (define-method (field-parse (field <text-field>) raw-data)
   raw-data)
+
+
+(define-class <password-field> (<text-field>))
+(define-method (field-render-html (field <password-field>))
+  (simple-input "password" field))
+
 
 (define-class <checkbox> (<field>))
 (define-method (field-render-html (field <checkbox>))
