@@ -24,6 +24,7 @@
   #:use-module (pubstrate generics)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp template-utils)
+  #:use-module (pubstrate webapp form-widgets)
   #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp ctx)
@@ -155,7 +156,7 @@
             activities))))
 
 
-(define* (login-tmpl #:key next try-again)
+(define* (login-tmpl login-form #:key next try-again)
   (base-tmpl
    `(div (@ (class "generic-content-box"))
          (h1 "Log in:")
@@ -170,12 +171,7 @@
                                        (type "hidden")
                                        (value ,next))))
                (table
-                (tr (th "Username")
-                    (td (input (@ (type "text")
-                                  (name "username")))))
-                (tr (th "Password")
-                    (td (input (@ (type "password")
-                                  (name "password")))))
+                ,(form-render-table login-form)
                 (tr (td)  ; empty cell
                     (td (button (@ (type "submit"))
                                 "Submit"))))))

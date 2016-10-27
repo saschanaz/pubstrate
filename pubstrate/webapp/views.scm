@@ -17,6 +17,7 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp views)
+  #:use-module (oop goops) ; for form-widgets
   #:use-module (ice-9 match)
   #:use-module (ice-9 control)
   #:use-module (srfi srfi-9)
@@ -246,6 +247,15 @@
                   #:content-type 'text/plain)))
     (_ (respond #:status status:method-not-allowed))))
 
+(define login-form
+  (make-form
+   (make <text-field>
+     #:name "username"
+     #:label "Username")
+   (make <password-field>
+     #:name "password"
+     #:label "Password")))
+
 (define (login request body)
   (define store (ctx-ref 'store))
   (define session-manager
@@ -254,7 +264,8 @@
     ('GET
      (let* ((form (request-query-form request))
             (next (assoc-ref form "next")))
-       (respond-html (login-tmpl #:next next))))
+       (respond-html (login-tmpl login-form
+                                 #:next next))))
     ('POST
      (let* ((form (urldecode body))
             (username (assoc-ref form "username"))
@@ -272,7 +283,8 @@
                               ;;   not clobber it...
                               (set-session session-manager
                                            `((user . ,username)))))
-           (respond-html (login-tmpl #:try-again #t
+           (respond-html (login-tmpl login-form
+                                     #:try-again #t
                                      #:next next)))))))
 
 (define (logout request body)
