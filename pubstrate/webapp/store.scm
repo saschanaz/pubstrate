@@ -252,8 +252,8 @@ The bearer token key is returned, but the full bearer entry is not."
 
 ;;; This one should work, docustore or not, because it relies on the heavy
 ;;; lifting of the other methods
-(define-method (store-bearer-token-valid? (store <docustore>)
-                                            token-key user)
+(define-method (store-bearer-token-valid? (store <store>)
+                                          token-key user)
   "See if the bearer token with TOKEN-KEY is valid in the context of USER"
   (let ((bearer-entry (store-bearer-entry-ref store token-key)))
     (and (is-a? bearer-entry <bearer-entry>)
