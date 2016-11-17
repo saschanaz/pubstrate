@@ -47,6 +47,10 @@
      "[" `(a (@ (href ,link-url))
              ,link-name)
      "]"))
+  (define username
+    (and=> (ctx-ref 'user)
+           (lambda (u)
+             (asobj-ref u "preferredUsername"))))
   `((doctype html)
     (head
      (meta (@ (charset "utf-8")))
@@ -65,8 +69,14 @@
                               "*pubstrate*")))
                   (span (@ (id "site-header-right-stuff"))
                         ,@(if (ctx-ref 'user)
-                              (list "Hello, " (asobj-ref (ctx-ref 'user) "name") "!"
+                              (list "Hello, "
+                                    `(a (@ (href ,(local-uri "u" username)))
+                                        ,(asobj-ref (ctx-ref 'user) "name"))
+                                    "!"
+                                    " :: "
                                     ;; TODO: Add [inbox] [mentions] [direct] [meanwhile]
+                                    (header-link "inbox"
+                                                 (local-uri "u" username "inbox"))
                                     " :: "
                                     (header-link "Log out" (local-uri "logout")))
                               (list (header-link "Log in" (local-uri "login"))))))
