@@ -30,7 +30,7 @@
 ;; Thanks to David Thompson for this tip!
 (define %datadir
   (or (getenv "PUBSTRATE_DATADIR")
-      "@pubstrate_datadir@/pubstrate"))
+      "@PUBSTRATE_DATADIR@/@PACKAGE_NAME@"))
 
 (define (scope-datadir filename)
   (string-append %datadir filename))
