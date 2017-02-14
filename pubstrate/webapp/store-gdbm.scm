@@ -47,7 +47,7 @@
   (containers #:init-keyword #:containers)
   (bearer-entries #:init-keyword #:bearer-entries)
   (serializers
-   #:allocation #:class
+   #:allocation #:each-subclass
    #:init-value
    (lambda (sym)
      (case sym
@@ -58,7 +58,7 @@
           (write-to-string
            (bearer-entry->alist bearer-entry)))))))
   (deserializers
-   #:allocation #:class
+   #:allocation #:each-subclass
    #:init-value
    (lambda (sym)
      (case sym

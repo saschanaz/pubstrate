@@ -58,8 +58,8 @@
   (asobjs)
   (containers)
   (bearer-entries)
-  (serializers #:allocation #:class)
-  (deserializers #:allocation #:class))
+  (serializers #:allocation #:each-subclass)
+  (deserializers #:allocation #:each-subclass))
 
 ;;; Simple in-memory store
 (define-class <memory-store> (<docustore>)
@@ -67,14 +67,14 @@
   (containers #:init-thunk make-hash-table)
   (bearer-entries #:init-thunk make-hash-table)
   (serializers
-   #:allocation #:class
+   #:allocation #:each-subclass
    #:init-value
    (lambda (sym)
      (case sym
        ((asobjs containers bearer-entries)
         identity))))
   (deserializers
-   #:allocation #:class
+   #:allocation #:each-subclass
    #:init-value
    (lambda (sym)
      (case sym
