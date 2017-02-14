@@ -1,6 +1,6 @@
 AC_INIT([pubstrate], [0.1.dev], [cwebber@dustycloud.org])
 
-PKG_CHECK_MODULES([GUILE], [guile-2.0])
+PKG_CHECK_MODULES([GUILE], [guile-2.2])
 
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 

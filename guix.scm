@@ -35,6 +35,8 @@
              (ice-9 rdelim)
              (guix packages)
              (guix build-system gnu)
+             (guix download)
+             (guix git-download)
              (guix gexp)
              ((guix build utils) #:select (with-directory-excursion))
              (gnu packages)
@@ -48,28 +50,57 @@
 
 (define %source-dir (dirname (current-filename)))
 
-(define git-file?
-  (let* ((pipe (with-directory-excursion %source-dir
-                 (open-pipe* OPEN_READ "git" "ls-files")))
-         (files (let loop ((lines '()))
-                  (match (read-line pipe)
-                    ((? eof-object?)
-                     (reverse lines))
-                    (line
-                     (loop (cons line lines))))))
-         (status (close-pipe pipe)))
-    (lambda (file stat)
-      (match (stat:type stat)
-        ('directory #t)
-        ((or 'regular 'symlink)
-         (any (cut string-suffix? <> file) files))
-        (_ #f)))))
+(define guile-without-select-bug
+  (package
+   (inherit guile-next)
+   (version (package-version guile-next))
+   (source (origin
+              (method url-fetch)
+              (uri (string-append "ftp://alpha.gnu.org/gnu/guile/guile-"
+                                  version ".tar.xz"))
+              (sha256
+               (base32
+                "0r9y4hw17dlxahik4zsccfb2f3p2a07wqndfm251bgmam9hln6gi"))
+              (modules '((guix build utils)))
+
+              ;; Remove the pre-built object files.  Instead, build everything
+              ;; from source, at the expense of significantly longer build
+              ;; times (almost 3 hours on a 4-core Intel i5).
+              (snippet '(for-each delete-file
+                                  (find-files "prebuilt" "\\.go$")))
+
+              ;; Here's what we're adding
+              (patches (list (string-append %source-dir
+                                            "/build-aux/patch-guile-fix-live-repl.patch")))))))
+
+(define guile2.2-lib
+  ((@@ (gnu packages guile) package-for-guile-2.2)
+   (package
+     (inherit guile-lib)
+     ;; @@: VERY hackily stubbing out the test suite....
+     ;;   by not inheriting the arguments we potentially cause ourselves
+     ;;   some trouble :)
+     ;;   But, hopefully we have a fixed up guile2.2-lib soon.
+     (arguments
+     '(#:tests? #f
+       #:phases (modify-phases %standard-phases
+                  (add-before 'configure 'patch-module-dir
+                    (lambda _
+                      (substitute* "src/Makefile.in"
+                        (("^moddir = ([[:graph:]]+)")
+                         "moddir = $(datadir)/guile/site/@GUILE_EFFECTIVE_VERSION@\n")
+                        (("^godir = ([[:graph:]]+)")
+                         "godir = \
+$(libdir)/guile/@GUILE_EFFECTIVE_VERSION@/site-ccache\n"))
+                      #t))))))))
 
 (define pubstrate
   (package
     (name "pubstrate")
     (version "0.1-pre")
-    (source (local-file %source-dir #:recursive? #t #:select? git-file?))
+    (source (local-file %source-dir
+                        #:recursive? #t
+                        #:select? (git-predicate %source-dir)))
     (build-system gnu-build-system)
     (arguments
      '(#:phases
@@ -82,12 +113,13 @@
        ("automake" ,automake)
        ("texinfo" ,texinfo)))
     (inputs
-     `(("guile" ,guile-2.0)
+     `(("guile" ,guile-without-select-bug)
+       ("guile-8sync" ,guile-8sync)
        ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
-     `(("guile-gdbm-ffi" ,guile-gdbm-ffi)
-       ("guile-irregex" ,guile-irregex)
-       ("guile-lib" ,guile-lib)))
+     `(("guile-gdbm-ffi" ,guile2.2-gdbm-ffi)
+       ("guile-irregex" ,guile2.2-irregex)
+       ("guile-lib" ,guile2.2-lib)))
     (home-page #f)
     (description "ActivityStreams and ActivityPub implementation in Guile.")
     (synopsis "ActivityStreams and ActivityPub implementation in Guile.
