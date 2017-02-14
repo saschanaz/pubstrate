@@ -20,6 +20,7 @@
   #:use-module (oop goops) ; for form-widgets
   #:use-module (ice-9 match)
   #:use-module (ice-9 control)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
@@ -95,14 +96,19 @@
     (store-user-ref (ctx-ref 'store) username))
   ;; TODO: This is basically the same as in user-outbox.  DRY!
   (define (api-user-can-read?)
-    ;; TODO!  Right now we just accept it.
-    ;;  - Extract the bearer token
-    ;;  - See if the bearer token matches anything in the db
     (match (assoc-ref (request-headers request) 'authorization)
       (('bearer . (? string? token))
        (store-bearer-token-valid?
         store token inbox-user))
       (_ #f)))
+  (define (logged-in-user-can-read?)
+    (and=> (ctx-ref 'user)
+           (lambda (u)
+             (equal? (asobj-id inbox-user)
+                     (asobj-id u)))))
+  (define (user-can-read?)
+    (or (api-user-can-read?)
+        (logged-in-user-can-read?)))
   (define (post-to-inbox)
     ;; TODO: Add filtering hooks here
     ;; TODO: Validate content here
@@ -117,7 +123,7 @@
     (as2-paginated-user-collection request inbox-user username "inbox"))
   (match (request-method request)
     ('GET
-     (if (api-user-can-read?)
+     (if (user-can-read?)
          (read-from-inbox)
          (respond "Sorry, you don't have permission to read that."
                   #:status status:unauthorized
@@ -155,6 +161,12 @@
                     ocp)))
      ocp))
 
+  (define (request-wants-as2?)
+    (find (lambda (x)
+            (member (car x) '(application/activity+json
+                              application/ld+json)))
+          (request-accept request)))
+
   (let*-values (((form) (request-query-form request))
                 ((page-id) (assoc-ref form "page"))
                 ((is-first) (not page-id))
@@ -184,8 +196,11 @@
                               #:first ordered-collection-page)
                      ;; This is some page
                      ordered-collection-page)))
-    (respond (asobj->string return-asobj)
-             #:content-type 'application/activity+json)))
+
+    (if (request-wants-as2?)
+        (respond (asobj->string return-asobj)
+                 #:content-type 'application/activity+json)
+        (respond-html (asobj-page-tmpl return-asobj)))))
 
 (define (user-outbox request body username)
   (define store (ctx-ref 'store))

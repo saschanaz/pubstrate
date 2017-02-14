@@ -19,6 +19,7 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp templates)
+  #:use-module (ice-9 match)
   #:use-module (srfi srfi-2)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate generics)
@@ -166,6 +167,7 @@
             activities))))
 
 
+
 (define* (login-tmpl login-form #:key next try-again)
   (base-tmpl
    `(div (@ (class "generic-content-box"))
@@ -214,7 +216,7 @@
                     ,(toplevel-activity-tmpl asobj)))))))
 
 
-;; @@: Maybe rename to display-activity?
+;; @@: Maybe rename to display-activity or render-activity?
 (define-as-generic toplevel-activity-tmpl
   "Render an activitystreams object in HTML.
 Arguments: (asobj)")
@@ -233,6 +235,30 @@ Arguments: (asobj)")
                   "♻ Share")
              (div (@ (class "reply-plain"))
                   "⌨ Reply"))))
+
+(define-as-method (toplevel-activity-tmpl (asobj ^Collection))
+  (define first
+    (match (asobj-ref asobj "first")
+      ;; if itself an asobj, then that's good enough
+      ((? asobj? asobj) asobj)
+      ;; if it's an id, we need to look it up maybe?
+      ((? string? id)
+       'TODO)))
+  `(div (@ (class "collection"))
+        ,(toplevel-activity-tmpl first)))
+
+(define-as-method (toplevel-activity-tmpl (asobj ^CollectionPage))
+  (define items
+    (or (asobj-ref asobj "orderedItems")
+        (asobj-ref asobj "items")))
+
+  `(div (@ (class "collection-page"))
+        ,(map (lambda (item)
+                (toplevel-activity-tmpl (make-asobj item (asobj-env asobj))))
+              items)
+        ;; TODO: Put navigation here.
+        ))
+
 
 (define-as-method (toplevel-activity-tmpl (asobj ^Activity))
   `(div (@ (class "feedish-top-post feedish-post"))
