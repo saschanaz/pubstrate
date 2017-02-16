@@ -38,6 +38,7 @@
 ;; NOTE: There's also a fashes branch we could explore
 
 (define-module (pubstrate json-ld)
+  ;; TODO: Update for sjson module
   #:use-module (pubstrate json-utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
