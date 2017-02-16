@@ -17,6 +17,7 @@
 ;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301 USA
 
+;;; TODO: Remove everything but jsmap abstraction, since we have sjson.
 
 (define-module (pubstrate json-utils)
   #:use-module (pubstrate contrib json)
