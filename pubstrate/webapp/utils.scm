@@ -127,7 +127,7 @@
 (define* (uri-set orig-uri #:key
                   (scheme #nil) (userinfo #nil)
                   (host #nil) (port #nil)
-                  (path #nil) (query #nil)
+                  (path "") (query #nil)
                   (fragment #nil))
   "Functional setter for URIs"
   (define (maybe-val val orig-getter)
@@ -142,13 +142,13 @@
       ((? string? _) query)
       ((? pair? _) (urlencode query))))
 
-  (make-uri (maybe-val scheme uri-scheme)
-            (maybe-val userinfo uri-userinfo)
-            (maybe-val host uri-host)
-            (maybe-val port uri-port)
-            (maybe-val path uri-path)
-            (maybe-val parsed-query uri-query)
-            (maybe-val fragment uri-fragment)))
+  (build-uri (maybe-val scheme uri-scheme)
+             #:userinfo (maybe-val userinfo uri-userinfo)
+             #:host (maybe-val host uri-host)
+             #:port (maybe-val port uri-port)
+             #:path (maybe-val path uri-path)
+             #:query (maybe-val parsed-query uri-query)
+             #:fragment (maybe-val fragment uri-fragment)))
 
 (define* (respond-redirect to #:key permanent
                            query

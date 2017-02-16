@@ -89,7 +89,7 @@
                     #:outbox (asobj-id outbox)
                     #:following (asobj-id following)
                     #:followers (asobj-id followers))
-           `(@ ("password" . ,password-sjson)))))
+           `(@ ("password" ,password-sjson)))))
     (values user
             (list inbox outbox followers following))))
 

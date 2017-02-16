@@ -51,26 +51,26 @@
     "http://www.w3.org/ns/activitystreams#Join"))
 
 (define root-beer-note-sjson
-  '(@ ("@type" . "Create")
-      ("@id" . "http://tsyesika.co.uk/act/foo-id-here/")
-      ("actor" . (@ ("@type" . "Person")
-                    ("@id" . "http://tsyesika.co.uk")
-                    ("displayName" . "Jessica Tallon")))
-      ("to" . ("acct:cwebber@identi.ca"))
-      ("object" . (@ ("@type" . "Note")
-                     ("@id" . "http://tsyesika.co.uk/chat/sup-yo/")
-                     ("content" . "Up for some root beer floats?")))))
+  '(@ ("@type" "Create")
+      ("@id" "http://tsyesika.co.uk/act/foo-id-here/")
+      ("actor" (@ ("@type" "Person")
+                  ("@id" "http://tsyesika.co.uk")
+                  ("displayName" "Jessica Tallon")))
+      ("to" ("acct:cwebber@identi.ca"))
+      ("object" (@ ("@type" "Note")
+                   ("@id" "http://tsyesika.co.uk/chat/sup-yo/")
+                   ("content" "Up for some root beer floats?")))))
 
 (define root-beer-note-sjson-no-@
-  '(@ ("type" . "Create")
-      ("id" . "http://tsyesika.co.uk/act/foo-id-here/")
-      ("actor" . (@ ("type" . "Person")
-                    ("id" . "http://tsyesika.co.uk")
-                    ("displayName" . "Jessica Tallon")))
-      ("to" . ("acct:cwebber@identi.ca"))
-      ("object" . (@ ("type" . "Note")
-                     ("id" . "http://tsyesika.co.uk/chat/sup-yo/")
-                     ("content" . "Up for some root beer floats?")))))
+  '(@ ("type" "Create")
+      ("id" "http://tsyesika.co.uk/act/foo-id-here/")
+      ("actor" (@ ("type" "Person")
+                  ("id" "http://tsyesika.co.uk")
+                  ("displayName" "Jessica Tallon")))
+      ("to" ("acct:cwebber@identi.ca"))
+      ("object" (@ ("type" "Note")
+                   ("id" "http://tsyesika.co.uk/chat/sup-yo/")
+                   ("content" "Up for some root beer floats?")))))
 
 (define root-beer-note-asobj
   (make-asobj root-beer-note-sjson *basic-env*))
@@ -104,7 +104,7 @@
 
 ;; is the sjson-assoc-recursive helper working?
 (test-equal
-    ((@@ (pubstrate asobj) json-alist-assoc-recursive)
+    ((@@ (pubstrate asobj) json-object-assoc-recursive)
      '("actor" "displayName")
      root-beer-note-sjson)
   '(("actor" "displayName") . "Jessica Tallon"))
@@ -117,7 +117,7 @@
 
 ;; If we can't find such a key, it shouldn't panic
 (test-equal
-    ((@@ (pubstrate asobj) json-alist-assoc-recursive)
+    ((@@ (pubstrate asobj) json-object-assoc-recursive)
      '("actor" "not-a-field")
      root-beer-note-sjson)
   #f)
@@ -152,7 +152,7 @@
 (define privatized-note
   (asobj-set-private
    root-beer-note
-   '(@ ("sekret-kode" . "bananaphone"))))
+   '(@ ("sekret-kode" "bananaphone"))))
 
 (test-equal
     (asobj-private-ref privatized-note "sekret-kode")

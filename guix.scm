@@ -94,6 +94,36 @@
 $(libdir)/guile/@GUILE_EFFECTIVE_VERSION@/site-ccache\n"))
                       #t))))))))
 
+(define guile-sjson
+  (package
+    (name "guile-sjson")
+    (version "0.1-pre")
+    (source (origin
+              (method git-fetch)
+              (uri (git-reference
+                    (url "https://gitlab.com/dustyweb/guile-sjson.git")
+                    (commit "65f61e65cc994b284c37665ff662a9ffdcc64db5")))
+              (sha256
+               (base32
+                "10jhi0hq0r5hmih0lwf9d0yajb467x9fbdmp865nkf4v37m288gv"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'bootstrap
+           (lambda _ (zero? (system* "sh" "bootstrap.sh")))))))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("autoconf" ,autoconf)
+       ("automake" ,automake)))
+    (inputs
+     `(("guile" ,guile-next)))
+    (home-page "https://gitlab.com/dustyweb/guile-sjson")
+    (synopsis "s-expression based json reader/writer for Guile")
+    (description "guile-sjson is a json reader/writer for Guile.
+It has a nice, simple s-expression based syntax.")
+    (license lgpl3+)))
+
 (define pubstrate
   (package
     (name "pubstrate")
@@ -119,10 +149,11 @@ $(libdir)/guile/@GUILE_EFFECTIVE_VERSION@/site-ccache\n"))
     (propagated-inputs
      `(("guile-gdbm-ffi" ,guile2.2-gdbm-ffi)
        ("guile-irregex" ,guile2.2-irregex)
-       ("guile-lib" ,guile2.2-lib)))
+       ("guile-lib" ,guile2.2-lib)
+       ("guile-sjson" ,guile-sjson)))
     (home-page #f)
-    (description "ActivityStreams and ActivityPub implementation in Guile.")
-    (synopsis "ActivityStreams and ActivityPub implementation in Guile.
+    (synopsis "ActivityStreams and ActivityPub implementation in Guile.")
+    (description "ActivityStreams and ActivityPub implementation in Guile.
 Includes a full (currently demo) web server.")
     (license gpl3+)))
 
