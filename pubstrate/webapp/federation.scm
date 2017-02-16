@@ -24,8 +24,8 @@
   #:use-module (logging logger)
   #:use-module (web uri)
   #:use-module (web client)
+  #:use-module (sjson utils)
   #:use-module (pubstrate asobj)
-  #:use-module (pubstrate json-utils)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp store)
@@ -104,7 +104,7 @@ in the store!"
           lst)))
   (define (asobj-key-as-list asobj key)
     (let ((result (asobj-ref asobj key '())))
-      (if (sjson-array? result)
+      (if (json-array? result)
           result
           (list result))))
   (define (field-collector key)

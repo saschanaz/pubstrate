@@ -25,8 +25,8 @@
   #:use-module (web uri)
   #:use-module (oop goops)
   #:use-module (pubstrate asobj)
-  #:use-module (pubstrate json-utils)
   #:use-module (pubstrate vocab)
+  #:use-module (sjson utils)
   #:export (<apclient>
             apclient-id apclient-auth-token
 

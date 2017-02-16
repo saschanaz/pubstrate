@@ -20,7 +20,7 @@
   #:use-module (srfi srfi-9)
   #:use-module (rnrs bytevectors)
   #:use-module (web http)
-  #:use-module (pubstrate json-utils)
+  #:use-module (sjson utils)
   #:use-module (pubstrate contrib gcrypt-hash)
   #:use-module (pubstrate contrib base32)
   #:export (gen-bearer-token
@@ -111,8 +111,8 @@ of a specified length is fine."
 
 (define (sjson->salted-hash sjson)
   "Convert sjson serialization back to <salted-hash>"
-  (make-salted-hash (json-alist-ref sjson "salt")
-                    (json-alist-ref sjson "hash")))
+  (make-salted-hash (json-object-ref sjson "salt")
+                    (json-object-ref sjson "hash")))
 
 
 ;;; Bearer token http header support

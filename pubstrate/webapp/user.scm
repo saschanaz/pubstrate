@@ -22,7 +22,6 @@
   #:use-module (srfi srfi-11)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate vocab)
-  #:use-module (pubstrate json-utils)
   #:use-module (pubstrate generics)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp ctx)
