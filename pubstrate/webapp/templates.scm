@@ -91,7 +91,16 @@
 ;;; ================
 
 (define (index-tmpl)
-  (base-tmpl "Beep boop, hello there!"))
+  (base-tmpl
+   (generic-content-tmpl
+    `(div (h1 "Welcome to Pubstrate!")
+          (p (a (@ (href "https://gitlab.com/dustyweb/pubstrate"))
+                "Pubstrate")
+             " is a decentralized social networking application "
+             "built on top of the "
+             (a (@ (href "https://www.w3.org/TR/activitypub/"))
+                "ActivityPub")
+             " federation protocol.")))))
 
 (define (mockup-tmpl)
   (base-tmpl
