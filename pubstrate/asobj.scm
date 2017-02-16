@@ -467,7 +467,7 @@ and convert to sjson"
         (map
          (match-lambda
            ((key val)
-            (cons key (convert-item val))))
+            (list key (convert-item val))))
          rest)))
       ;; Convert lists
       ((lst ...)

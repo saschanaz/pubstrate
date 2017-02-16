@@ -75,8 +75,8 @@
   (define user (store-user-ref (ctx-ref 'store) username))
   (define (user-with-extra-endpoints)
     (asobj-cons user "endpoints"
-                `(@ ("getAuthToken" . ,(abs-local-uri "api" "get-auth-token"))
-                    ("uploadMedia" . ,(abs-local-uri "api" "upload-media")))))
+                `(@ ("getAuthToken" ,(abs-local-uri "api" "get-auth-token"))
+                    ("uploadMedia" ,(abs-local-uri "api" "upload-media")))))
 
   (cond
    ;; User not found, so 404
