@@ -254,6 +254,7 @@ Arguments: (asobj)")
       ((? string? id)
        'TODO)))
   `(div (@ (class "collection"))
+        (h2 ,(asobj-ref asobj 'name))
         ,(toplevel-activity-tmpl first)))
 
 (define-as-method (toplevel-activity-tmpl (asobj ^CollectionPage))

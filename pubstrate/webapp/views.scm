@@ -46,6 +46,7 @@
   #:use-module (rnrs bytevectors)
   #:export (index mockup
             user-page user-inbox user-outbox
+            user-followers user-following
             login logout
             display-post asobj
             oauth-authorize
@@ -136,7 +137,8 @@
 (define %items-per-page 10)
 
 ;; Not an actual view, but used to build inbox/outbox views
-(define (as2-paginated-user-collection request user username collection)
+(define (as2-paginated-user-collection request user username collection
+                                       title)
   (define* (abs-col-url-str #:optional page)
     (let ((url-str (abs-local-uri "u" username collection)))
       (if page
@@ -261,6 +263,25 @@
                   #:status status:unauthorized
                   #:content-type 'text/plain)))
     (_ (respond #:status status:method-not-allowed))))
+
+(define* (make-read-user-collection-view collection-name
+                                         #:key
+                                         (on-nothing "There's nothing here."))
+  (lambda (request body username)
+    (define store (ctx-ref 'store))
+    (define view-user
+      (store-user-ref (ctx-ref 'store) username))
+
+    (match (request-method request)
+      ('GET
+       (as2-paginated-user-collection request view-user username collection-name))
+      (_ (respond #:status status:method-not-allowed)))))
+
+(define user-followers
+  (make-read-user-collection-view "followers"))
+
+(define user-following
+  (make-read-user-collection-view "following"))
 
 (define login-form
   (make-form
