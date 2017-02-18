@@ -358,7 +358,7 @@
                   #:content-type 'application/activity+json))
         (else
          (if asobj
-             (respond-html (asobj-page-tmpl asobj))
+             (respond-html (base-tmpl (toplevel-activity-tmpl asobj)))
              (respond-not-found)))))
       (_ (respond #:status status:method-not-allowed)))))
 
