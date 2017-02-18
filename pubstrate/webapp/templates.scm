@@ -164,11 +164,12 @@
 (define (user-homepage-tmpl user activities prev-url next-url)
   (base-tmpl
    `(div (@ (class "generic-content-box"))
-         (p "Hi!  This is "
-            ,(or (asobj-ref user "name")
-                 (asobj-ref user "preferredUsername"))
-            "'s page.")
-         (hr)
+         (div (@ (class "pre-content-header"))
+              (p "Hi!  This is "
+                 ,(or (asobj-ref user "name")
+                      (asobj-ref user "preferredUsername"))
+                 "'s page.")
+              (hr))
          ,@(map
             (lambda (activity)
               `(div (@ (class "post-and-replies-wrapper"))

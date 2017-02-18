@@ -158,6 +158,10 @@ pre.code-box {
     padding: 20px;
 }
 
+.pre-content-header {
+    margin-left: 3px;
+    margin-right: 3px;
+}
 
 .feedish-post {
     background-color: #ffffff;
