@@ -23,12 +23,14 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-11)
+  #:use-module (srfi srfi-19)
   #:use-module (srfi srfi-26)
   #:use-module (web request)
   #:use-module (web uri)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate package-config)
   #:use-module (pubstrate vocab)
+  #:use-module (pubstrate date)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp cookie)
   #:use-module (pubstrate webapp ctx)
@@ -228,7 +230,10 @@
                    (asobj-cons asobj "id" unique-id)))
                ;; TODO: this should be on the inner object...
                (lambda (asobj)
-                 (asobj-cons asobj "actor" outbox-user))))
+                 (asobj-cons asobj "actor" outbox-user))
+               (lambda (asobj)
+                 (asobj-cons asobj "published"
+                             (date->rfc3339-string (current-date 0))))))
     (let ((asobj  ; TODO: Also strip out any @id that may have been attached...
            (tweak-incoming-asobj (string->asobj
                                   (if (bytevector? body)
