@@ -306,6 +306,8 @@ Arguments: (asobj)")
          (title (and-let* ((object (asobj-ref asobj "object"))
                            (name (asobj-ref object "name")))
                   `(h2 ,name)))
+         (url-to-link (or (asobj-ref asobj "id")
+                          (asobj-ref asobj '("object" "id"))))
          ;; TODO: should either use the internal date,
          ;;  or we should use our own provided date
          (when-posted "April 22, 2016 @ 2:30pm"))
@@ -325,7 +327,7 @@ Arguments: (asobj)")
                           ,actor-name))
                   (div (@ (class "feedish-header-entry"))
                        (b "At: ")
-                       (a (@ (href ,(asobj-ref asobj "id")))
+                       (a (@ (href ,url-to-link))
                           ,when-posted))))))
 
 
