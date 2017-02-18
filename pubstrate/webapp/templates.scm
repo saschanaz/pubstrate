@@ -293,10 +293,23 @@ Arguments: (asobj)")
                                    #:object asobj)))
 
 
+
+(define-as-generic asobj-header-url
+  "URL to show in the header of an activitystreams object")
+
+(define-as-method (asobj-header-url (asobj ^Object))
+  (or (asobj-ref asobj "url")
+      (asobj-id asobj)))
+
+(define-as-method (asobj-header-url (asobj ^Activity))
+  (or (asobj-ref asobj '("object" "url"))
+      (asobj-ref asobj '("object" "id"))
+      (asobj-ref asobj "url")
+      (asobj-id asobj)))
+
 (define-as-generic asobj-header-tmpl
   "Display a header in a toplevel asobj")
 
-;; @@: maybe this should just be for ^Create?  Not clear yet!
 (define-as-method (asobj-header-tmpl (asobj ^Object))
   (let* ((actor (or (asobj-ref asobj "actor")
                     (asobj-ref asobj '("object" "actor"))))
@@ -306,8 +319,6 @@ Arguments: (asobj)")
          (title (and-let* ((object (asobj-ref asobj "object"))
                            (name (asobj-ref object "name")))
                   `(h2 ,name)))
-         (url-to-link (or (asobj-ref asobj "id")
-                          (asobj-ref asobj '("object" "id"))))
          ;; TODO: should either use the internal date,
          ;;  or we should use our own provided date
          (when-posted "April 22, 2016 @ 2:30pm"))
@@ -327,7 +338,7 @@ Arguments: (asobj)")
                           ,actor-name))
                   (div (@ (class "feedish-header-entry"))
                        (b "At: ")
-                       (a (@ (href ,url-to-link))
+                       (a (@ (href ,(asobj-header-url asobj)))
                           ,when-posted))))))
 
 
