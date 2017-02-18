@@ -185,23 +185,24 @@
 
 (define* (login-tmpl login-form #:key next try-again)
   (base-tmpl
-   `(div (@ (class "generic-content-box"))
-         (h1 "Log in:")
-         ,@(if try-again
-               (list '(em "Sorry, try again."))
-               '())
-         (form (@ (action ,(local-uri "login"))
-                  (method "POST")
-                  (enctype "application/x-www-form-urlencoded"))
-               ,@(render-if next
-                            `(input (@ (name "next")
-                                       (type "hidden")
-                                       (value ,next))))
-               (table
-                ,(form-render-table login-form)
-                (tr (td)  ; empty cell
-                    (td (button (@ (type "submit"))
-                                "Submit"))))))
+   `(div (@ (class "login-box-wrap"))
+         (div (@ (class "generic-content-box login-box"))
+              (h1 "Log in:")
+              ,@(if try-again
+                    (list '(em "Sorry, try again."))
+                    '())
+              (form (@ (action ,(local-uri "login"))
+                       (method "POST")
+                       (enctype "application/x-www-form-urlencoded"))
+                    ,@(render-if next
+                                 `(input (@ (name "next")
+                                            (type "hidden")
+                                            (value ,next))))
+                    (table
+                     ,(form-render-table login-form)
+                     (tr (td)  ; empty cell
+                         (td (button (@ (type "submit"))
+                                     "Submit")))))))
    #:title "Login"))
 
 
