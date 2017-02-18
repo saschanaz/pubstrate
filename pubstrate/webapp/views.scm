@@ -204,8 +204,14 @@
     (if (request-wants-as2?)
         (respond (asobj->string return-asobj)
                  #:content-type 'application/activity+json)
-        (respond-html (asobj-page-tmpl return-asobj
-                                       #:title title)))))
+        (respond-html
+         (base-tmpl
+          `(div (@ (id "main-feed-block")
+                   (class "generic-content-box"))
+                (div (@ (class "pre-content-header"))
+                     (h2 (@ (style "text-align: center;"))
+                         "== " ,title " =="))
+                ,(toplevel-activity-tmpl return-asobj)))))))
 
 (define (user-outbox request body username)
   (define store (ctx-ref 'store))

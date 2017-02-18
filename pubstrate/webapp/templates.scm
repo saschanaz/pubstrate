@@ -173,8 +173,7 @@
               (p "Hi!  This is "
                  ,(or (asobj-ref user "name")
                       (asobj-ref user "preferredUsername"))
-                 "'s page.")
-              (hr))
+                 "'s page."))
          ,@(map
             (lambda (activity)
               `(div (@ (class "post-and-replies-wrapper"))
@@ -277,7 +276,9 @@ Arguments: (asobj)")
            '(i "There doesn't seem to be anything here."))
           (else
            (map (lambda (item)
-                  (toplevel-activity-tmpl (make-asobj item (asobj-env asobj))))
+                  `(div (@ (class "post-and-replies-wrapper"))
+                        ,(toplevel-activity-tmpl
+                          (make-asobj item (asobj-env asobj)))))
                 items)))
         ;; TODO: Put navigation here.
         ))
