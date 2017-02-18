@@ -38,6 +38,7 @@
             user-homepage-tmpl
 
             generic-content-tmpl
+            centered-content-tmpl
 
             login-tmpl
 
@@ -168,6 +169,10 @@
   `(div (@ (class "generic-content-box"))
         ,@content))
 
+(define* (centered-content-tmpl . content)
+  `(div (@ (class "simple-centered-wrap"))
+        ,(apply generic-content-tmpl content)))
+
 (define (user-homepage-tmpl user activities prev-url next-url)
   (base-tmpl
    `(div (@ (class "generic-content-box"))
@@ -186,24 +191,23 @@
 
 (define* (login-tmpl login-form #:key next try-again)
   (base-tmpl
-   `(div (@ (class "login-box-wrap"))
-         (div (@ (class "generic-content-box login-box"))
-              (h1 "Log in:")
-              ,@(if try-again
-                    (list '(em "Sorry, try again."))
-                    '())
-              (form (@ (action ,(local-uri "login"))
-                       (method "POST")
-                       (enctype "application/x-www-form-urlencoded"))
-                    ,@(render-if next
-                                 `(input (@ (name "next")
-                                            (type "hidden")
-                                            (value ,next))))
-                    (table
-                     ,(form-render-table login-form)
-                     (tr (td)  ; empty cell
-                         (td (button (@ (type "submit"))
-                                     "Submit")))))))
+   (centered-content-tmpl
+    '(h1 "Log in:")
+    (if try-again
+        '(em "Sorry, try again.")
+        '())
+    `(form (@ (action ,(local-uri "login"))
+              (method "POST")
+              (enctype "application/x-www-form-urlencoded"))
+           ,@(render-if next
+                        `(input (@ (name "next")
+                                   (type "hidden")
+                                   (value ,next))))
+           (table
+            ,(form-render-table login-form)
+            (tr (td)  ; empty cell
+                (td (button (@ (type "submit"))
+                            "Submit"))))))
    #:title "Login"))
 
 
@@ -343,10 +347,10 @@ Arguments: (asobj)")
                        (b "By: ")
                        (a (@ (href ,(asobj-ref actor "id")))
                           ,actor-name))
-                  `(div (@ (class "feedish-header-entry"))
-                        (b "At: ")
-                        (a (@ (href ,(asobj-header-url asobj)))
-                           ,when-posted))))))
+                  (div (@ (class "feedish-header-entry"))
+                       (b "At: ")
+                       (a (@ (href ,(asobj-header-url asobj)))
+                          ,when-posted))))))
 
 
 (define-as-generic inline-asobj-tmpl

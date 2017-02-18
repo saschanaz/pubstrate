@@ -187,7 +187,7 @@ div.generic-content-box {
     padding-right: 20px;
 }
 
-div.login-box-wrap {
+div.simple-centered-wrap {
     display: flex;
     justify-content: center;
 }

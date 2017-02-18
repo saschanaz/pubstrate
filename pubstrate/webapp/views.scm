@@ -375,8 +375,9 @@
        ('GET
         (respond-html
          (base-tmpl
-          (generic-content-tmpl
-           `(div (h1 "Authorize application?")
+          (centered-content-tmpl
+           `(div (@ (style "text-align: center;"))
+                 (h1 "Authorize application?")
                  (p "An application is requesting access to your stream. "
                     "Grant them access?")
                  (form (@ (action "")
@@ -386,6 +387,7 @@
                                        (name "access")
                                        (value "granted"))
                                     "Yes")
+                            " "
                             (button (@ (type "submit")
                                        (name "access")
                                        (value "denied"))
@@ -400,7 +402,7 @@
            (let ((token (store-bearer-token-new!
                          (ctx-ref 'store) (ctx-ref 'user))))
              (base-tmpl
-              (generic-content-tmpl
+              (centered-content-tmpl
                '(h1 "Authorization granted!")
                '(p "Paste this token back in the application:")
                `(blockquote (pre ,token)))))))
