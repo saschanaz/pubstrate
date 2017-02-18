@@ -34,6 +34,8 @@
                 #:renamer (symbol-prefix-proc 'repl:))
   #:export (run-webapp
 
+            repl-set-ctx!
+
             with-app-ctx-from-config with-app-ctx-from-config-file
             set-app-ctx-from-config! app-ctx-clean-up!))
 
