@@ -301,7 +301,7 @@ Arguments: (asobj)")
   (or (asobj-ref asobj "url")
       (asobj-id asobj)))
 
-(define-as-method (asobj-header-url (asobj ^Activity))
+(define-as-method (asobj-header-url (asobj ^Create))
   (or (asobj-ref asobj '("object" "url"))
       (asobj-ref asobj '("object" "id"))
       (asobj-ref asobj "url")
