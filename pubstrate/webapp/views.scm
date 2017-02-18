@@ -139,9 +139,10 @@
 ;; Not an actual view, but used to build inbox/outbox views
 (define* (as2-paginated-user-collection request user username collection
                                         #:key
-                                        (title (format #f "~a's ~a"
-                                                       (user-name-str user)
-                                                       collection)))
+                                        (title
+                                         (format #f "~a's ~a"
+                                                 (user-name-str user)
+                                                 collection)))
   (define* (abs-col-url-str #:optional page)
     (let ((url-str (abs-local-uri "u" username collection)))
       (if page
@@ -268,6 +269,9 @@
 
 (define* (make-read-user-collection-view collection-name
                                          #:key
+                                         (gen-title
+                                          (lambda (user-name-str collection)
+                                            (format #f "~a's ~a" user-name-str collection)))
                                          (on-nothing "There's nothing here."))
   (lambda (request body username)
     (define store (ctx-ref 'store))
@@ -276,14 +280,19 @@
 
     (match (request-method request)
       ('GET
-       (as2-paginated-user-collection request view-user username collection-name))
+       (as2-paginated-user-collection request view-user username collection-name
+                                      #:title (gen-title (user-name-str view-user)
+                                                         collection-name)))
       (_ (respond #:status status:method-not-allowed)))))
 
 (define user-followers
   (make-read-user-collection-view "followers"))
 
 (define user-following
-  (make-read-user-collection-view "following"))
+  (make-read-user-collection-view "following"
+                                  #:gen-title
+                                  (lambda (user-name-str collection)
+                                    (format #f "following ~a" user-name-str))))
 
 (define login-form
   (make-form
