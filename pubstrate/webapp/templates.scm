@@ -84,7 +84,12 @@
           (div (@ (id "site-main-content"))
                ,body))
      (div (@ (id "site-footer"))
-          "Copyright notice goes here!"))))
+          (a (@ (href "https://gitlab.com/dustyweb/pubstrate"))
+             "Pubstrate")
+          " is released under the "
+          (a (@ (href "https://www.gnu.org/copyleft/gpl.html"))
+             "GNU General Public License")
+          ", version 3 or later."))))
 
 
 ;;; Individual pages

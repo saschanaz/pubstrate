@@ -61,6 +61,11 @@ a:hover {
     text-decoration: none;
 }
 
+#site-footer a {
+    color: #d999b7;
+    text-decoration: none;
+}
+
 #site-header-right-stuff {
     float: right;
 }
