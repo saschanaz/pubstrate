@@ -203,7 +203,7 @@
 ;;; Generic methods for displaying different types of content
 ;;; =========================================================
 
-(define (asobj-page-tmpl asobj)
+(define* (asobj-page-tmpl asobj #:key title)
   (base-tmpl
    `(div
      ;; Input elements... TODO
@@ -222,6 +222,9 @@
                     "Meanwhile"))
           (div (@ (class "feedish-content"))
                (div (@ (class "post-and-replies-wrapper"))
+                    ,(if title
+                         `(h2 ,title)
+                         '())
                     ,(toplevel-activity-tmpl asobj)))))))
 
 
@@ -254,7 +257,6 @@ Arguments: (asobj)")
       ((? string? id)
        'TODO)))
   `(div (@ (class "collection"))
-        (h2 ,(asobj-ref asobj 'name))
         ,(toplevel-activity-tmpl first)))
 
 (define-as-method (toplevel-activity-tmpl (asobj ^CollectionPage))
@@ -263,9 +265,13 @@ Arguments: (asobj)")
         (asobj-ref asobj "items")))
 
   `(div (@ (class "collection-page"))
-        ,(map (lambda (item)
-                (toplevel-activity-tmpl (make-asobj item (asobj-env asobj))))
-              items)
+        ,(cond
+          ((eq? items '())
+           '(i "There doesn't seem to be anything here."))
+          (else
+           (map (lambda (item)
+                  (toplevel-activity-tmpl (make-asobj item (asobj-env asobj))))
+                items)))
         ;; TODO: Put navigation here.
         ))
 

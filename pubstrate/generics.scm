@@ -46,7 +46,7 @@
                       body ...)
   (as-generic-method-set!
    generic astype
-   (lambda (asobj args ...)
+   (lambda* (asobj args ...)
      body ...)))
 
 (define (as-generic-find-method as-generic asobj)

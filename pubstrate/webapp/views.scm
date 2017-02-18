@@ -137,8 +137,11 @@
 (define %items-per-page 10)
 
 ;; Not an actual view, but used to build inbox/outbox views
-(define (as2-paginated-user-collection request user username collection
-                                       title)
+(define* (as2-paginated-user-collection request user username collection
+                                        #:key
+                                        (title (format #f "~a's ~a"
+                                                       (user-name-str user)
+                                                       collection)))
   (define* (abs-col-url-str #:optional page)
     (let ((url-str (abs-local-uri "u" username collection)))
       (if page
@@ -191,9 +194,7 @@
                  (if is-first
                      ;; So, we want to return the toplevel of the paging
                      (make-as ^OrderedCollection (%default-env)
-                              #:name (format #f "~a's ~a"
-                                             (user-name-str user)
-                                             collection)
+                              #:name title
                               #:id col-url
                               #:first ordered-collection-page)
                      ;; This is some page
@@ -202,7 +203,8 @@
     (if (request-wants-as2?)
         (respond (asobj->string return-asobj)
                  #:content-type 'application/activity+json)
-        (respond-html (asobj-page-tmpl return-asobj)))))
+        (respond-html (asobj-page-tmpl return-asobj
+                                       #:title title)))))
 
 (define (user-outbox request body username)
   (define store (ctx-ref 'store))
