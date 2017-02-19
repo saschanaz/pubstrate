@@ -259,9 +259,6 @@
     ;;   anyway.
     (as2-paginated-user-collection request outbox-user username "outbox"))
   (define (api-user-can-post?)
-    ;; TODO!  Right now we just accept it.
-    ;;  - Extract the bearer token
-    ;;  - See if the bearer token matches anything in the db
     (match (assoc-ref (request-headers request) 'authorization)
       (('bearer . (? string? token))
        (store-bearer-token-valid?
