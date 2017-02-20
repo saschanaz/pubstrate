@@ -1,5 +1,5 @@
 ;;; Pubstrate --- ActivityStreams based social networking for Guile
-;;; Copyright © 2016 Christopher Allan Webber <cwebber@dustycloud.org>
+;;; Copyright © 2016, 2017 Christopher Allan Webber <cwebber@dustycloud.org>
 ;;;
 ;;; This file is part of Pubstrate.
 ;;;
@@ -31,6 +31,7 @@
   #:use-module (pubstrate package-config)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate date)
+  #:use-module (pubstrate contrib mime-types)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp cookie)
   #:use-module (pubstrate webapp ctx)
@@ -41,7 +42,7 @@
   #:use-module (pubstrate webapp templates)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
-  #:use-module (pubstrate contrib mime-types)
+  #:use-module (pubstrate webapp side-effects)
   #:use-module ((pubstrate webapp http-status)
                 #:renamer (symbol-prefix-proc 'status:))
   #:use-module (rnrs io ports)
@@ -224,23 +225,32 @@
     ;;   Currently doing a "dumb" version of things where we just dump it
     ;;   into the database.
     (define tweak-incoming-asobj
+      ;; TODO: Also strip out any @id that may have been attached...
       (compose (lambda (asobj)
                  (let ((unique-id (abs-local-uri "u" username "p"
                                                  (gen-bearer-token 30))))
                    (asobj-cons asobj "id" unique-id)))
-               ;; TODO: this should be on the inner object...
+               ;; Copy the id of our actor onto the actor field
                (lambda (asobj)
-                 (asobj-cons asobj "actor" outbox-user))
+                 (asobj-cons asobj "actor" (asobj-id outbox-user)))
                (lambda (asobj)
                  (asobj-cons asobj "published"
                              (date->rfc3339-string (current-date 0))))))
-    (let ((asobj  ; TODO: Also strip out any @id that may have been attached...
-           (tweak-incoming-asobj (string->asobj
-                                  (if (bytevector? body)
-                                      (utf8->string body)
-                                      body)
-                                  (%default-env)))))
-      (store-asobj-set! store asobj)
+    (let* (;; This is the asobj as it first comes in from the body of the
+           ;; request.
+           (initial-asobj (string->asobj
+                           (if (bytevector? body)
+                               (utf8->string body)
+                               body)
+                           (%default-env)))
+           ;; Here we've first done some common "tweaks" on the asobj,
+           ;; then allowed our asobj to handle all its appropriate side
+           ;; effects, including saving to the store.
+           (asobj (asobj-outbox-effects!
+                   (tweak-incoming-asobj initial-asobj)
+                   outbox-user)))
+      ;; @@: Do we do this here?  Or do we do this in the 
+      ;; (store-asobj-set! store asobj)
       (user-add-to-outbox! store outbox-user (asobj-id asobj))
       (deliver-asobj asobj)
       (respond (asobj->string asobj)
