@@ -60,7 +60,7 @@
                                   version ".tar.xz"))
               (sha256
                (base32
-                "0r9y4hw17dlxahik4zsccfb2f3p2a07wqndfm251bgmam9hln6gi"))
+                "0qf2664bglv5rrj4c99cc7gry7v9x0sqdyzgfg8zi8gm5wbcmqda"))
               (modules '((guix build utils)))
 
               ;; Remove the pre-built object files.  Instead, build everything
@@ -143,7 +143,8 @@ It has a nice, simple s-expression based syntax.")
        ("automake" ,automake)
        ("texinfo" ,texinfo)))
     (inputs
-     `(("guile" ,guile-without-select-bug)
+     `(("guile" ,guile-next)
+       ;; ("guile" ,guile-without-select-bug)
        ("guile-8sync" ,guile-8sync)
        ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
