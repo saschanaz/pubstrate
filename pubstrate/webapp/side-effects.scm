@@ -70,9 +70,9 @@ thrown.")
                (lambda (object)
                  (asobj-cons object "id"
                              (gen-asobj-id-for-user outbox-user)))
-               ;; Copy the actor
+               ;; Copy the actor over to attributedTo
                (lambda (object)
-                 (asobj-cons object "actor"
+                 (asobj-cons object "attributedTo"
                              (asobj-ref asobj "actor")))
                ;; Copy the published date
                (lambda (object)
