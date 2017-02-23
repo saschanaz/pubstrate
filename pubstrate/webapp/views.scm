@@ -368,7 +368,9 @@
 (define (display-post request body username post-id)
   ;; GET only.
   (let* ((post-url (abs-local-uri "u" username "p" post-id))
-         (asobj (store-asobj-ref (ctx-ref 'store) post-url)))
+         (asobj (and=> (store-asobj-ref (ctx-ref 'store) post-url)
+                       asobj-fatten)))
+    (asobj-pprint-combined asobj)
     (match (request-method request)
       ('GET
        ;; TODO: authorization check?

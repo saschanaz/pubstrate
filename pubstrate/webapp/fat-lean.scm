@@ -109,7 +109,17 @@
    (a-list (^Object '("attachment" "attributedTo" "audience"
                       "context" "generator" "icon" "image"
                       "inReplyTo" "location" "preview"
-                      "replies" "tag" "to" "bto" "cc" "bcc"))
+                      "replies" "tag" "to" "bto" "cc" "bcc"
+                      ;; @@: This technically isn't part of the Object
+                      ;;   per as2 spec!  But it is how we identify who posted
+                      ;;   the object in AP...
+                      ;;   While attributedTo exists, it's not quite the
+                      ;;   same as "who posted this object"... you'd want to be able
+                      ;;   to properly credit someone else, but it feels like it's
+                      ;;   easier to claim someone else made something (as opposed to,
+                      ;;   who posted it?) but it's also possible to lie...
+                      ;;   (... verifiable claims will fix this? ;p)
+                      "actor"))
            (^Activity '("actor" "object" "target" "result"
                         "origin" "instrument"))
            (^Collection '("current" "first" "last" "items"))
