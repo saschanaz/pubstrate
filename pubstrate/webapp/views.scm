@@ -36,6 +36,7 @@
   #:use-module (pubstrate webapp cookie)
   #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp federation)
+  #:use-module (pubstrate webapp fat-lean)
   #:use-module (pubstrate webapp form-widgets)
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp sessions)
@@ -176,6 +177,13 @@
                               application/ld+json)))
           (request-accept request)))
 
+  (define (fatten-items asobjs)
+    ;; We use the same retriever to keep around the cache
+    (let ((retriever (make-retriever)))
+      (map (lambda (asobj)
+             (asobj-fatten asobj retriever))
+           asobjs)))
+
   (let*-values (((form) (request-query-form request))
                 ((page-id) (assoc-ref form "page"))
                 ((is-first) (not page-id))
@@ -192,7 +200,7 @@
                  (maybe-add-next-prev
                   (make-as ^OrderedCollectionPage (%default-env)
                            #:partOf col-url
-                           #:orderedItems page-items)
+                           #:orderedItems (fatten-items page-items))
                   prev next))
                 ((return-asobj)
                  (if is-first
