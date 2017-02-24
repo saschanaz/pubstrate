@@ -189,19 +189,25 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
 If it isn't a javascript object with a 'type' key, we return it as-is though.
 
 If KEY is a list, recursively look up keys until we (hopefully) find a value."
-  (let* ((result (asobj-sjson-assoc key asobj))
-         (data (if result (cdr result) '*nothing*)))
-    (cond
-     ;; If we got back a result, and it's a javascript object, and it has
-     ;; a type field, wrap it in an <asobj>
-     ((and result
-           (json-object? data)
-           (or (json-object-assoc "type" data)
-               (json-object-assoc "@type" data)))
-      (cons (car result) (make-asobj data (asobj-env asobj)
-                                     (asobj-private asobj))))
-     ;; Otherwise, return it as-is
-     (else result))))
+  (define (asobj-style-json-object? obj)
+    (and (json-object? obj)
+         (or (json-object-assoc "type" obj)
+             (json-object-assoc "@type" obj))))
+
+  (define (convert-obj obj)
+    (match obj
+      ;; Looks like an asobj?
+      ((? asobj-style-json-object? _)
+       (make-asobj obj (asobj-env asobj)))
+      ;; Return a list of possibly asobj obj as a list of asobjs
+      ((? json-array? lst)
+       (map convert-obj lst))
+      (_ obj)))
+
+  (match (asobj-sjson-assoc key asobj)
+    ((key . val)
+     (cons key (convert-obj val)))
+    (#f #f)))
 
 (define* (asobj-ref asobj key #:optional dflt)
   (match (asobj-assoc key asobj)

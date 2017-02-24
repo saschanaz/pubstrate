@@ -17,6 +17,7 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (tests test-asobj)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-64)
   #:use-module (ice-9 match)
   #:use-module (tests utils)
@@ -187,6 +188,29 @@
     "acct:cwebber@identi.ca")
   (test-equal (asobj-private-ref restored-asobj "sekret-kode")
     "bananaphone"))
+
+
+;; Test that if we have a list of items, that any items which would be an
+;; asobj are treated as such
+(let* ((asobj-with-multi-to
+        (make-asobj
+         '(@ ("@type" "Create")
+             ("@id" "http://tsyesika.co.uk/act/foo-id-here/")
+             ("actor" (@ ("@type" "Person")
+                         ("@id" "http://tsyesika.co.uk")
+                         ("displayName" "Jessica Tallon")))
+             ("to" ("acct:cwebber@identi.ca"
+                    (@ ("@type" "Person")
+                       ("@id" "http://foo.example/mcfoo")
+                       ("displayName" "Foo McFoo"))))
+             ("object" (@ ("@type" "Note")
+                          ("@id" "http://tsyesika.co.uk/chat/sup-yo/")
+                          ("content" "Up for some root beer floats?"))))
+         (%default-env)))
+       (to-val (asobj-ref asobj-with-multi-to "to")))
+  (test-assert (json-array? to-val))
+  (test-assert (string? (first to-val)))
+  (test-assert (asobj? (second to-val))))
 
 (test-end "test-asobj")
 
