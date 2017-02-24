@@ -284,7 +284,7 @@ Arguments: (asobj)")
            (map (lambda (item)
                   `(div (@ (class "post-and-replies-wrapper"))
                         ,(toplevel-activity-tmpl
-                          (make-asobj item (asobj-env asobj)))))
+                          item)))
                 items)))
         ;; TODO: Put navigation here.
         ))
