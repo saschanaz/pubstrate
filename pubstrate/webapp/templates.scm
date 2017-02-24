@@ -318,7 +318,7 @@ Arguments: (asobj)")
 
 (define-as-method (asobj-header-tmpl (asobj ^Object))
   (let* ((actor (or (asobj-ref asobj "actor")
-                    (asobj-ref asobj '("object" "actor"))))
+                    (asobj-ref asobj '("object" "attributedTo"))))
          (actor-name (or (asobj-ref actor "preferredUsername")
                          (asobj-ref actor "name")
                          (asobj-ref actor "id")))
