@@ -30,6 +30,7 @@
   #:export (make-user
             user-id-from-username
             store-add-new-user! store-user-ref
+            store-user-change-password!
 
             user-inbox-container-key user-outbox-container-key
             user-inbox-followers-key user-outbox-following-key
@@ -133,6 +134,14 @@ to the database (in this case, the collections!)"
 (define* (store-user-ref store username)
   (store-asobj-ref store (user-id-from-username username)))
 
+(define (store-user-change-password! store username new-password)
+  (let* ((password-sjson
+          (salted-hash->sjson
+           (salt-and-hash-password new-password)))
+         (user (asobj-private-cons (store-user-ref store username)
+                                   "password"
+                                   password-sjson)))
+    (store-asobj-set! store user)))
 
 (define (store-user-container-key store user collection-name)
   "Get the container key for USER's COLLECTION-NAME"
