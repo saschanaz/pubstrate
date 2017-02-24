@@ -60,8 +60,6 @@
 
             standard-four-oh-four render-static))
 
-(define %items-per-page 20)
-
 (define (index request body)
   (respond-html (index-tmpl)))
 
