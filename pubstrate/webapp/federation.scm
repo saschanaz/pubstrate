@@ -31,6 +31,7 @@
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
+  #:use-module (pubstrate webapp side-effects)
   #:use-module (ice-9 receive)
   #:use-module (rnrs bytevectors)
   #:use-module (pubstrate vocab)
@@ -163,8 +164,9 @@ Returns #t if the object is added to the inbox, #f otherwise."
      (if (not (store-asobj-ref store id))
          (store-asobj-set! store asobj))
      ;; Add to the actor's inbox
-     (if (not (user-inbox-member? store actor id))
-         (user-add-to-inbox! store actor id)))
+     (when (not (user-inbox-member? store actor id))
+       (asobj-inbox-effects! asobj actor)
+       (user-add-to-inbox! store actor id)))
     (else
      'TODO)))
 

@@ -33,7 +33,6 @@
   #:use-module (pubstrate webapp store)
   #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate webapp user)
-  #:use-module (pubstrate webapp federation)
   #:use-module (pubstrate webapp auth) ; for gen-bearer-token
   #:use-module ((pubstrate shorthand)
                 #:renamer (symbol-prefix-proc 'as:))
