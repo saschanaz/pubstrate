@@ -75,6 +75,7 @@ SOURCES =  \
 	pubstrate/webapp/auth.scm			\
 	pubstrate/webapp/list-pagination.scm		\
 	pubstrate/webapp/routes.scm			\
+	pubstrate/webapp/side-effects.scm		\
 	pubstrate/webapp/templates.scm			\
 	pubstrate/webapp/template-utils.scm		\
 	pubstrate/webapp/utils.scm			\
