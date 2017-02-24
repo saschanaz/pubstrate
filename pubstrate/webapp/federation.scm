@@ -36,7 +36,8 @@
   #:use-module (pubstrate vocab)
   #:export (collect-recipients
             deliver-asobj
-            actor-post-asobj-to-inbox!))
+            actor-post-asobj-to-inbox!
+            get-asobj post-asobj-to-actor))
 
 
 ;;; Federation delivery tooling
