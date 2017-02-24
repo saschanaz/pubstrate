@@ -32,7 +32,7 @@
             asobj-types asobj-expanded asobj-inherits
             asobj-id
 
-            asobj-assoc asobj-ref asobj-sjson-assoc asobj-cons
+            asobj-assoc asobj-ref asobj-sjson-assoc asobj-cons asobj-delete
             asobj-from-json-string
 
             asobj-set-private asobj-set-private*
@@ -237,6 +237,12 @@ Field can be a string for a top-level field "
       jsobj)
      (asobj-env asobj)
      (asobj-private asobj))))
+
+(define* (asobj-delete asobj key)
+  (make-asobj
+   (json-object-delete key (asobj-sjson asobj))
+   (asobj-env asobj)
+   (asobj-private asobj)))
 
 (define (asobj-set-private asobj private)
   "Return a new <asobj> based on ASOBJ with private field set to PRIVATE"
