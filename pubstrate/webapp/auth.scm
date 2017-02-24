@@ -106,8 +106,8 @@ of a specified length is fine."
 
 (define (salted-hash->sjson salted-hash)
   "Serialize a <salted-hash> to sjson."
-  `(@ ("salt" . ,(salted-hash-salt salted-hash))
-      ("hash" . ,(salted-hash-hash salted-hash))))
+  `(@ ("salt" ,(salted-hash-salt salted-hash))
+      ("hash" ,(salted-hash-hash salted-hash))))
 
 (define (sjson->salted-hash sjson)
   "Convert sjson serialization back to <salted-hash>"
