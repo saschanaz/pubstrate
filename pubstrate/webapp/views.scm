@@ -60,6 +60,9 @@
 
             standard-four-oh-four render-static))
 
+;; Fixed, for now...
+(define %items-per-page 10)
+
 (define (index request body)
   (respond-html (index-tmpl)))
 
@@ -135,9 +138,6 @@
     ('POST
      (post-to-inbox))
     (_ (respond #:status status:method-not-allowed))))
-
-;; Fixed, for now...
-(define %items-per-page 10)
 
 ;; Not an actual view, but used to build inbox/outbox views
 (define* (as2-paginated-user-collection request user username collection
