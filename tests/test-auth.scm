@@ -19,7 +19,7 @@
 (define-module (tests test-auth)
   #:use-module (srfi srfi-64)
   #:use-module (tests utils)
-  #:use-module (pubstrate json-utils)
+  #:use-module (sjson utils)
   #:use-module (pubstrate webapp auth))
 
 (test-begin "test-auth")
