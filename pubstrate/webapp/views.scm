@@ -71,9 +71,10 @@
 (define (user-page request body username)
   (define (render-user-page)
     (let ((activities
-           (user-collection-first-page
-            (ctx-ref 'store) user "outbox"
-            %items-per-page)))
+           (fatten-asobjs
+            (user-collection-first-page
+             (ctx-ref 'store) user "outbox"
+             %items-per-page))))
       (respond-html
        (user-homepage-tmpl user activities
                            #f #f))))
@@ -177,13 +178,6 @@
                               application/ld+json)))
           (request-accept request)))
 
-  (define (fatten-items asobjs)
-    ;; We use the same retriever to keep around the cache
-    (let ((retriever (make-retriever)))
-      (map (lambda (asobj)
-             (asobj-fatten asobj retriever))
-           asobjs)))
-
   (let*-values (((form) (request-query-form request))
                 ((page-id) (assoc-ref form "page"))
                 ((is-first) (not page-id))
@@ -200,7 +194,7 @@
                  (maybe-add-next-prev
                   (make-as ^OrderedCollectionPage (%default-env)
                            #:partOf col-url
-                           #:orderedItems (fatten-items page-items))
+                           #:orderedItems (fatten-asobjs page-items))
                   prev next))
                 ((return-asobj)
                  (if is-first

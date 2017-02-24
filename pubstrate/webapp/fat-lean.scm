@@ -29,7 +29,9 @@
   #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp store)
   #:export (make-retriever
-            asobj-fatten asobj-leanify))
+            asobj-fatten fatten-asobjs
+
+            asobj-leanify))
 
 (define-record-type <retriever>
   (%make-retriever max-depth cache)
@@ -119,11 +121,17 @@
                       ;;   easier to claim someone else made something (as opposed to,
                       ;;   who posted it?) but it's also possible to lie...
                       ;;   (... verifiable claims will fix this? ;p)
+                      ;; @@: Okay yeah we should use attributedTo...
                       "actor"))
            (^Activity '("actor" "object" "target" "result"
                         "origin" "instrument"))
-           (^Collection '("current" "first" "last" "items"))
-           (^CollectionPage '("partOf" "next" "prev"))
+           (^Collection '("current"
+                          ;; @@: Probably we ought to expand out "current"
+                          ;;   but leave "first" and "last" as uris?
+                          "first" ;; "last"
+                          "items"))
+           ;; Why not "partOf" "next" "prev"?  Kind of a mess to embed those...
+           (^CollectionPage '())
            (^OrderedCollectionPage '("startIndex"))
            (^Question '("oneOf" "anyOf" "closed"))
            (^Relationship '("subject" "object" "relationship")))))
@@ -137,6 +145,13 @@
        (retriever-fatten-fields retriever asobj fields)))
    asobj
    (asobj-inherits asobj))) 
+
+(define* (fatten-asobjs asobjs #:optional (retriever (make-retriever 5)))
+  ;; We use the same retriever to keep around the cache
+  (let ((retriever (make-retriever)))
+    (map (lambda (asobj)
+           (asobj-fatten asobj retriever))
+         asobjs)))
 
 
 
