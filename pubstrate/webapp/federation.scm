@@ -138,10 +138,13 @@ in the store!"
   (define collect-to (field-collector "to"))
   (define collect-cc (field-collector "cc"))
   (define collect-bcc (field-collector "bcc"))
+  (define collect-bto (field-collector "bto"))
   (define collect-em-all
-    (compose collect-to collect-cc collect-bcc))
+    (compose collect-to collect-cc collect-bcc collect-bto))
 
-  (collect-em-all '()))
+  (values
+   (collect-em-all '())
+   (asobj-delete (asobj-delete asobj "bto") "bcc")))
 
 
 (define (actor-post-asobj-to-inbox! actor asobj)
@@ -184,8 +187,7 @@ Returns #t if the object is added to the inbox, #f otherwise."
       (post-locally)
       (post-remotely)))
 
-(define* (deliver-asobj asobj #:key (store-new #t))
+(define* (deliver-asobj asobj recipients #:key (store-new #t))
   "Send activitystreams object to recipients."
-  (let ((recipients (collect-recipients asobj #:store-new store-new)))
-    (for-each (cut post-asobj-to-actor asobj <>)
-              recipients)))
+  (for-each (cut post-asobj-to-actor asobj <>)
+            recipients))

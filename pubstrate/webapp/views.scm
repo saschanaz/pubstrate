@@ -161,12 +161,12 @@
     ((compose (lambda (ocp)
                 (if next
                     (asobj-cons ocp "next"
-                                (abs-col-url-str next))
+                                next)
                     ocp))
               (lambda (ocp)
-                (if next
+                (if prev
                     (asobj-cons ocp "prev"
-                                (abs-col-url-str prev))
+                                prev)
                     ocp)))
      ocp))
 
@@ -236,23 +236,28 @@
                (lambda (asobj)
                  (asobj-cons asobj "published"
                              (date->rfc3339-string (current-date 0))))))
-    (let* (;; This is the asobj as it first comes in from the body of the
-           ;; request.
-           (initial-asobj (string->asobj
-                           (if (bytevector? body)
-                               (utf8->string body)
-                               body)
-                           (%default-env)))
-           ;; Here we've first done some common "tweaks" on the asobj,
-           ;; then allowed our asobj to handle all its appropriate side
-           ;; effects, including saving to the store.
-           (asobj (asobj-outbox-effects!
-                   (tweak-incoming-asobj initial-asobj)
-                   outbox-user)))
-      ;; @@: Do we do this here?  Or do we do this in the 
-      ;; (store-asobj-set! store asobj)
-      (user-add-to-outbox! store outbox-user (asobj-id asobj))
-      (deliver-asobj asobj)
+    (let*-values (;; This is the asobj as it first comes in from the body of the
+                  ;; request.
+                  ((initial-asobj) (string->asobj
+                                    (if (bytevector? body)
+                                        (utf8->string body)
+                                        body)
+                                    (%default-env)))
+                  ;; Here we've first done some common "tweaks" on the asobj,
+                  ;; then allowed our asobj to handle all its appropriate side
+                  ;; effects.
+                  ((asobj) (asobj-outbox-effects!
+                            (tweak-incoming-asobj initial-asobj)
+                            outbox-user))
+                  ;; In determining the recipients of an activitystreams object,
+                  ;; we very well may determine a new structure of the asobj,
+                  ;; especially because we're likely to strip off the bcc/bto
+                  ;; fields.
+                  ((recipients asobj)
+                   (collect-recipients asobj)))
+      (store-asobj-set! store asobj)                           ; save asobj
+      (user-add-to-outbox! store outbox-user (asobj-id asobj)) ; add to inbox
+      (deliver-asobj asobj recipients)                         ; deliver it
       (respond (asobj->string asobj)
                #:status status:created
                #:content-type 'application/activity+json)))

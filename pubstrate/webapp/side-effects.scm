@@ -86,9 +86,8 @@ a field isn't found, we throw an exception."
 
 (define-as-generic asobj-outbox-effects!
   "Handle all side effects related to receiving the asobj to the
-outbox.  This includes saving to the database, if appropriate(???).
-TODO: Still figuring out the above!
-It doesn't include delivery, which is done separately.
+outbox.  It doesn't include saving or delivery of the asobj itself
+(though it might of its components), since that is done separately.
 
 We return a (potentially) modified asobj.  If for some reason
 the asobj can't be saved, an 'effect-error exception will be
@@ -126,7 +125,6 @@ thrown.")
            ;; We replace the asobj's object reference with just the
            ;; identifier for the object rather than the object itself
            (asobj-cons asobj "object" (asobj-id object))))
-     (save-asobj! asobj)
      asobj)))
 
 (define-as-generic create-outbox-object!
@@ -178,25 +176,27 @@ save it and return it.")
                                           outbox-user)
   (let-asobj-fields
    asobj ((object "object"))
-   (let ((follow-uri (match object
-                       ((? string-uri? _)
-                        object)
-                       ((? asobj? _)
-                        (match (asobj-id object)
-                          ((? string-uri? uri)
-                           uri)
-                          (_ (throw 'effect-error
-                                    "Follow activity's object has no id"
-                                    #:asobj asobj)))))))
+   (let* ((follow-uri (match object
+                        ((? string-uri? _)
+                         object)
+                        ((? asobj? _)
+                         (match (asobj-id object)
+                           ((? string-uri? uri)
+                            uri)
+                           (_ (throw 'effect-error
+                                     "Follow activity's object has no id"
+                                     #:asobj asobj))))))
+          ;; Add follow-uri to the bcc list.  It doesn't matter
+          ;; if there's already a bcc item, since recipients should be
+          ;; de-duped.
+          (asobj (asobj-cons asobj "bcc"
+                             (cons follow-uri
+                                   (asobj-ref asobj "bcc" '())))))
      ;; Add to following list
      ;; TODO: Do we need to check if we're already subscribed?
      (user-add-to-followers! (ctx-ref 'store) outbox-user
                              follow-uri)
-     ;; Send request to follow
-     (post-asobj-to-actor asobj (get-asobj follow-uri))
-     
-     ;; Save asobj
-     (save-asobj! asobj)
+
      ;; Return asobj
      asobj)))
 
