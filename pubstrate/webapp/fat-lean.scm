@@ -68,8 +68,8 @@
    (else
     ;; TODO: Also support when there's nothing in the store
     ;;   by looking things up
-    (let ((result (or (recur-retrieve
-                       (store-asobj-ref (ctx-ref 'store) id))
+    (let ((result (or (and=> (store-asobj-ref (ctx-ref 'store) id)
+                             recur-retrieve)
                       ;; if we don't have anything in the db,
                       ;; just memoize and return the id.  This is stupid,
                       ;; but it works for now.
