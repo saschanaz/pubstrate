@@ -40,6 +40,7 @@
             requesting-asobj?
             uri-set
             urlencode urldecode request-query-form
+            string-uri?
             asobj-local? uri-local?))
 
 ;; TODO: add local-uri* and abs-local-uri* which should allow
@@ -227,6 +228,9 @@ FORM may be a utf8-encoded bytevector or a string."
        (local-uri "login")
        #:query `(("next" . ,(uri-path (request-uri request)))))
       (thunk)))
+
+(define (string-uri? obj)
+  (and (string? obj) (string->uri obj)))
 
 (define (asobj-local? asobj)
   "Return whether ASOBJ has an id relative to the base-uri in %ctx"
