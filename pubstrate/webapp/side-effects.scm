@@ -223,8 +223,7 @@ thrown.")
      ;; We need to break this apart more, but for now...
      ;; TODO: Also do verification that this object really is what it
      ;;   claims to be
-     (save-asobj! object)
-     (save-asobj! asobj))))
+     (save-asobj! object))))
 
 (define-as-method (asobj-inbox-effects! (asobj ^Follow)
                                         inbox-user)
