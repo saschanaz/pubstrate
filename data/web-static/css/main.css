@@ -218,6 +218,7 @@ pre.code-box {
     padding-bottom: 5px;
 }
 
+
 .feedish-header {
     display: flex;
     flex-direction: row;
@@ -312,3 +313,15 @@ pre.code-box {
     border-bottom: #000000;
 }
 
+
+.video-box {
+    display: flex;
+    justify-content: center;
+}
+
+video {
+    width: 100%;
+    max-width: 900px;
+    height: auto;
+    padding-bottom: 1em;
+}

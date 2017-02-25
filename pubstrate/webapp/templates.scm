@@ -22,6 +22,8 @@
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-2)
   #:use-module (srfi srfi-19)
+  #:use-module (srfi srfi-26)
+  #:use-module (sjson utils)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate generics)
   #:use-module (pubstrate vocab)
@@ -355,6 +357,7 @@ Arguments: (asobj)")
                        (a (@ (href ,(asobj-header-url asobj)))
                           ,when-posted))))))
 
+
 
 (define-as-generic inline-asobj-tmpl
   "Render an <asobj> inline, probably from another activity.")
@@ -367,4 +370,40 @@ Arguments: (asobj)")
          (and-let* ((content (asobj-ref asobj "content")))
            (cdr (html->shtml content)))))
     `(div (@ (class "feedish-entry-content"))
+          ,@(maybe-render content-html))))
+
+(define-as-method (inline-asobj-tmpl (asobj ^Video))
+  (let* ((content-html
+          ;; TODO: Need to sanitize this...
+          (and-let* ((content (asobj-ref asobj "content")))
+            (cdr (html->shtml content))))
+         (video-links
+          (match (asobj-ref asobj "url")
+            ((? json-array? link-list)
+             link-list)
+            (obj (list obj))))
+         (source-links
+          (delete
+           #f (map (match-lambda
+                     ((? string-uri? href)
+                      `(source (@ (src ,href))))
+                     ((and (? asobj? _) (? (cut asobj-is-a? <> ^Link) link))
+                      (match (asobj-ref link "href")
+                        ((? string-uri? href)
+                         (let ((media-type (asobj-ref link "mediaType"))
+                               (maybe-add-prop (lambda (prop-name var)
+                                                 (if var
+                                                     `((,prop-name ,var))
+                                                     '()))))
+                           `(source (@ (src ,href)
+                                       ,@(if media-type
+                                             `((type ,media-type))
+                                             '())))))
+                        (_ #f))))
+                   video-links))))
+    `(div (@ (class "feedish-entry-content"))
+          (div (@ (class "video-box"))
+               (video (@ (controls "controls")
+                         (preload "metadata"))
+                      ,@source-links))
           ,@(maybe-render content-html))))
