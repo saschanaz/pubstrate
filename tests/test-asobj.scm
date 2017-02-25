@@ -92,6 +92,11 @@
              #:object (as:note #:id "http://tsyesika.co.uk/chat/sup-yo/"
                                #:content "Up for some root beer floats?")))
 
+(test-assert (asobj-is-a? root-beer-note ^Object))
+(test-assert (asobj-is-a? root-beer-note ^Activity))
+(test-assert (asobj-is-a? root-beer-note ^Create))
+(test-assert (not (asobj-is-a? root-beer-note ^Link)))
+
 ;; There's only one type here, Create, but that comes back as a list
 (test-equal (asobj-types root-beer-note)
   (list ^Create))

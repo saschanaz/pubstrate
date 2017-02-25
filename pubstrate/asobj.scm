@@ -30,7 +30,7 @@
             asobj-sjson asobj-env asobj-private
 
             asobj-types asobj-expanded asobj-inherits
-            asobj-id
+            asobj-id asobj-is-a?
 
             asobj-assoc asobj-ref asobj-sjson-assoc asobj-cons asobj-delete
             asobj-from-json-string
@@ -223,6 +223,10 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
 (define (asobj-inherits asobj)
   (force (asobj-inherits-promise asobj)))
 
+(define (asobj-is-a? asobj astype)
+  "Check whether or not ASOBJ is of ASTYPE."
+  (member astype (asobj-inherits asobj)))
+
 ;; TODO: Document that if you asobj-cons another asobj in,
 ;;   any private data in the to-be-nested asobj will be dropped!
 (define* (asobj-cons asobj key value #:key (delete #t))
@@ -358,7 +362,6 @@ Will look something like:
 ;;; User exposed methods
 (define (astype-inheritance astype)
   (force (astype-inheritance-promise astype)))
-
 
 (define (astype-list-inheritance astype-list)
   "Calculate inheritance for a list of astypes"
