@@ -68,14 +68,13 @@ SOURCES =  \
 	pubstrate/webapp/config.scm			\
 	pubstrate/webapp/cookie.scm			\
 	pubstrate/webapp/ctx.scm			\
-	pubstrate/webapp/federation.scm			\
 	pubstrate/webapp/fat-lean.scm			\
+	pubstrate/webapp/inbox-outbox.scm		\
 	pubstrate/webapp/user.scm			\
 	pubstrate/webapp/app.scm			\
 	pubstrate/webapp/auth.scm			\
 	pubstrate/webapp/list-pagination.scm		\
 	pubstrate/webapp/routes.scm			\
-	pubstrate/webapp/side-effects.scm		\
 	pubstrate/webapp/templates.scm			\
 	pubstrate/webapp/template-utils.scm		\
 	pubstrate/webapp/utils.scm			\
