@@ -275,14 +275,14 @@ thrown.")
 
 (define (incoming-activity-common-tweaks asobj outbox-user)
   ;; TODO: Also strip out any @id that may have been attached...
-  ((compose (lambda (asobj)
-              (asobj-cons asobj "id" (gen-asobj-id-for-user outbox-user)))
-            ;; Copy the id of our actor onto the actor field
-            (lambda (asobj)
-              (asobj-cons asobj "actor" (asobj-id outbox-user)))
-            (lambda (asobj)
-              (asobj-cons asobj "published"
-                          (date->rfc3339-string (current-date 0)))))
+  ((compose
+    (cut asobj-delete <> "@id")
+    (cut asobj-cons <> "id" (gen-asobj-id-for-user outbox-user))
+    (cut tweak-id <> outbox-user)
+    ;; Copy the id of our actor onto the actor field
+    (cut asobj-cons <> "actor" (asobj-id outbox-user))
+    (cut asobj-cons <> "published"
+         (date->rfc3339-string (current-date 0))))
    asobj))
 
 (define-as-method (asobj-outbox-effects! (asobj ^Create)
@@ -395,43 +395,44 @@ save it and return it.")
 
 (define-as-method (asobj-outbox-effects! (asobj ^Delete)
                                           outbox-user)
-  (let-asobj-fields
-   asobj ((object "object"))
-   (let* ((object-id (pk 'object-id (id-or-id-from object)))
-          (stored-object (store-asobj-ref (ctx-ref 'store) object-id))
-          ;; TODO: This isn't necessarily correct for checking permissions,
-          ;;   but it'll do for the second.  We need a more robust permission
-          ;;   system.
-          (outbox-user-id (asobj-id outbox-user))
-          (can-edit?
-           (or (equal? (id-or-id-from (asobj-ref stored-object
-                                                 "actor"))
-                       outbox-user-id)
-               (equal? (id-or-id-from (asobj-ref stored-object
-                                                 "attributedTo"))
-                       outbox-user-id))))
-     ;; TODO: We need a more way to handle tracking permissions around
-     ;;   who can edit an object
-     (if can-edit?
-         ;; We'll delete the object, or rather replace it with a new version
-         ;; that keeps the private data intact.
-         ;; @@: *should* we keep the private data around?  Feels like we should
-         ;;   until we know better?  Mayyyyyyyyybe?
-         (let ((tombstone
-                (make-asobj `(@ ("type" "Tombstone")
-                                ("id" ,object-id)
-                                ("formerType" ,((@@ (pubstrate asobj) asobj-type-field)
-                                                stored-object))
-                                ("deleted" ,(date->rfc3339-string (current-date 0))))
-                            (asobj-env asobj)
-                            (asobj-private stored-object))))
-           (save-asobj! tombstone)
-           ;; make sure the saved Delete object just refers to object by id,
-           ;; not structure
-           (asobj-cons asobj "object" object-id))
-         (throw 'effect-error
-                "User doesn't have permission to delete this object."
-                #:asobj asobj)))))
+  (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
+    (let-asobj-fields
+     asobj ((object "object"))
+     (let* ((object-id (id-or-id-from object))
+            (stored-object (store-asobj-ref (ctx-ref 'store) object-id))
+            ;; TODO: This isn't necessarily correct for checking permissions,
+            ;;   but it'll do for the second.  We need a more robust permission
+            ;;   system.
+            (outbox-user-id (asobj-id outbox-user))
+            (can-edit?
+             (or (equal? (id-or-id-from (asobj-ref stored-object
+                                                   "actor"))
+                         outbox-user-id)
+                 (equal? (id-or-id-from (asobj-ref stored-object
+                                                   "attributedTo"))
+                         outbox-user-id))))
+       ;; TODO: We need a more way to handle tracking permissions around
+       ;;   who can edit an object
+       (if can-edit?
+           ;; We'll delete the object, or rather replace it with a new version
+           ;; that keeps the private data intact.
+           ;; @@: *should* we keep the private data around?  Feels like we should
+           ;;   until we know better?  Mayyyyyyyyybe?
+           (let ((tombstone
+                  (make-asobj `(@ ("type" "Tombstone")
+                                  ("id" ,object-id)
+                                  ("formerType" ,((@@ (pubstrate asobj) asobj-type-field)
+                                                  stored-object))
+                                  ("deleted" ,(date->rfc3339-string (current-date 0))))
+                              (asobj-env asobj)
+                              (asobj-private stored-object))))
+             (save-asobj! tombstone)
+             ;; make sure the saved Delete object just refers to object by id,
+             ;; not structure
+             (asobj-cons asobj "object" object-id))
+           (throw 'effect-error
+                  "User doesn't have permission to delete this object."
+                  #:asobj asobj))))))
 
 
 
