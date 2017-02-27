@@ -23,6 +23,7 @@
 (define-module (pubstrate webapp utils)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
+  #:use-module (sjson utils)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate contrib html)
   #:use-module (pubstrate webapp ctx)
@@ -41,7 +42,8 @@
             uri-set
             urlencode urldecode request-query-form
             string-uri?
-            asobj-local? uri-local?))
+            asobj-local? uri-local?
+            maybe-listify list-intersperse))
 
 ;; TODO: add local-uri* and abs-local-uri* which should allow
 ;;   optional GET parameters & fragments
@@ -257,3 +259,19 @@ FORM may be a utf8-encoded bytevector or a string."
                  (uri-port uri))
          (string-prefix? (or (uri-path base-uri) "")
                          (uri-path uri)))))
+
+(define (maybe-listify obj)
+  "If OBJ's not a list (and not an sjson thing), wrap in a list"
+  (match obj
+    ((? json-array? obj)
+     obj)
+    (obj (list obj))))
+
+(define (list-intersperse lst delim)
+  (let lp ((remaining lst)
+           (result '()))
+    (match remaining
+      (() (reverse result))
+      ((item) (lp '() (cons item result)))
+      ((item another1 rest ...)
+       (lp (cdr remaining) (cons* delim item result))))))

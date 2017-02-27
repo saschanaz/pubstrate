@@ -329,3 +329,19 @@ video {
 pre.tombstone-ascii {
     font-size: .75em;
 }
+
+.tag-sep {
+    color: #838383;
+}
+
+.header-tag-plain {
+    color: #5a5a52;
+}
+
+.header-tag-mention {
+    color: #a46ab4;
+}
+
+.header-tag-mention a {
+    color: #62317b;
+}

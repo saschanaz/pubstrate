@@ -20,6 +20,7 @@
 
 (define-module (pubstrate webapp templates)
   #:use-module (ice-9 match)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-2)
   #:use-module (srfi srfi-19)
   #:use-module (srfi srfi-26)
@@ -46,6 +47,7 @@
 
             asobj-page-tmpl
             toplevel-activity-tmpl))
+
 
 (define* (base-tmpl body #:key title)
   (define (header-link link-name link-url)
@@ -390,7 +392,32 @@ Arguments: (asobj)")
                  (lambda (pub-str)
                    (date->string
                     (rfc3339-string->date pub-str)
-                    "~b ~d, ~Y @ ~r")))))
+                    "~b ~d, ~Y @ ~r"))))
+
+         (tags (filter
+                asobj?
+                (append (maybe-listify (asobj-ref asobj "tag" '()))
+                        (maybe-listify (asobj-ref asobj '("object" "tag")
+                                                  '())))))
+         (write-tag
+          (lambda (tag)
+            (let* ((mention? (asobj-is-a? tag ^Mention))
+                   (link (or (asobj-ref tag "href")
+                             (asobj-ref tag "url")
+                             (asobj-ref tag "id")))
+                   (name (string-append
+                          (if mention?
+                              "@" "#")
+                          (or (asobj-ref tag "name")
+                              ;; whuh
+                              "*"))))
+              `(span (@ (class ,(if mention?
+                                    "header-tag-mention"
+                                    "header-tag-plain")))
+                     ,(if link
+                          `(a (@ (href ,link))
+                              ,name)
+                          name))))))
     `(div (@ (class "feedish-header"))
           ;; TODO
           ;; Avatar (and maybe username?)
@@ -410,7 +437,14 @@ Arguments: (asobj)")
                   (div (@ (class "feedish-header-entry"))
                        (b "At: ")
                        (a (@ (href ,(asobj-header-url asobj)))
-                          ,when-posted))))))
+                          ,when-posted))
+                  ,@(render-if
+                     (not (eq? tags '()))
+                     `(div (@ (class "feedish-header-entry"))
+                           (b "Tags: ")
+                           ,@(list-intersperse (map write-tag tags)
+                                               `(span (@ (class "tag-sep"))
+                                                      ", "))))))))
 
 
 
@@ -432,11 +466,7 @@ Arguments: (asobj)")
           ;; TODO: Need to sanitize this...
           (and-let* ((content (asobj-ref asobj "content")))
             (cdr (html->shtml content))))
-         (video-links
-          (match (asobj-ref asobj "url")
-            ((? json-array? link-list)
-             link-list)
-            (obj (list obj))))
+         (video-links (maybe-listify (asobj-ref asobj "url" '())))
          (source-links
           (delete
            #f (map (match-lambda

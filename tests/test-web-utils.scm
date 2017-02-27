@@ -81,5 +81,8 @@
    (test-assert
        (not (asobj-local? (note #:id "email://beepboop.example:8080/bop/bonk"))))))
 
+(test-equal (list-intersperse '(1 2 3) "...")
+  '(1 "..." 2 "..." 3))
+
 (test-end "test-web-utils")
 (test-exit)
