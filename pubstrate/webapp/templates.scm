@@ -549,3 +549,53 @@ Arguments: (asobj)")
                   (lambda (result-name)
                     `(p (i (b "Poll result: ")
                            ,result-name)))))))
+
+
+(define-as-method (inline-asobj-tmpl (asobj ^Image))
+  (let* ((content-html (asobj-content-as-sxml asobj))
+         (image-links (maybe-listify (asobj-ref asobj "url" '())))
+         (image-to-show
+          (or (find (lambda (link)
+                      (equal? (asobj-ref link "name")
+                              "medium"))
+                    image-links)
+              (car image-links))))
+    `(div (@ (class "feedish-entry-content"))
+          (div (@ (class "image-box"))
+               (img (@ (src ,(asobj-ref image-to-show "href"))
+                       ,@(or
+                          (and=> (asobj-ref image-to-show "name")
+                                 (lambda (name)
+                                   `((alt ,name))))
+                          '()))))
+          ,@(maybe-render content-html)
+          (div (@ (class "image-sizes"))
+               (b "All sizes: ")
+               ,@(list-intersperse
+                  (map (lambda (link)
+                         (let* ((width (and=> (asobj-ref link "width")
+                                              number->string))
+                                (height (and=> (asobj-ref link "height")
+                                               number->string))
+                                (media-type (asobj-ref link "mediaType"))
+                                (width-height
+                                 (cond ((and width height)
+                                        (string-append width "x" height))
+                                       (width (string-append "width: " width))
+                                       (height (string-append "height: " height))
+                                       (else #f)))
+                                (attribs? (or width height media-type)))
+                           `(a (@ (href ,(asobj-ref link "href")))
+                               ,(string-append
+                                 (or (asobj-ref link "name")
+                                     "image")
+                                 (if attribs?
+                                     " [" "")
+                                 (string-join
+                                  (delete
+                                   #f (list width-height media-type))
+                                  "; ")
+                                 (if attribs?
+                                     "]" "")))))
+                       image-links)
+                  ", ")))))
