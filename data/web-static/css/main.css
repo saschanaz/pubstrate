@@ -331,6 +331,18 @@ video {
     padding-bottom: 1em;
 }
 
+.image-box {
+    display: flex;
+    justify-content: center;
+}
+
+image {
+    width: 100%;
+    max-width: 900px;
+    height: auto;
+    padding-bottom: 1em;
+}
+
 pre.tombstone-ascii {
     font-size: .75em;
 }
