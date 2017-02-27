@@ -533,20 +533,20 @@ Arguments: (asobj)")
                                              '())))))
                         (_ #f))))
                    video-links)))
-         (preview-link
-          (let ((preview (asobj-ref asobj "preview")))
-            (and (asobj? preview)
-                 (asobj-is-a? preview ^Image)
-                 (and=> (or (asobj-ref preview '("url" "href"))
-                            (asobj-ref preview '("url")))
+         (poster-link
+          (let ((poster (asobj-ref asobj "image")))
+            (and (asobj? poster)
+                 (asobj-is-a? poster ^Image)
+                 (and=> (or (asobj-ref poster '("url" "href"))
+                            (asobj-ref poster '("url")))
                         (lambda (url)
                           (and (string-uri? url) url)))))))
     `(div (@ (class "feedish-entry-content"))
           (div (@ (class "video-box"))
                (video (@ (controls "controls")
                          (preload "metadata")
-                         ,@(render-if preview-link
-                                      `(poster ,preview-link)))
+                         ,@(render-if poster-link
+                                      `(poster ,poster-link)))
                       ,@source-links))
           ,@(maybe-render content-html))))
 
