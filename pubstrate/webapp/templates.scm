@@ -406,6 +406,26 @@ Arguments: (asobj)")
                      ,(string-append key ": "))
                   (span (@ (class "header-content"))
                         ,content))))
+         
+         ;; TODO: We should probably make instrument display a generic
+         ;;    because we might do it a bit differently depending on what
+         ;;    kind used
+         (instrument
+          (or (asobj-ref asobj "instrument")
+              (asobj-ref asobj '("object" "instrument"))))
+         (instrument-name
+          (and instrument
+               (or (asobj-ref instrument "name")
+                   (asobj-ref instrument "url")
+                   (asobj-ref instrument "href")
+                   (asobj-ref instrument "id"))))
+         (instrument-href
+          (and instrument-name
+               (or (asobj-ref instrument "href")
+                   (asobj-ref instrument "url")
+                   (asobj-ref instrument "href")
+                   (asobj-ref instrument "id"))))
+
          (write-tag
           (lambda (tag)
             (let* ((mention? (asobj-is-a? tag ^Mention))
@@ -443,6 +463,13 @@ Arguments: (asobj)")
                   ,(header-entry
                     "At" `(a (@ (href ,(asobj-header-url asobj)))
                              ,when-posted))
+                  ,@(render-if
+                     instrument-name
+                     (header-entry
+                      "Posted via" (if instrument-href
+                                       `(a (@ (href ,instrument-href))
+                                           ,instrument-name)
+                                       instrument-name)))
                   ,@(render-if
                      (not (eq? tags '()))
                      (header-entry
