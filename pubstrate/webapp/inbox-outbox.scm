@@ -18,6 +18,7 @@
 
 (define-module (pubstrate webapp inbox-outbox)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-19)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
@@ -26,6 +27,7 @@
   #:use-module (web client)
   #:use-module (sjson utils)
   #:use-module (pubstrate asobj)
+  #:use-module (pubstrate date)
   #:use-module (pubstrate generics)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp ctx)
@@ -252,6 +254,13 @@ a field isn't found, we throw an exception."
 (define (string-uri? obj)
   (and (string? obj) (string->uri obj)))
 
+(define (id-or-id-from obj)
+  (match obj
+    ((? string-uri? id) id)
+    ((? asobj? obj)
+     (asobj-id obj))
+    (_ #f)))
+
 
 ;;; Posting to outbox generics.  AKA client to server interactions.
 
@@ -264,6 +273,18 @@ We return a (potentially) modified asobj.  If for some reason
 the asobj can't be saved, an 'effect-error exception will be
 thrown.")
 
+(define (incoming-activity-common-tweaks asobj outbox-user)
+  ;; TODO: Also strip out any @id that may have been attached...
+  ((compose (lambda (asobj)
+              (asobj-cons asobj "id" (gen-asobj-id-for-user outbox-user)))
+            ;; Copy the id of our actor onto the actor field
+            (lambda (asobj)
+              (asobj-cons asobj "actor" (asobj-id outbox-user)))
+            (lambda (asobj)
+              (asobj-cons asobj "published"
+                          (date->rfc3339-string (current-date 0)))))
+   asobj))
+
 (define-as-method (asobj-outbox-effects! (asobj ^Create)
                                           outbox-user)
   (let-asobj-fields
@@ -272,9 +293,8 @@ thrown.")
           ;; etc.
           (tweak-object
            (compose
-            ;; TODO: This is the same as in views.scm's user-outbox, we should
-            ;;   merge code?
-            ;; Add a unique id to the object
+            (lambda (object)
+              (incoming-activity-common-tweaks object outbox-user))
             (lambda (object)
               (asobj-cons object "id"
                           (gen-asobj-id-for-user outbox-user)))
@@ -326,50 +346,92 @@ save it and return it.")
 ;;; If it's an object and not an activity, we wrap in a Create and run
 ;;; asobj-outbox-effects! on the wrapped object.
 (define-as-method (asobj-outbox-effects! (asobj ^Object) outbox-user)
-  ;; @@: 
-  (define (copy-props from-asobj to-asobj props)
-    (fold (lambda (prop to-asobj)
-            (let ((from-val (asobj-ref from-asobj prop %nothing)))
-              (if (not (eq? from-val %nothing))
-                  (asobj-cons to-asobj prop from-val)
-                  to-asobj)))
-          to-asobj
-          props))
-  (define wrapped-asobj
-    (copy-props asobj
-                (as:create #:id (gen-asobj-id-for-user outbox-user)
-                           #:object asobj)
-                '("actor" "published" "to" "cc" "bcc" "bto")))
-  (asobj-outbox-effects! wrapped-asobj outbox-user))
+  (let* ((asobj (incoming-activity-common-tweaks asobj outbox-user))
+         (copy-props
+          (lambda (from-asobj to-asobj props)
+            (fold (lambda (prop to-asobj)
+                    (let ((from-val (asobj-ref from-asobj prop %nothing)))
+                      (if (not (eq? from-val %nothing))
+                          (asobj-cons to-asobj prop from-val)
+                          to-asobj)))
+                  to-asobj
+                  props)))
+         (wrapped-asobj
+          (copy-props asobj
+                      (as:create #:id (gen-asobj-id-for-user outbox-user)
+                                 #:object asobj)
+                      '("actor" "published" "to" "cc" "bcc" "bto"))))
+    (asobj-outbox-effects! wrapped-asobj outbox-user)))
 
 ;;; Follow
 (define-as-method (asobj-outbox-effects! (asobj ^Follow)
                                           outbox-user)
+  (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
+    (let-asobj-fields
+     asobj ((object "object"))
+     (let* ((follow-uri (match object
+                          ((? string-uri? _)
+                           object)
+                          ((? asobj? _)
+                           (match (asobj-id object)
+                             ((? string-uri? uri)
+                              uri)
+                             (_ (throw 'effect-error
+                                       "Follow activity's object has no id"
+                                       #:asobj asobj))))))
+            ;; Add follow-uri to the bcc list.  It doesn't matter
+            ;; if there's already a bcc item, since recipients should be
+            ;; de-duped.
+            (asobj (asobj-cons asobj "bcc"
+                               (cons follow-uri
+                                     (asobj-ref asobj "bcc" '())))))
+       ;; Add to following list
+       ;; TODO: Do we need to check if we're already subscribed?
+       (user-add-to-following! (ctx-ref 'store) outbox-user
+                               follow-uri)
+
+       ;; Return asobj
+       asobj))))
+
+(define-as-method (asobj-outbox-effects! (asobj ^Delete)
+                                          outbox-user)
   (let-asobj-fields
    asobj ((object "object"))
-   (let* ((follow-uri (match object
-                        ((? string-uri? _)
-                         object)
-                        ((? asobj? _)
-                         (match (asobj-id object)
-                           ((? string-uri? uri)
-                            uri)
-                           (_ (throw 'effect-error
-                                     "Follow activity's object has no id"
-                                     #:asobj asobj))))))
-          ;; Add follow-uri to the bcc list.  It doesn't matter
-          ;; if there's already a bcc item, since recipients should be
-          ;; de-duped.
-          (asobj (asobj-cons asobj "bcc"
-                             (cons follow-uri
-                                   (asobj-ref asobj "bcc" '())))))
-     ;; Add to following list
-     ;; TODO: Do we need to check if we're already subscribed?
-     (user-add-to-following! (ctx-ref 'store) outbox-user
-                             follow-uri)
-
-     ;; Return asobj
-     asobj)))
+   (let* ((object-id (pk 'object-id (id-or-id-from object)))
+          (stored-object (store-asobj-ref (ctx-ref 'store) object-id))
+          ;; TODO: This isn't necessarily correct for checking permissions,
+          ;;   but it'll do for the second.  We need a more robust permission
+          ;;   system.
+          (outbox-user-id (asobj-id outbox-user))
+          (can-edit?
+           (or (equal? (id-or-id-from (asobj-ref stored-object
+                                                 "actor"))
+                       outbox-user-id)
+               (equal? (id-or-id-from (asobj-ref stored-object
+                                                 "attributedTo"))
+                       outbox-user-id))))
+     ;; TODO: We need a more way to handle tracking permissions around
+     ;;   who can edit an object
+     (if can-edit?
+         ;; We'll delete the object, or rather replace it with a new version
+         ;; that keeps the private data intact.
+         ;; @@: *should* we keep the private data around?  Feels like we should
+         ;;   until we know better?  Mayyyyyyyyybe?
+         (let ((tombstone
+                (make-asobj `(@ ("type" "Tombstone")
+                                ("id" ,object-id)
+                                ("formerType" ,((@@ (pubstrate asobj) asobj-type-field)
+                                                stored-object))
+                                ("deleted" ,(date->rfc3339-string (current-date 0))))
+                            (asobj-env asobj)
+                            (asobj-private stored-object))))
+           (save-asobj! tombstone)
+           ;; make sure the saved Delete object just refers to object by id,
+           ;; not structure
+           (asobj-cons asobj "object" object-id))
+         (throw 'effect-error
+                "User doesn't have permission to delete this object."
+                #:asobj asobj)))))
 
 
 

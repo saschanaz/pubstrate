@@ -32,7 +32,7 @@
 
             relationship content article album folder story
             document audio image video note page question
-            event place mention profile))
+            event place mention profile tombstone))
 
 (define-syntax-rule (shorthand name astype)
   (begin
@@ -101,3 +101,4 @@
 (shorthand place ^Place)
 (shorthand mention ^Mention)
 (shorthand profile ^Profile)
+(shorthand tombstone ^Tombstone)

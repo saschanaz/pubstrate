@@ -325,3 +325,7 @@ video {
     height: auto;
     padding-bottom: 1em;
 }
+
+pre.tombstone-ascii {
+    font-size: .75em;
+}

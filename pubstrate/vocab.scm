@@ -33,7 +33,7 @@
             ^Relationship ^Content ^Article ^Album ^Folder
             ^Story ^Document ^Audio ^Image ^Video ^Note
             ^Page ^Question ^Event ^Place ^Mention
-            ^Profile
+            ^Profile ^Tombstone
 
             *core-vocab* *basic-env*
             %default-env))
@@ -448,6 +448,12 @@ document] for additional information."))
 typically used to describe Actor, objects. The describes property
 is used to reference the object being described by the profile."))
 
+(define ^Tombstone
+  (make-astype
+   (as-uri "Tombstone") (list ^Object) "Tombstone"
+   "A Tombstone represents a content object that has been deleted. It
+can be used in Collections to signify that there used to be an object
+at this position, but it has been deleted."))
 
 (define *core-vocab*
   (list ^Object ^Link ^Activity ^IntransitiveActivity ^Collection
@@ -459,7 +465,7 @@ is used to reference the object being described by the profile."))
         ^Application ^Group ^Organization ^Person ^Service
         ^Relationship ^Content ^Article ^Album ^Folder ^Story ^Document
         ^Audio ^Image ^Video ^Note ^Page ^Question ^Event ^Place ^Mention
-        ^Profile))
+        ^Profile ^Tombstone))
 
 (define *basic-env*
   (make-asenv #:vocabs (list *core-vocab*)

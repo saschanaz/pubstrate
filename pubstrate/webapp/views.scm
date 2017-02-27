@@ -23,14 +23,12 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-11)
-  #:use-module (srfi srfi-19)
   #:use-module (srfi srfi-26)
   #:use-module (web request)
   #:use-module (web uri)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate package-config)
   #:use-module (pubstrate vocab)
-  #:use-module (pubstrate date)
   #:use-module (pubstrate contrib mime-types)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp cookie)
@@ -223,18 +221,6 @@
     ;; TODO: Handle side effects appropriately.
     ;;   Currently doing a "dumb" version of things where we just dump it
     ;;   into the database.
-    (define tweak-incoming-asobj
-      ;; TODO: Also strip out any @id that may have been attached...
-      (compose (lambda (asobj)
-                 (let ((unique-id (abs-local-uri "u" username "p"
-                                                 (gen-bearer-token 30))))
-                   (asobj-cons asobj "id" unique-id)))
-               ;; Copy the id of our actor onto the actor field
-               (lambda (asobj)
-                 (asobj-cons asobj "actor" (asobj-id outbox-user)))
-               (lambda (asobj)
-                 (asobj-cons asobj "published"
-                             (date->rfc3339-string (current-date 0))))))
     (let*-values (;; This is the asobj as it first comes in from the body of the
                   ;; request.
                   ((initial-asobj) (string->asobj
@@ -245,9 +231,8 @@
                   ;; Here we've first done some common "tweaks" on the asobj,
                   ;; then allowed our asobj to handle all its appropriate side
                   ;; effects.
-                  ((asobj) (asobj-outbox-effects!
-                            (tweak-incoming-asobj initial-asobj)
-                            outbox-user))
+                  ((asobj) (asobj-outbox-effects! initial-asobj
+                                                  outbox-user))
                   ;; In determining the recipients of an activitystreams object,
                   ;; we very well may determine a new structure of the asobj,
                   ;; especially because we're likely to strip off the bcc/bto

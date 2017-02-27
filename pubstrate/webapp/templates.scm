@@ -300,6 +300,61 @@ Arguments: (asobj)")
   (toplevel-activity-tmpl (make-as ^Create (%default-env)
                                    #:object asobj)))
 
+(define-as-method (toplevel-activity-tmpl (asobj ^Delete))
+  (let* ((actor (or (asobj-ref asobj "actor")
+                    (asobj-ref asobj '("object" "attributedTo"))))
+         (actor-name (or (and actor (or (asobj-ref actor "preferredUsername")
+                                        (asobj-ref actor "name")
+                                        (asobj-ref actor "id")))
+                         "???"))
+         (when-posted
+          (and=> (asobj-ref asobj "published")
+                 (lambda (pub-str)
+                   (date->string
+                    (rfc3339-string->date pub-str)
+                    "~b ~d, ~Y @ ~r")))))
+    `(div (@ (class "feedish-top-post feedish-post"))
+          (p (i "Post deleted by " ,actor-name
+                ,@(if when-posted
+                      `(" on " ,when-posted ".")
+                      "."))))))
+
+(define-as-method (toplevel-activity-tmpl (asobj ^Tombstone))
+  (let* ((deleted-date (and=> (asobj-ref asobj "deleted")
+                              rfc3339-string->date))
+         (deleted-date-str (and deleted-date
+                                (date->string deleted-date
+                                              "~b ~d, ~Y @ ~r")))
+         (yr (or (and deleted-date
+                      (date->string deleted-date
+                                    "~Y"))
+                 "????")))
+    `(div (@ (class "feedish-top-post feedish-post"))
+          (pre (@ (class "tombstone-ascii"))
+               ,(string-append
+                 "              *                     *
+ *                     *                  __     *
+      *                     *            <  '.
+             *                            )  )       *
+                                   *     <__-'   *
+    *      *       .-------------.
+                 .'               '.                *
+       *         |                 |   *
+                 |   TOMB OF THE   |       *
+            *    |     UNKNOWN     |            *
+   *             | ACTIVITYSTREAMS |
+                 |     OBJECT      |
+             .^. |                 |
+  _  .+.  _  |~| |    ????-"yr"    |  .+. .-.  _  .-.
+ | | |~| |=| | | |                 |  |=| |~| | | | |
+``'`'`''``'`'`'`'``'``'`'`''``'`'`'`'``'`''``''``'`'`'"))
+          (p (i ,(if deleted-date-str
+                     (string-append "This object was deleted on "
+                                    deleted-date-str
+                                    ".")
+                     "This object has been deleted."))))))
+
+
 
 
 (define-as-generic asobj-header-url
