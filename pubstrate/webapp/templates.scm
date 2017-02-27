@@ -484,21 +484,21 @@ Arguments: (asobj)")
 (define-as-generic inline-asobj-tmpl
   "Render an <asobj> inline, probably from another activity.")
 
+(define (asobj-content-as-sxml asobj)
+  ;; TODO: Need to sanitize this...
+  (and=> (asobj-ref asobj "content")
+         (lambda (content)
+           (cdr (html->shtml content)))))
+
 ;; @@: Should this be Note or Object?  Or do things render "like a note"
 ;;  by default?  What else might render this way?
 (define-as-method (inline-asobj-tmpl (asobj ^Object))
-  (let ((content-html
-         ;; TODO: Need to sanitize this...
-         (and-let* ((content (asobj-ref asobj "content")))
-           (cdr (html->shtml content)))))
+  (let ((content-html (asobj-content-as-sxml asobj)))
     `(div (@ (class "feedish-entry-content"))
           ,@(maybe-render content-html))))
 
 (define-as-method (inline-asobj-tmpl (asobj ^Video))
-  (let* ((content-html
-          ;; TODO: Need to sanitize this...
-          (and-let* ((content (asobj-ref asobj "content")))
-            (cdr (html->shtml content))))
+  (let* ((content-html (asobj-content-as-sxml asobj))
          (video-links (maybe-listify (asobj-ref asobj "url" '())))
          (source-links
           (delete
@@ -529,10 +529,7 @@ Arguments: (asobj)")
 
 (define-as-method (inline-asobj-tmpl (asobj ^Question))
   `(div (@ (class "feedish-entry-content"))
-        ,@(maybe-render
-           ;; TODO: Need to sanitize this...
-           (and-let* ((content (asobj-ref asobj "content")))
-             (cdr (html->shtml content))))
+        ,@(maybe-render (asobj-content-as-sxml asobj))
         (ul ,@(delete
                #f (map (lambda (option)
                          (and=> (asobj-ref option "name")
