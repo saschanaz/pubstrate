@@ -389,12 +389,22 @@ Arguments: (asobj)")
          (title (and-let* ((object (asobj-ref asobj "object"))
                            (name (asobj-ref object "name")))
                   `(h2 ,name)))
+
+         (date-formatted-prop
+          (lambda (prop)
+            (and prop
+                 (basic-date-render (rfc3339-string->date prop)))))
          ;; TODO: should either use the internal date,
          ;;  or we should use our own provided date
-         (when-posted
-          (and=> (asobj-ref asobj "published")
-                 (lambda (pub-str)
-                   (basic-date-render (rfc3339-string->date pub-str)))))
+         (when-posted (date-formatted-prop
+                       (or (asobj-ref asobj "published")
+                           (asobj-ref asobj '("object" "published")))))
+         (start-time (date-formatted-prop
+                      (or (asobj-ref asobj "startTime")
+                          (asobj-ref asobj '("object" "startTime")))))
+         (end-time (date-formatted-prop
+                      (or (asobj-ref asobj "endTime")
+                          (asobj-ref asobj '("object" "endTime")))))
 
          (tags (filter
                 asobj?
@@ -465,6 +475,10 @@ Arguments: (asobj)")
                   ,(header-entry
                     "At" `(a (@ (href ,(asobj-header-url asobj)))
                              ,when-posted))
+                  ,@(render-if start-time
+                               (header-entry "Starts at" start-time))
+                  ,@(render-if end-time
+                               (header-entry "Ends at" start-time))
                   ,@(render-if
                      instrument-name
                      (header-entry
