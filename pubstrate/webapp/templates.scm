@@ -399,6 +399,13 @@ Arguments: (asobj)")
                 (append (maybe-listify (asobj-ref asobj "tag" '()))
                         (maybe-listify (asobj-ref asobj '("object" "tag")
                                                   '())))))
+         (header-entry
+          (lambda (key content)
+            `(div (@ (class "feedish-header-entry"))
+                  (b (@ (class "header-key"))
+                     ,(string-append key ": "))
+                  (span (@ (class "header-content"))
+                        ,content))))
          (write-tag
           (lambda (tag)
             (let* ((mention? (asobj-is-a? tag ^Mention))
@@ -428,21 +435,18 @@ Arguments: (asobj)")
           ;; Information about this post
           (header (@ (class "feedish-header-right"))
                   ,@(maybe-render title)
-                  (div (@ (class "feedish-header-entry"))
-                       (b "By: ")
-                       ,(if actor
-                            `(a (@ (href ,(asobj-ref actor "id")))
-                                ,actor-name)
-                            "???"))
-                  (div (@ (class "feedish-header-entry"))
-                       (b "At: ")
-                       (a (@ (href ,(asobj-header-url asobj)))
-                          ,when-posted))
+                  ,(header-entry
+                    "By" (if actor
+                             `(a (@ (href ,(asobj-ref actor "id")))
+                                 ,actor-name)
+                             "???"))
+                  ,(header-entry
+                    "At" `(a (@ (href ,(asobj-header-url asobj)))
+                             ,when-posted))
                   ,@(render-if
                      (not (eq? tags '()))
-                     `(div (@ (class "feedish-header-entry"))
-                           (b "Tags: ")
-                           ,@(list-intersperse (map write-tag tags)
+                     (header-entry
+                      "Tags" (list-intersperse (map write-tag tags)
                                                `(span (@ (class "tag-sep"))
                                                       ", "))))))))
 
