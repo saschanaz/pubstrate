@@ -314,15 +314,14 @@ Arguments: (asobj)")
                    (date->string
                     (rfc3339-string->date pub-str)
                     "~b ~d, ~Y @ ~r")))))
-    (pk 'sexp
-        `(div (@ (class "feedish-top-post feedish-post"))
-              (i ,(if actor-name
-                      `(,actor-name " deleted")
-                      "Deleted")
-                 " a post"
-                 ,(if when-posted
-                      `(" on " ,when-posted ".")
-                      "."))))))
+    `(div (@ (class "feedish-top-post feedish-post"))
+          (i ,(if actor-name
+                  `(,actor-name " deleted")
+                  "Deleted")
+             " a post"
+             ,(if when-posted
+                  `(" on " ,when-posted ".")
+                  ".")))))
 
 (define-as-method (toplevel-activity-tmpl (asobj ^Tombstone))
   (let* ((deleted-date (and=> (asobj-ref asobj "deleted")
@@ -387,6 +386,10 @@ Arguments: (asobj)")
                                         (asobj-ref actor "name")
                                         (asobj-ref actor "id")))
                          "???"))
+
+         (actor-icon (or (and actor (asobj-ref actor "icon"))
+                         "/static/images/red-ghostie.png"))
+
          (title (and-let* ((object (asobj-ref asobj "object"))
                            (name (asobj-ref object "name")))
                   `(h2 ,name)))
@@ -455,8 +458,8 @@ Arguments: (asobj)")
           ;; Avatar (and maybe username?)
           (div
            (img (@ (class "feedish-user-avatar")
-                   (src "/static/images/red-ghostie.png")
-                   (alt "Red ghostie test"))))
+                   (src ,actor-icon)
+                   (alt ,(string-append actor-name "'s icon")))))
           ;; Information about this post
           (header (@ (class "feedish-header-right"))
                   ,@(maybe-render title)

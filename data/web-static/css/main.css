@@ -236,6 +236,11 @@ pre.code-box {
     margin-bottom: 3px;
 }
 
+.feedish-user-avatar {
+    height: auto;
+    width: 100px;
+}
+
 .feedish-entry-content p:first-child {
     margin-top: 5px;
 }
