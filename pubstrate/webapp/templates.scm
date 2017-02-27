@@ -559,7 +559,8 @@ Arguments: (asobj)")
                          (and=> (asobj-ref option "name")
                                 (lambda (name)
                                   `(li ,name))))
-                       (maybe-listify (asobj-ref asobj "oneOf" '())))))
+                       (maybe-listify (or (asobj-ref asobj "oneOf"
+                                          (asobj-ref asobj "anyOf" '()))))))
         ,@(maybe-render
            (and=> (asobj-ref asobj "closed")
                   (lambda (closed-at)
