@@ -287,36 +287,36 @@ thrown.")
 
 (define-as-method (asobj-outbox-effects! (asobj ^Create)
                                           outbox-user)
-  (let-asobj-fields
-   asobj ((object "object"))
-   (let* (;; Perform common tweaks: add an id, published date (copied from),
-          ;; etc.
-          (tweak-object
-           (compose
-            (lambda (object)
-              (incoming-activity-common-tweaks object outbox-user))
-            (lambda (object)
-              (asobj-cons object "id"
-                          (gen-asobj-id-for-user outbox-user)))
-            ;; Copy the actor over to attributedTo
-            (lambda (object)
-              (asobj-cons object "attributedTo"
-                          (asobj-ref asobj "actor")))
-            ;; Copy the published date
-            (lambda (object)
-              (asobj-cons object "published"
-                          (asobj-ref asobj "published")))))
-          
-          (object
-           ;; saving is also done here, as well as any final modifications
-           ;; by the object.
-           (create-outbox-object! (tweak-object object)
-                                  asobj outbox-user))
-          (asobj
-           ;; We replace the asobj's object reference with just the
-           ;; identifier for the object rather than the object itself
-           (asobj-cons asobj "object" (asobj-id object))))
-     asobj)))
+  (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
+    (let-asobj-fields
+     asobj ((object "object"))
+     (let* (;; Perform common tweaks: add an id, published date (copied from),
+            ;; etc.
+            (tweak-object
+             (compose
+              (lambda (object)
+                (incoming-activity-common-tweaks object outbox-user))
+              (lambda (object)
+                (asobj-cons object "id"
+                            (gen-asobj-id-for-user outbox-user)))
+              ;; Copy the actor over to attributedTo
+              (lambda (object)
+                (asobj-cons object "attributedTo"
+                            (asobj-ref asobj "actor")))
+              ;; Copy the published date
+              (lambda (object)
+                (asobj-cons object "published"
+                            (asobj-ref asobj "published")))))
+            (object
+             ;; saving is also done here, as well as any final modifications
+             ;; by the object.
+             (create-outbox-object! (tweak-object object)
+                                    asobj outbox-user))
+            (asobj
+             ;; We replace the asobj's object reference with just the
+             ;; identifier for the object rather than the object itself
+             (asobj-cons asobj "object" (asobj-id object))))
+       asobj))))
 
 (define-as-generic create-outbox-object!
   "Do any final tweaks to the object of an object on a Create
@@ -333,6 +333,12 @@ save it and return it.")
   (throw 'effect-error "Can't create an Activity."
          #:asobj create-asobj
          #:object object))
+
+;; @@: Hacky, maybe we shouldn't be creating questions like this?
+(define-as-method (create-outbox-object! (object ^Question) create-asobj
+                                         outbox-user)
+  (save-asobj! object)
+  object)
 
 ;;; The following two versions are the least common and least interesting
 ;;; of all the asobj implementations.

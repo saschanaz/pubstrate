@@ -311,9 +311,7 @@ Arguments: (asobj)")
          (when-posted
           (and=> (asobj-ref asobj "published")
                  (lambda (pub-str)
-                   (date->string
-                    (rfc3339-string->date pub-str)
-                    "~b ~d, ~Y @ ~r")))))
+                   (basic-date-render (rfc3339-string->date pub-str))))))
     `(div (@ (class "feedish-top-post feedish-post"))
           (i ,(if actor-name
                   `(,actor-name " deleted")
@@ -326,9 +324,7 @@ Arguments: (asobj)")
 (define-as-method (toplevel-activity-tmpl (asobj ^Tombstone))
   (let* ((deleted-date (and=> (asobj-ref asobj "deleted")
                               rfc3339-string->date))
-         (deleted-date-str (and deleted-date
-                                (date->string deleted-date
-                                              "~b ~d, ~Y @ ~r")))
+         (deleted-date-str (and=> deleted-date basic-date-render))
          (yr (or (and deleted-date
                       (date->string deleted-date
                                     "~Y"))
@@ -398,9 +394,7 @@ Arguments: (asobj)")
          (when-posted
           (and=> (asobj-ref asobj "published")
                  (lambda (pub-str)
-                   (date->string
-                    (rfc3339-string->date pub-str)
-                    "~b ~d, ~Y @ ~r"))))
+                   (basic-date-render (rfc3339-string->date pub-str)))))
 
          (tags (filter
                 asobj?
@@ -531,3 +525,30 @@ Arguments: (asobj)")
                          (preload "metadata"))
                       ,@source-links))
           ,@(maybe-render content-html))))
+
+
+(define-as-method (inline-asobj-tmpl (asobj ^Question))
+  `(div (@ (class "feedish-entry-content"))
+        ,@(maybe-render
+           ;; TODO: Need to sanitize this...
+           (and-let* ((content (asobj-ref asobj "content")))
+             (cdr (html->shtml content))))
+        (ul ,@(delete
+               #f (map (lambda (option)
+                         (and=> (asobj-ref option "name")
+                                (lambda (name)
+                                  `(li ,name))))
+                       (maybe-listify (asobj-ref asobj "oneOf" '())))))
+        ,@(maybe-render
+           (and=> (asobj-ref asobj "closed")
+                  (lambda (closed-at)
+                    `(p (i (b "Poll closed at: ")
+                           ,(basic-date-render
+                             (rfc3339-string->date closed-at)))))))
+
+        ;; We'll only look at results in this case that post their answer.
+        ,@(maybe-render
+           (and=> (asobj-ref asobj '("result" "name"))
+                  (lambda (result-name)
+                    `(p (i (b "Poll result: ")
+                           ,result-name)))))))

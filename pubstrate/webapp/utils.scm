@@ -22,6 +22,7 @@
 
 (define-module (pubstrate webapp utils)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-19)
   #:use-module (ice-9 match)
   #:use-module (sjson utils)
   #:use-module (pubstrate asobj)
@@ -43,7 +44,8 @@
             urlencode urldecode request-query-form
             string-uri?
             asobj-local? uri-local?
-            maybe-listify list-intersperse))
+            maybe-listify list-intersperse
+            basic-date-render))
 
 ;; TODO: add local-uri* and abs-local-uri* which should allow
 ;;   optional GET parameters & fragments
@@ -275,3 +277,6 @@ FORM may be a utf8-encoded bytevector or a string."
       ((item) (lp '() (cons item result)))
       ((item another1 rest ...)
        (lp (cdr remaining) (cons* delim item result))))))
+
+(define (basic-date-render date)
+  (date->string date "~b ~d, ~Y @ ~r"))
