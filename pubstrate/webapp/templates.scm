@@ -573,7 +573,7 @@ Arguments: (asobj)")
            (and=> (asobj-ref asobj '("result" "name"))
                   (lambda (result-name)
                     `(p (i (b "Poll result: ")
-                           ,result-name)))))))
+                           ,result-name))))))))
 
 
 (define-as-method (inline-asobj-tmpl (asobj ^Image))
