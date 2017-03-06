@@ -278,7 +278,6 @@ thrown.")
   ((compose
     (cut asobj-delete <> "@id")
     (cut asobj-cons <> "id" (gen-asobj-id-for-user outbox-user))
-    (cut tweak-id <> outbox-user)
     ;; Copy the id of our actor onto the actor field
     (cut asobj-cons <> "actor" (asobj-id outbox-user))
     (cut asobj-cons <> "published"
