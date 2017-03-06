@@ -159,6 +159,9 @@ This will also handle all defaults."
                     "WARNING: Ignoring unknown config field: ~s\n"
                     key)
             prev)
+           ((hashq-ref keys-in-user-config key)
+            ;; We've already seen it, keep going
+            prev)
            ;; Seems legit... add to keys-in-user-config
            ;; as well as the config we're building up
            (((spec-var-validate spec-var) val)
