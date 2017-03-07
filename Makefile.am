@@ -75,6 +75,7 @@ SOURCES =  \
 	pubstrate/webapp/auth.scm			\
 	pubstrate/webapp/list-pagination.scm		\
 	pubstrate/webapp/routes.scm			\
+	pubstrate/webapp/snoop.scm			\
 	pubstrate/webapp/templates.scm			\
 	pubstrate/webapp/template-utils.scm		\
 	pubstrate/webapp/utils.scm			\
@@ -95,6 +96,7 @@ TESTS =							\
 	tests/test-crypto.scm				\
 	tests/test-list-pagination.scm			\
 	tests/test-store.scm				\
+	tests/test-snoop.scm				\
 	tests/test-web-ctx.scm				\
 	tests/test-web-utils.scm			\
 	tests/test-web-sessions.scm			\
