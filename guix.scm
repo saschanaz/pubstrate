@@ -50,50 +50,6 @@
 
 (define %source-dir (dirname (current-filename)))
 
-(define guile-without-select-bug
-  (package
-   (inherit guile-next)
-   (version (package-version guile-next))
-   (source (origin
-              (method url-fetch)
-              (uri (string-append "ftp://alpha.gnu.org/gnu/guile/guile-"
-                                  version ".tar.xz"))
-              (sha256
-               (base32
-                "0qf2664bglv5rrj4c99cc7gry7v9x0sqdyzgfg8zi8gm5wbcmqda"))
-              (modules '((guix build utils)))
-
-              ;; Remove the pre-built object files.  Instead, build everything
-              ;; from source, at the expense of significantly longer build
-              ;; times (almost 3 hours on a 4-core Intel i5).
-              (snippet '(for-each delete-file
-                                  (find-files "prebuilt" "\\.go$")))
-
-              ;; Here's what we're adding
-              (patches (list (string-append %source-dir
-                                            "/build-aux/patch-guile-fix-live-repl.patch")))))))
-
-(define guile2.2-lib
-  ((@@ (gnu packages guile) package-for-guile-2.2)
-   (package
-     (inherit guile-lib)
-     ;; @@: VERY hackily stubbing out the test suite....
-     ;;   by not inheriting the arguments we potentially cause ourselves
-     ;;   some trouble :)
-     ;;   But, hopefully we have a fixed up guile2.2-lib soon.
-     (arguments
-     '(#:tests? #f
-       #:phases (modify-phases %standard-phases
-                  (add-before 'configure 'patch-module-dir
-                    (lambda _
-                      (substitute* "src/Makefile.in"
-                        (("^moddir = ([[:graph:]]+)")
-                         "moddir = $(datadir)/guile/site/@GUILE_EFFECTIVE_VERSION@\n")
-                        (("^godir = ([[:graph:]]+)")
-                         "godir = \
-$(libdir)/guile/@GUILE_EFFECTIVE_VERSION@/site-ccache\n"))
-                      #t))))))))
-
 (define guile-sjson
   (package
     (name "guile-sjson")
@@ -117,12 +73,31 @@ $(libdir)/guile/@GUILE_EFFECTIVE_VERSION@/site-ccache\n"))
        ("autoconf" ,autoconf)
        ("automake" ,automake)))
     (inputs
-     `(("guile" ,guile-next)))
+     `(("guile" ,guile-2.2)))
     (home-page "https://gitlab.com/dustyweb/guile-sjson")
     (synopsis "s-expression based json reader/writer for Guile")
     (description "guile-sjson is a json reader/writer for Guile.
 It has a nice, simple s-expression based syntax.")
     (license lgpl3+)))
+
+(define guile-8sync-latest
+  (package
+    (inherit guile-8sync)
+    (version "git")
+    (source
+     (origin
+       (method git-fetch)
+       (uri (git-reference
+             (url "git://git.savannah.gnu.org/8sync.git")
+             (commit "dfde2119df2a0adb86ec4921f95ef2c15692a593")))
+       (sha256
+        (base32
+         "086smlch92n6z5xng0la9l9g6m145klw1c8222cgj32qhyarbkpk"))))
+    (arguments
+     `(#:phases (modify-phases %standard-phases
+                  (add-before 'configure 'bootstrap
+                              (lambda _
+                                (zero? (system* "./bootstrap.sh")))))))))
 
 (define pubstrate
   (package
@@ -143,9 +118,8 @@ It has a nice, simple s-expression based syntax.")
        ("automake" ,automake)
        ("texinfo" ,texinfo)))
     (inputs
-     `(("guile" ,guile-next)
-       ;; ("guile" ,guile-without-select-bug)
-       ("guile-8sync" ,guile-8sync)
+     `(("guile" ,guile-2.2)
+       ("guile-8sync" ,guile-8sync-latest)
        ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
      `(("guile-gdbm-ffi" ,guile2.2-gdbm-ffi)
