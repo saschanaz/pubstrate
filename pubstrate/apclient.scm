@@ -36,9 +36,13 @@
 
             make-apclient
             apclient-user apclient-inbox-uri apclient-outbox-uri
+            apclient-inbox apclient-outbox
             apclient-get-local apclient-get-local-asobj
+            apclient-post-local apclient-post-local-asobj
 
-            apclient-submit))
+            apclient-submit
+
+            http-get-asobj http-post-asobj))
 
 ;; TODO: Add authentication info, etc...
 (define-class <apclient> ()
@@ -109,7 +113,11 @@
            string->uri)))
 
 (define (apclient-inbox apclient)
-  'TODO)
+  (receive (response inbox-asobj)
+      (apclient-get-local-asobj apclient (apclient-inbox-uri apclient))
+    (values (and (asobj? inbox-asobj)
+                 inbox-asobj)
+            response)))
 
 (define-method (apclient-auth-headers apclient)
   "Return whatever headers are appropriate for authorization given apclient"
@@ -141,33 +149,38 @@
                             #:headers (cons as2-accept-header headers)))
     response-with-body-maybe-as-asobj))
 
-(define-method* (apclient-post-lcoal apclient uri
-                                     #:key body (headers '()))
+(define-method* (apclient-post-local apclient uri body
+                                     #:key (headers '()))
   (http-post uri
              #:headers (append (apclient-auth-headers apclient)
                                headers)
              #:body body))
 
-(define (apclient-submit apclient asobj)
-  (define headers
-    ;; @@: Maybe this shouldn't be optional
-    (let ((auth-token (slot-ref apclient 'auth-token)))
-      `((content-type application/ld+json
-                      (charset . "utf-8")
-                      (profile . "https://www.w3.org/ns/activitystreams"))
-        ,@(if auth-token
-              `((authorization bearer . ,auth-token))
-              '()))))
-  (receive (response body)
-      (http-post (apclient-outbox-uri apclient)
-                 #:body (asobj->string asobj)
-                 #:headers headers)
-    (values
-     ;; Return an <asobj> built out of the body or #f
-     (match (response-code response)
-       ((or 200 201)
-        (string->asobj (utf8->string body) (%default-env)))
-       (_ #f))
-     ;; also return the response
-     response)))
+(define-method* (apclient-post-local-asobj apclient uri asobj
+                                           #:key (headers '()))
+  "Post ASOBJ to local URI using APCLIENT's credentials.
 
+(Warning!  If this is used to post to a remote "
+  (call-with-values
+      (lambda ()
+        (apclient-post-local apclient uri
+                             (asobj->string asobj)
+                             #:headers headers))
+    response-with-body-maybe-as-asobj))
+
+(define (apclient-submit apclient asobj)
+  "Submit ASOBJ to APCLIENT's outbox."
+  (apclient-post-local-asobj apclient (apclient-outbox-uri apclient)
+                             asobj))
+
+(define* (http-get-asobj uri #:key (headers '()))
+  (call-with-values
+      (lambda ()
+        (http-get uri #:headers (cons as2-accept-header headers)))
+    response-with-body-maybe-as-asobj))
+
+(define* (http-post-asobj uri #:key (headers '()))
+  (call-with-values
+      (lambda ()
+        (http-post uri #:headers (cons as2-accept-header headers)))
+    response-with-body-maybe-as-asobj))
