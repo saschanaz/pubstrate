@@ -19,19 +19,24 @@
 (define-module (pubstrate apclient)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
+  #:use-module (web request)
   #:use-module (web response)
   #:use-module (web client)
-  #:use-module (rnrs bytevectors)
   #:use-module (web uri)
+  #:use-module (rnrs bytevectors)
   #:use-module (oop goops)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate vocab)
+  #:use-module (pubstrate contrib define-method-star)
+  #:use-module (pubstrate webapp utils) ;webapp?? well, for uri-set
+  #:use-module (pubstrate webapp auth)  ; allow bearer tokens, etc
   #:use-module (sjson utils)
   #:export (<apclient>
             apclient-id apclient-auth-token
 
             make-apclient
             apclient-user apclient-inbox-uri apclient-outbox-uri
+            apclient-get-local apclient-get-local-asobj
 
             apclient-submit))
 
@@ -46,23 +51,38 @@
   (inbox-uri #:init-value #f)
   (outbox-uri #:init-value #f))
 
+(define (ensure-uri obj)
+  (match obj
+    ((? string? obj)
+     (string->uri obj))
+    ((? uri? obj)
+     obj)))
+
 (define* (make-apclient id #:key auth-token)
-  (let* ((id (match id
-               ((? string? id)
-                (string->uri id))
-               ((? uri? id)
-                id)))
+  (let* ((id (ensure-uri id))
          (apclient
           (make <apclient> #:id id)))
     (if auth-token
         (slot-set! apclient 'auth-token auth-token))
+    (apclient-user apclient)
     apclient))
 
+(define as2-accept-header
+  '(accept . ((application/ld+json
+               (profile . "https://www.w3.org/ns/activitystreams")))))
+
+(define (headers-look-like-as2? headers)
+  (match (assoc-ref headers 'content-type)
+    (((or 'application/activity+json 'application/ld+json) rest ...)
+     #t)
+    (_ #f)))
+
 (define (apclient-user apclient)
+  "Return user object for apclient, and possibly set up if not already fetched"
   (define (retrieve-user)
     (receive (response body)
         (http-get (apclient-id apclient)
-                  #:headers '((accept . ((application/activity+json)))))
+                  #:headers (list as2-accept-header))
       (make-asobj
        (read-json-from-string
         (if (bytevector? body)
@@ -88,18 +108,53 @@
     (and=> (asobj-ref user "outbox")
            string->uri)))
 
-(define (apclient-fetch-asobj apclient asobj-uri)
-  ;; TODO: in the future, make sure we pass in the right authentication
-  'TODO)
-
 (define (apclient-inbox apclient)
   'TODO)
+
+(define-method (apclient-auth-headers apclient)
+  "Return whatever headers are appropriate for authorization given apclient"
+  (apclient-user apclient)  ; called for side effects, make sure user asobj is fetched
+  `((authorization . (bearer . ,(apclient-auth-token apclient)))))
+
+(define (response-with-body-maybe-as-asobj response body)
+  (values response
+          (if (headers-look-like-as2? (response-headers response))
+              (make-asobj (read-json-from-string
+                           (if (bytevector? body)
+                               (utf8->string body)
+                               body))
+                          (%default-env))
+              body)))
+
+(define-method* (apclient-get-local apclient uri
+                                    #:key (headers '()))
+  "Get URI with BODY, using appropriate local authentication"
+  (http-get uri #:headers (append (apclient-auth-headers apclient)
+                                  headers)))
+
+(define-method* (apclient-get-local-asobj apclient uri
+                                          #:key (headers '()))
+  "Get URI with BODY as asobj, using appropriate local authentication"
+  (call-with-values
+      (lambda ()
+        (apclient-get-local apclient uri
+                            #:headers (cons as2-accept-header headers)))
+    response-with-body-maybe-as-asobj))
+
+(define-method* (apclient-post-lcoal apclient uri
+                                     #:key body (headers '()))
+  (http-post uri
+             #:headers (append (apclient-auth-headers apclient)
+                               headers)
+             #:body body))
 
 (define (apclient-submit apclient asobj)
   (define headers
     ;; @@: Maybe this shouldn't be optional
     (let ((auth-token (slot-ref apclient 'auth-token)))
-      `((content-type application/activity+json (charset . "utf-8"))
+      `((content-type application/ld+json
+                      (charset . "utf-8")
+                      (profile . "https://www.w3.org/ns/activitystreams"))
         ,@(if auth-token
               `((authorization bearer . ,auth-token))
               '()))))
