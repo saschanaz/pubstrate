@@ -244,7 +244,8 @@
       (deliver-asobj asobj recipients)                         ; deliver it
       (respond (asobj->string asobj)
                #:status status:created
-               #:content-type 'application/activity+json)))
+               #:content-type 'application/activity+json
+               #:extra-headers `((location . ,(string->uri (asobj-id asobj)))))))
   (define* (abs-outbox-url-str #:optional page)
     (let ((url-str (abs-local-uri "u" username "outbox")))
       (if page
