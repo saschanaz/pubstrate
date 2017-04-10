@@ -205,7 +205,7 @@ Otherwise use the name field."
 
 (define-class <checkbox> (<field>))
 (define-method (field-render-html (field <checkbox>))
-  'TODO)
+  (simple-input "checkbox" field))
 (define-method (field-parse (field <checkbox>) raw-data)
   'TODO)
 
