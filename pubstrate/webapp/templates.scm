@@ -59,44 +59,44 @@
     (and=> (ctx-ref 'user)
            (lambda (u)
              (asobj-ref u "preferredUsername"))))
-  `((doctype html)
-    (head
-     (meta (@ (charset "utf-8")))
-     (title ,(if title
-                 (string-append title " -- Pubstrate")
-                 "Pubstrate"))
-     ;; css
-     (link (@ (rel "stylesheet")
-              (href ,(local-uri "static" "css" "main.css")))))
-    (body
-     (div (@ (id "main-wrapper"))
-          (header (@ (id "site-header"))
-                  ;; @@: Not semantic naming!
-                  (span (@ (id "site-header-left-stuff"))
-                        (b (a (@ (href ,(local-uri)))
-                              "*pubstrate*")))
-                  (span (@ (id "site-header-right-stuff"))
-                        ,@(if (ctx-ref 'user)
-                              (list "Hello, "
-                                    `(a (@ (href ,(local-uri "u" username)))
-                                        ,(asobj-ref (ctx-ref 'user) "name"))
-                                    "!"
-                                    " :: "
-                                    ;; TODO: Add [inbox] [mentions] [direct] [meanwhile]
-                                    (header-link "inbox"
-                                                 (local-uri "u" username "inbox"))
-                                    " :: "
-                                    (header-link "Log out" (local-uri "logout")))
-                              (list (header-link "Log in" (local-uri "login"))))))
-          (div (@ (id "site-main-content"))
-               ,body))
-     (div (@ (id "site-footer"))
-          (a (@ (href "https://gitlab.com/dustyweb/pubstrate"))
-             "Pubstrate")
-          " is released under the "
-          (a (@ (href "https://www.gnu.org/copyleft/gpl.html"))
-             "GNU General Public License")
-          ", version 3 or later."))))
+  `(html (@ (xmlns "http://www.w3.org/1999/xhtml"))
+         (head
+          (meta (@ (charset "utf-8")))
+          (title ,(if title
+                      (string-append title " -- Pubstrate")
+                      "Pubstrate"))
+          ;; css
+          (link (@ (rel "stylesheet")
+                   (href ,(local-uri "static" "css" "main.css")))))
+         (body
+          (div (@ (id "main-wrapper"))
+               (header (@ (id "site-header"))
+                       ;; @@: Not semantic naming!
+                       (span (@ (id "site-header-left-stuff"))
+                             (b (a (@ (href ,(local-uri)))
+                                   "*pubstrate*")))
+                       (span (@ (id "site-header-right-stuff"))
+                             ,@(if (ctx-ref 'user)
+                                   (list "Hello, "
+                                         `(a (@ (href ,(local-uri "u" username)))
+                                             ,(asobj-ref (ctx-ref 'user) "name"))
+                                         "!"
+                                         " :: "
+                                         ;; TODO: Add [inbox] [mentions] [direct] [meanwhile]
+                                         (header-link "inbox"
+                                                      (local-uri "u" username "inbox"))
+                                         " :: "
+                                         (header-link "Log out" (local-uri "logout")))
+                                   (list (header-link "Log in" (local-uri "login"))))))
+               (div (@ (id "site-main-content"))
+                    ,body))
+          (div (@ (id "site-footer"))
+               (a (@ (href "https://gitlab.com/dustyweb/pubstrate"))
+                  "Pubstrate")
+               " is released under the "
+               (a (@ (href "https://www.gnu.org/copyleft/gpl.html"))
+                  "GNU General Public License")
+               ", version 3 or later."))))
 
 
 ;;; Individual pages

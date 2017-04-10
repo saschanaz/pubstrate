@@ -24,9 +24,9 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:use-module (ice-9 match)
+  #:use-module (sxml simple)
   #:use-module (sjson utils)
   #:use-module (pubstrate asobj)
-  #:use-module (pubstrate contrib html)
   #:use-module (pubstrate webapp ctx)
   #:use-module ((pubstrate webapp http-status)
                 #:renamer (symbol-prefix-proc 'status:))
@@ -86,7 +86,8 @@
 (define (respond-html sxml . respond-args)
   (apply respond (lambda (port)
                    (set-port-encoding! port "utf-8")
-                   (sxml->html sxml port))
+                   (display "<!DOCTYPE html>" port)
+                   (sxml->xml sxml port))
          respond-args))
 
 (define robot-404-message "\
