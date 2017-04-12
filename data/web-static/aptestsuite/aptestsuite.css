@@ -112,6 +112,12 @@
     list-style: none;
 }
 
+.prompt-disabled {
+    background-color: #eeeeee;
+    color: #272727;
+}
+
+
 div.prompt-button-metabox {
     display: flex;
     justify-content: center;
@@ -120,6 +126,12 @@ div.prompt-button-metabox {
 div.prompt-button-metabox button {
     margin-left: 5px;
     margin-right: 5px;
+}
+
+
+.no-more-prompt-fyi {
+    font-size: .75em;
+    color: #393939;
 }
 
 

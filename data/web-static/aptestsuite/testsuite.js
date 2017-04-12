@@ -102,7 +102,31 @@ function sendMessageToServer(ws, data) {
     ws.send(data);
 }
 
-window.onload = function () {
-    installWebsocket();
-    window.onresize = scrollDown;
+function getActivePrompt() {
+    return document.getElementById("prompt-active");
 }
+
+function disableActivePrompt() {
+    var prompt = getActivePrompt();
+    var inputs = prompt.getElementsByTagName("input");
+
+    // Kludgily disable these
+    for (var i = 0; i < inputs.length; i++) {
+        inputs[i].setAttribute("disabled", "true");
+    };
+
+    // Set buttons to text that says *submitted*
+    prompt.getElementsByClassName(
+        "prompt-button-metabox")[0].innerHTML =
+        "<span class=\"no-more-prompt-fyi\">[*submitted*]</span>";
+
+    // Set to disabled css class
+    prompt.setAttribute("class", "prompt-user prompt-disabled");
+    // Unset the prompt-active id
+    prompt.removeAttribute("id");
+}
+
+// window.onload = function () {
+//     installWebsocket();
+//     window.onresize = scrollDown;
+// }
