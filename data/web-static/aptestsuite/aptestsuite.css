@@ -1,56 +1,79 @@
-/* 
- * @font-face {
- *     font-family: 'Inconsolata';
- *     font-style: normal;
- *     font-weight: 400;
- *     src: local('Inconsolata-Regular'), local('Inconsolata'), local('Inconsolata Regular'), url('../fonts/inconsolata/Inconsolata-Regular.ttf');
- * }
- * 
- * @font-face {
- *     font-family: 'Inconsolata';
- *     font-style: normal;
- *     font-weight: 700;
- *     src: local('Inconsolata-Bold'), local('Inconsolata Bold'), url('../fonts/inconsolata/Inconsolata-Bold.ttf');
- * }
- * 
- * *, *:before, *:after {
- *     box-sizing: border-box;
- * }
- * 
- * body {
- *     height: 100%;
- *     display: flex;
- *     flex-direction: column;
- *     border: 0px;
- *     margin: 0px;
- *     font-family: 'Inconsolata', monospace;
- *     font-size: 12pt;
- * }
- * 
- * span.pre-ish {
- *     font-size: 12pt;
- *     white-space: pre-wrap;
- * }
- * 
- * ul {
- *     margin-top: .25em;
- *     margin-bottom: .25em;
- *     padding-left: 2ch;
- *     list-style: none;
- * }
- * 
- * ul li:before {
- *     content: "\2022";
- *     margin-right: 1ch;
- *     font-weight: bold;
- * }
- */
+@font-face {
+    font-family: 'Inconsolata';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Inconsolata-Regular'), local('Inconsolata'), local('Inconsolata Regular'), url('../fonts/inconsolata/Inconsolata-Regular.ttf');
+}
 
+@font-face {
+    font-family: 'Inconsolata';
+    font-style: normal;
+    font-weight: 700;
+    src: local('Inconsolata-Bold'), local('Inconsolata Bold'), url('../fonts/inconsolata/Inconsolata-Bold.ttf');
+}
+
+*, *:before, *:after {
+    box-sizing: border-box;
+}
+
+body {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border: 0px;
+    margin: 0px;
+    font-family: 'Inconsolata', monospace;
+    font-size: 12pt;
+}
+
+
+a {
+    color: #cd6294;
+    text-decoration: none;
+    transition: text-shadow .3s;
+}
+
+a:visited {
+    color: #941921;
+}
+
+a:hover {
+    text-shadow: 0px 0px 2px #ffb0fe;
+}
+
+span.pre-ish {
+    font-size: 12pt;
+    white-space: pre-wrap;
+}
+
+button {
+    font-family: 'Inconsolata', monospace;
+    font-weight: bold;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    border: 3px solid #d5d5d5;
+    background: #dcdad5;
+}
+
+button:hover {
+    background: #e7e5e1;
+}
+
+button:disabled:hover {
+    background: #dcdad5;
+}
+
+ul {
+    list-style: none;
+}
 
 #stream-metabox {
     flex-direction: column;
     display: flex;
-    height: 100%;
+    min-height: 85vh;
+    max-height: 85vh;
     background-color: #d5d5d5;
     padding-left: 15px;
     padding-right: 15px;
@@ -91,6 +114,11 @@
 .stream-entry p {
     margin-top: .25em;
     margin-bottom: 0px;
+}
+
+div.simple-centered-wrap {
+    display: flex;
+    justify-content: center;
 }
 
 .prompt-user {
@@ -135,40 +163,31 @@ div.prompt-button-metabox button {
 }
 
 
-/* 
- * .self-sent {
- *     color: #494949;
- *     border-left-color: #b4b4b4;
- * }
- * 
- * #connection-status.connected {
- *     color: #88be7e;
- * }
- * 
- * #connection-status.disconnected {
- *     color: #be8b7e;
- * }
- * 
- * 
- * #input-metabox {
- *     flex: 1;
- *     min-height: 15vh;
- *     max-height: 15vh;
- *     background-color: #414141;
- *     color: #d5d5d5;
- *     padding: 15px;
- * }
- * 
- * #input-metabox input {
- *     border-top-left-radius: 8px;
- *     border-top-right-radius: 8px;
- *     border-bottom-left-radius: 8px;
- *     border-bottom-right-radius: 8px;
- *     border: 3px solid #e6e6e6;
- *     background-color: #ffffff;
- *     padding: 5px;
- *     width: 75%;
- *     font-family: 'Inconsolata', monospace;
- *     font-size: 12pt;
- * }
- */
+
+.self-sent {
+    color: #494949;
+    border-left-color: #b4b4b4;
+}
+
+#connection-status.connected {
+    color: #88be7e;
+}
+
+#connection-status.disconnected {
+    color: #be8b7e;
+}
+
+
+#footer-metabox {
+    flex: 1;
+    min-height: 15vh;
+    max-height: 15vh;
+    background-color: #414141;
+    color: #d5d5d5;
+    padding: 15px;
+    text-align: center;
+}
+
+.status-wrapper {
+    font-size: 1.5em;
+}

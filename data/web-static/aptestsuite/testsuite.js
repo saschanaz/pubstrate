@@ -19,7 +19,7 @@
 */
 
 function scrollDown() {
-    var stream_metabox = document.getElementById("stream-metabox");o
+    var stream_metabox = document.getElementById("stream-metabox");
     stream_metabox.scrollTop = stream_metabox.scrollHeight;
 }
 
@@ -38,16 +38,11 @@ function withMaybeScroll(thunk) {
 }
 
 
-function displayMessage(data, self_sent) {
+function displayMessage(data) {
     var new_entry = document.createElement("div");
     withMaybeScroll(
         function () {
-            if (self_sent) {
-                new_entry.setAttribute("class", "stream-entry self-sent");
-                document.getElementById("main-input").value = "";
-            } else {
-                new_entry.setAttribute("class", "stream-entry");
-            }
+            new_entry.setAttribute("class", "stream-entry");
             new_entry.innerHTML = data;
             document.getElementById("stream").appendChild(new_entry);
         });
@@ -79,24 +74,24 @@ function installWebsocket() {
             true);
         console.log("closed websocket");
     };
-    installUIHooks(ws);
+    // installUIHooks(ws);
 }
 
-function installUIHooks(ws) {
-    var input = document.getElementById("main-input");
-    input.onkeypress = function(e) {
-        if (!e) e = window.event;
-        var keyCode = e.keyCode || e.which;
-        if (keyCode == '13') {
-            var input_val = input.value;
-            withMaybeScroll(
-                function () {
-                    displayMessage("> ".concat(input_val), true);
-                });
-            sendMessageToServer(ws, input_val);
-        }
-    }
-}
+// function installUIHooks(ws) {
+//     var input = document.getElementById("main-input");
+//     input.onkeypress = function(e) {
+//         if (!e) e = window.event;
+//         var keyCode = e.keyCode || e.which;
+//         if (keyCode == '13') {
+//             var input_val = input.value;
+//             withMaybeScroll(
+//                 function () {
+//                     displayMessage("> ".concat(input_val), true);
+//                 });
+//             sendMessageToServer(ws, input_val);
+//         }
+//     }
+// }
 
 function sendMessageToServer(ws, data) {
     ws.send(data);
@@ -126,7 +121,7 @@ function disableActivePrompt() {
     prompt.removeAttribute("id");
 }
 
-// window.onload = function () {
-//     installWebsocket();
-//     window.onresize = scrollDown;
-// }
+window.onload = function () {
+    installWebsocket();
+    window.onresize = scrollDown;
+}
