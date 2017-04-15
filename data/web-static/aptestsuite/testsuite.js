@@ -54,12 +54,60 @@ function setConnectedText(string, to_class) {
     stream_metabox.setAttribute("class", to_class);
 }
 
+function handleNoticeMessage(message_json) {
+    displayMessage(message_json["content"], false);
+}
+
+function handleInputPromptMessage(message_json) {
+    var centered_wrapper = document.createElement("div");
+    var new_prompt = document.createElement("div");
+    var button_metabox = document.createElement("div");
+    var submit_button = document.createElement("button");
+    var back_button = document.createElement("button");
+
+    // Set up prompt div and surrounding wrapper
+    centered_wrapper.setAttribute("class", "simple-centered-wrap");
+    new_prompt.setAttribute("class", "prompt-user");
+    new_prompt.setAttribute("id", "prompt-active");
+    centered_wrapper.appendChild(new_prompt);
+
+    // Fill prompt body with content
+    new_prompt.innerHTML = message_json["content"];
+
+    // Add prompt button box
+    button_metabox.setAttribute("class", "prompt-button-metabox");
+    submit_button.textContent = "Submit";
+    back_button.textContent = "Back";
+    button_metabox.appendChild(submit_button);
+    button_metabox.appendChild(back_button);
+    new_prompt.appendChild(button_metabox);
+
+    // Set up callbacks on the buttons
+    // TODO
+
+    // Finally, append the whole prompt and company to the stream
+    withMaybeScroll(
+        function () {
+            document.getElementById("stream").appendChild(
+                centered_wrapper);
+        }
+    );
+}
+
+var message_type_map = {
+    "notice": handleNoticeMessage,
+    "input-prompt": handleInputPromptMessage}
+
+function delegateMessage(message_json) {
+    message_type_map[message_json["type"]](message_json);
+}
+
 function installWebsocket() {
     // TODO: Don't hardcode the websocket path; pull it from the DOM
     var address = "ws://".concat(window.location.hostname, ":", window.location.port);
     var ws = new WebSocket(address);
     ws.onmessage = function(evt) {
-        displayMessage(evt.data, false);
+        delegateMessage(JSON.parse(evt.data));
     };
     ws.onopen = function() {
         setConnectedText("connected", "connected");
@@ -99,6 +147,25 @@ function sendMessageToServer(ws, data) {
 
 function getActivePrompt() {
     return document.getElementById("prompt-active");
+}
+
+function processCheckbox(input) {
+    return input.checked;
+}
+
+var input_type_processors = {
+    "checkbox": processCheckbox}
+
+function getDataFromActivePrompt() {
+    var prompt = getActivePrompt();
+    var inputs = prompt.getElementsByTagName("input");
+    var data = {};
+    for (var i = 0; i < inputs.length; i++) {
+        var input = inputs[i];
+        // Dispatch to the processor for this type
+        data[input["name"]] = input_type_processors[input["type"]](input);
+    }
+    return data;
 }
 
 function disableActivePrompt() {

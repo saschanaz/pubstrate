@@ -10,6 +10,7 @@
              (web uri)
              (web request)
              (pubstrate apclient)
+             (pubstrate contrib html)
              (pubstrate webapp utils)
              (pubstrate webapp ctx)
              (pubstrate webapp form-widgets)
@@ -38,29 +39,30 @@
           (p ,msg)))
   (define test-stream-contents
     (list
-     (one-entry "Your drink order sir?")
-     (one-entry "Sir, your drinks!")
-     (one-entry "Sir, are you listening to me?")
-     `(div (@ (class "simple-centered-wrap"))
-           (div (@ (class "prompt-user")
-                   (id "prompt-active"))
-                (h2 "What would you like to eat?")
-                (p "I hope you like cafeteria food")
-                (ul (li (input (@ (name "sandwich")
-                                  (type "checkbox")))
-                        " Sandwich")
-                    (li (input (@ (name "drink")
-                                  (type "checkbox")))
-                        " Drink")
-                    (li (input (@ (name "dessert")
-                                  (type "checkbox")))
-                        " Dessert"))
-                (div (@ (class "prompt-button-metabox"))
-                     (button "Submit")
-                     (button "Back"))))
-     (one-entry "Your drink order sir?")
-     (one-entry "Sir, your drinks!")
-     (one-entry "Sir, are you listening to me?")))
+     ;; (one-entry "Your drink order sir?")
+     ;; (one-entry "Sir, your drinks!")
+     ;; (one-entry "Sir, are you listening to me?")
+     ;; `(div (@ (class "simple-centered-wrap"))
+     ;;       (div (@ (class "prompt-user")
+     ;;               (id "prompt-active"))
+     ;;            (h2 "What would you like to eat?")
+     ;;            (p "I hope you like cafeteria food")
+     ;;            (ul (li (input (@ (name "sandwich")
+     ;;                              (type "checkbox")))
+     ;;                    " Sandwich")
+     ;;                (li (input (@ (name "drink")
+     ;;                              (type "checkbox")))
+     ;;                    " Drink")
+     ;;                (li (input (@ (name "dessert")
+     ;;                              (type "checkbox")))
+     ;;                    " Dessert"))
+     ;;            (div (@ (class "prompt-button-metabox"))
+     ;;                 (button "Submit")
+     ;;                 (button "Back"))))
+     ;; (one-entry "Your drink order sir?")
+     ;; (one-entry "Sir, your drinks!")
+     ;; (one-entry "Sir, are you listening to me?")
+     ))
   (define body-tmpl
     `((div (@ (id "stream-metabox"))
            (div (@ (id "stream"))
@@ -117,6 +119,8 @@
              #:accessor .client-id)
   (manager #:init-keyword #:manager
            #:getter .manager)
+  (report #:init-thunk make-hash-table
+          #:getter .report)
   ;; When we need to get input from a user, we suspend to a continuation.
   ;; If we aren't waiting on user input, this is #f.
   (input-kont #:accessor .input-kont
@@ -130,20 +134,65 @@
 (define (case-worker-shutdown case-worker m)
   (self-destruct case-worker))
 
-(define (case-worker-init-and-run case-worker m . args)
-  (<- (.manager case-worker) 'ws-send
+(define (show-user case-worker data)
+  "Shortcut procedure for sending messages to ther user over websockets"
+   (<- (.manager case-worker) 'ws-send
       (.client-id case-worker)
-      "Here we go!"))
+      data))
 
-(define (demo-script case-worker)
-  (define (show-user msg)
-    (display msg)(newline))
-  (define (get-input-from-user . args)
-    'TODO)
-  (define report (make-hash-table))
+(define (with-case-worker-user-io case-worker proc)
+  "Call script PROC with IO procedures that are case-worker driven.
 
-  (show-user
-   "Welcome to the deli counter.  What would you like?")
+This passes two useful arguments to PROC:
+ - show-user: pass it any sxml and it will render it as html
+   and pass it to the stream of notifications the user gets.
+ - get-user-input: pass it sxml including html input elements.
+   This will be presented to the user; PROC will suspend its continuation
+   until a response comes back to the user, so the calling this magically
+   will just return the appropriate values when ready.
+   (The client js takes care of extracting the values from the input
+   fields.)"
+
+  (let ((prompt (make-prompt-tag "user-io")))
+    (call-with-prompt prompt
+      (lambda ()
+        (define (gen-payload type sxml)
+          (write-json-to-string
+           `(@ ("type" ,type)
+               ("content" 
+                ,(with-output-to-string
+                   (lambda ()
+                     (sxml->html sxml (current-output-port))))))))
+        (define (show-user sxml)
+          (<- (.manager case-worker) 'ws-send
+              (.client-id case-worker)
+              (gen-payload "notice" sxml)))
+        (define (get-user-input sxml)
+          (abort-to-prompt prompt (gen-payload "input-prompt" sxml)))
+        (proc case-worker show-user get-user-input))
+      (lambda (kont payload)
+        (set! (.input-kont case-worker)
+              kont)
+        (<- (.manager case-worker) 'ws-send
+            (.client-id case-worker)
+            payload)))))
+
+(define (case-worker-init-and-run case-worker m . args)
+  (with-case-worker-user-io
+   case-worker demo-script
+   ;; (lambda (show-user get-user-input)
+   ;;   (show-user "Here we go, does it werk?")
+   ;;   (get-user-input "what's next yo")
+   ;;   (show-user "soon soon"))x
+   )
+  ;; (demo-script cw)
+  )
+
+(define (report-it! case-worker key val)
+  (hash-set! (.report case-worker) key val))
+
+(define (demo-script case-worker show-user get-user-input)
+  (show-user "Welcome to the deli counter.  What would you like?")
 
   ;; .-----------------------.
   ;; | Menu:                 |
@@ -152,9 +201,10 @@
   ;; |  [ ] dessert          |
   ;; |               [submit]|
   ;; '-----------------------'
-  (let ((user-input 
-         (get-input-from-user
-          `((h1 "Menu")
+  (let ((user-input
+         (get-user-input
+          `((h2 "What would you like to eat?")
+            (p "I hope you like cafeteria food")
             (ul (li (input (@ (name "sandwich")
                               (type "checkbox")))
                     " Sandwich")
@@ -164,9 +214,9 @@
                 (li (input (@ (name "dessert")
                               (type "checkbox")))
                     " Dessert"))))))
-    (hashq-set! report 'sandwich (json-object-ref user-input "sandwich"))
-    (hashq-set! report 'drink (json-object-ref user-input "drink"))
-    (hashq-set! report 'dessert (json-object-ref user-input "dessert")))
+    (report-it! case-worker 'sandwich (json-object-ref user-input "sandwich"))
+    (report-it! case-worker 'drink (json-object-ref user-input "drink"))
+    (report-it! case-worker 'dessert (json-object-ref user-input "dessert")))
 
   ;; (main-menu)
   ;; (when (hashq-ref report 'sandwich)
