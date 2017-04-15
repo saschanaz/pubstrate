@@ -54,11 +54,11 @@ function setConnectedText(string, to_class) {
     stream_metabox.setAttribute("class", to_class);
 }
 
-function handleNoticeMessage(message_json) {
+function handleNoticeMessage(message_json, ws) {
     displayMessage(message_json["content"], false);
 }
 
-function handleInputPromptMessage(message_json) {
+function handleInputPromptMessage(message_json, ws) {
     var centered_wrapper = document.createElement("div");
     var new_prompt = document.createElement("div");
     var button_metabox = document.createElement("div");
@@ -83,7 +83,15 @@ function handleInputPromptMessage(message_json) {
     new_prompt.appendChild(button_metabox);
 
     // Set up callbacks on the buttons
-    // TODO
+    back_button.addEventListener(
+        "click", function () {
+            console.log("klikked bak");
+        });
+    submit_button.addEventListener(
+        "click", function () {
+            console.log("klikked submit");
+            submitCurrentPrompt(ws);
+        });
 
     // Finally, append the whole prompt and company to the stream
     withMaybeScroll(
@@ -98,8 +106,8 @@ var message_type_map = {
     "notice": handleNoticeMessage,
     "input-prompt": handleInputPromptMessage}
 
-function delegateMessage(message_json) {
-    message_type_map[message_json["type"]](message_json);
+function delegateMessage(message_json, ws) {
+    message_type_map[message_json["type"]](message_json, ws);
 }
 
 function installWebsocket() {
@@ -107,7 +115,8 @@ function installWebsocket() {
     var address = "ws://".concat(window.location.hostname, ":", window.location.port);
     var ws = new WebSocket(address);
     ws.onmessage = function(evt) {
-        delegateMessage(JSON.parse(evt.data));
+        console.log(evt.data);
+        delegateMessage(JSON.parse(evt.data), ws);
     };
     ws.onopen = function() {
         setConnectedText("connected", "connected");
@@ -124,22 +133,6 @@ function installWebsocket() {
     };
     // installUIHooks(ws);
 }
-
-// function installUIHooks(ws) {
-//     var input = document.getElementById("main-input");
-//     input.onkeypress = function(e) {
-//         if (!e) e = window.event;
-//         var keyCode = e.keyCode || e.which;
-//         if (keyCode == '13') {
-//             var input_val = input.value;
-//             withMaybeScroll(
-//                 function () {
-//                     displayMessage("> ".concat(input_val), true);
-//                 });
-//             sendMessageToServer(ws, input_val);
-//         }
-//     }
-// }
 
 function sendMessageToServer(ws, data) {
     ws.send(data);
@@ -167,6 +160,14 @@ function getDataFromActivePrompt() {
     }
     return data;
 }
+
+function submitCurrentPrompt(ws) {
+    var data = getDataFromActivePrompt();
+    disableActivePrompt();
+    console.log(data);
+    sendMessageToServer(ws, JSON.stringify(data));
+}
+
 
 function disableActivePrompt() {
     var prompt = getActivePrompt();

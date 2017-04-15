@@ -127,9 +127,11 @@
               #:init-value #f))
 
 (define (case-worker-receive-input case-worker m input)
-  (<- (.manager case-worker) 'ws-send
-      (.client-id case-worker)
-      "Beep boop hi friend"))
+  (cond ((.input-kont case-worker) =>
+         (lambda (kont)
+           (kont (read-json-from-string input))))
+        (else
+         (throw 'case-worker-invalid-input #:input input))))
 
 (define (case-worker-shutdown case-worker m)
   (self-destruct case-worker))
@@ -216,7 +218,27 @@ This passes two useful arguments to PROC:
                     " Dessert"))))))
     (report-it! case-worker 'sandwich (json-object-ref user-input "sandwich"))
     (report-it! case-worker 'drink (json-object-ref user-input "drink"))
-    (report-it! case-worker 'dessert (json-object-ref user-input "dessert")))
+    (report-it! case-worker 'dessert (json-object-ref user-input "dessert"))
+    (let ((wanted-str
+           (match (delete #f (list
+                              (and (json-object-ref user-input "sandwich")
+                                   "a sandwich")
+                              (and (json-object-ref user-input "drink")
+                                   "a drink")
+                              (and (json-object-ref user-input "dessert")
+                                   "a dessert")))
+             ((item)
+              (string-append "just " item))
+             ((items ... last-item)
+              (string-append (string-join
+                              (append items
+                                      (list (string-append "and " last-item)))
+                              ", ")))
+             (()
+              "nothing apparently!"))))
+
+      (show-user (format #f  "Okay!  So you want... ~a... coming right up!"
+                         wanted-str))))
 
   ;; (main-menu)
   ;; (when (hashq-ref report 'sandwich)
@@ -307,6 +329,7 @@ If ERROR-ON-NOTHING, error out if worker is not found."
 
 
 (define (case-manager-ws-client-disconnect case-manager client-id)
+  (pk 'disconnected!)
   (let ((worker (case-manager-worker-ref case-manager client-id)))
     (<- worker 'shutdown)
     (hash-remove! (.workers case-manager) client-id)))
