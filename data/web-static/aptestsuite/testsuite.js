@@ -79,17 +79,18 @@ function handleInputPromptMessage(message_json, ws) {
     submit_button.textContent = "Submit";
     back_button.textContent = "Back";
     button_metabox.appendChild(submit_button);
-    button_metabox.appendChild(back_button);
+    if (message_json["can-go-back"]) {
+        button_metabox.appendChild(back_button);
+    };
     new_prompt.appendChild(button_metabox);
 
     // Set up callbacks on the buttons
     back_button.addEventListener(
         "click", function () {
-            console.log("klikked bak");
+            submitGoBack(ws);
         });
     submit_button.addEventListener(
         "click", function () {
-            console.log("klikked submit");
             submitCurrentPrompt(ws);
         });
 
@@ -161,13 +162,18 @@ function getDataFromActivePrompt() {
     return data;
 }
 
+function submitGoBack(ws) {
+    disableActivePrompt();
+    sendMessageToServer(ws, JSON.stringify({"action": "rewind"}));
+}
+
 function submitCurrentPrompt(ws) {
     var data = getDataFromActivePrompt();
     disableActivePrompt();
     console.log(data);
-    sendMessageToServer(ws, JSON.stringify(data));
+    sendMessageToServer(ws, JSON.stringify({"action": "send-input",
+                                            "data": data}));
 }
-
 
 function disableActivePrompt() {
     var prompt = getActivePrompt();
@@ -180,8 +186,7 @@ function disableActivePrompt() {
 
     // Set buttons to text that says *submitted*
     prompt.getElementsByClassName(
-        "prompt-button-metabox")[0].innerHTML =
-        "<span class=\"no-more-prompt-fyi\">[*submitted*]</span>";
+        "prompt-button-metabox")[0].innerHTML = "";
 
     // Set to disabled css class
     prompt.setAttribute("class", "prompt-user prompt-disabled");

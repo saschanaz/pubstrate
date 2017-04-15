@@ -111,27 +111,80 @@
 
 ;;; Web application launching stuff
 
+(define-class <checkpoint> ()
+  (kont #:getter .kont
+        #:init-keyword #:kont)
+  (report-state #:getter .report-state
+                #:init-keyword #:report-state))
+
 (define-actor <case-worker> (<actor>)
   ((receive-input case-worker-receive-input)
+   (rewind case-worker-rewind)
    (shutdown case-worker-shutdown)
    (*init* case-worker-init-and-run))
   (client-id #:init-keyword #:client-id
              #:accessor .client-id)
   (manager #:init-keyword #:manager
            #:getter .manager)
-  (report #:init-thunk make-hash-table
-          #:getter .report)
+  ;; report is an alist
+  (report #:init-value '()
+          #:accessor .report)
   ;; When we need to get input from a user, we suspend to a continuation.
   ;; If we aren't waiting on user input, this is #f.
   (input-kont #:accessor .input-kont
-              #:init-value #f))
+              #:init-value #f)
+  ;; Queued to be added to the checkpoints after next time input is
+  ;; received
+  (next-checkpoint #:accessor .next-checkpoint
+                        #:init-value #f)
+  ;; List of checkpoints that can be resumed
+  (checkpoints #:init-value '()
+               #:accessor .checkpoints))
 
 (define (case-worker-receive-input case-worker m input)
-  (cond ((.input-kont case-worker) =>
-         (lambda (kont)
-           (kont (read-json-from-string input))))
-        (else
-         (throw 'case-worker-invalid-input #:input input))))
+  (call-with-user-io
+   case-worker
+   (lambda ()
+     ;; Update checkpoints if appropriate
+     (and=> (.next-checkpoint case-worker)
+            (lambda (checkpoint)
+              (set! (.next-checkpoint case-worker) #f)
+              (set! (.checkpoints case-worker)
+                    (cons checkpoint (.checkpoints case-worker)))))
+
+     (cond ((.input-kont case-worker) =>
+            (lambda (kont)
+              ;; unset the input-kont
+              (set! (.input-kont case-worker) #f)
+              ;; and resume!
+              (kont input)))
+           (else
+            (throw 'case-worker-invalid-input #:input input))))))
+
+(define (case-worker-rewind case-worker m)
+  "User decided to rewind to a previous prompt."
+  (call-with-user-io
+   case-worker
+   (lambda ()
+     ;; This requires that we have a prompt up also at the moment,
+     ;; and that we have something to resume in our checkpoints.
+     (when (not (.input-kont case-worker))
+       (throw 'case-worker-resuming-without-prompt
+              #:from 'rewind))
+
+     (match (.checkpoints case-worker)
+       (()
+        (throw 'case-worker-nothing-to-rewind
+               "Can't rewind because no checkpoints available"))
+       ;; Pop checkpoint off the stack and execute
+       ((checkpoint rest-checkpoints ...)
+        ;; Pop!
+        (set! (.checkpoints case-worker)
+              rest-checkpoints)
+        ;; reset the report back to the state at this checkpoint
+        (set! (.report case-worker) (.report-state checkpoint))
+        ;; annnnd... we're back!
+        ((.kont checkpoint)))))))
 
 (define (case-worker-shutdown case-worker m)
   (self-destruct case-worker))
@@ -139,8 +192,37 @@
 (define (show-user case-worker data)
   "Shortcut procedure for sending messages to ther user over websockets"
    (<- (.manager case-worker) 'ws-send
-      (.client-id case-worker)
-      data))
+       (.client-id case-worker)
+       data))
+
+(define %user-io-prompt (make-prompt-tag))
+
+(define (call-with-user-io case-worker thunk)
+  (let lp ((thunk thunk))
+    (match (call-with-prompt %user-io-prompt
+             thunk
+             (match-lambda*
+               ((kont '*user-io* payload)
+                ;; (set! (.save-next-checkpoint case-worker) checkpoint)
+                (set! (.input-kont case-worker)
+                      kont)
+                (<- (.manager case-worker) 'ws-send
+                    (.client-id case-worker)
+                    payload))
+               ((kont '*save-checkpoint*)
+                (set! (.next-checkpoint case-worker)
+                      (make <checkpoint>
+                        #:kont kont
+                        #:report-state (.report case-worker)))
+                ;; TODO save checkpoint here
+                (list '*call-again* kont))))
+      ;; Maybe we didn't need this loop and we cluld have just
+      ;; called (call-with-user-io) inside the call-with-prompt.
+      ;; I'm not positive about whether it would be a proper tail
+      ;; call tho...
+      (('*call-again* kont)
+       (lp kont))
+      (_ 'no-op))))
 
 (define (with-case-worker-user-io case-worker proc)
   "Call script PROC with IO procedures that are case-worker driven.
@@ -154,44 +236,39 @@ This passes two useful arguments to PROC:
    will just return the appropriate values when ready.
    (The client js takes care of extracting the values from the input
    fields.)"
-
-  (let ((prompt (make-prompt-tag "user-io")))
-    (call-with-prompt prompt
-      (lambda ()
-        (define (gen-payload type sxml)
-          (write-json-to-string
-           `(@ ("type" ,type)
-               ("content" 
-                ,(with-output-to-string
-                   (lambda ()
-                     (sxml->html sxml (current-output-port))))))))
-        (define (show-user sxml)
-          (<- (.manager case-worker) 'ws-send
-              (.client-id case-worker)
-              (gen-payload "notice" sxml)))
-        (define (get-user-input sxml)
-          (abort-to-prompt prompt (gen-payload "input-prompt" sxml)))
-        (proc case-worker show-user get-user-input))
-      (lambda (kont payload)
-        (set! (.input-kont case-worker)
-              kont)
-        (<- (.manager case-worker) 'ws-send
-            (.client-id case-worker)
-            payload)))))
+  (call-with-user-io
+   case-worker
+   (lambda ()
+     (define (gen-payload type sxml)
+       (write-json-to-string
+        `(@ ("type" ,type)
+            ("can-go-back" ,(not (eq? (.checkpoints case-worker)
+                                      '())))
+            ("content" 
+             ,(with-output-to-string
+                (lambda ()
+                  (sxml->html sxml (current-output-port))))))))
+     (define (show-user sxml)
+       (<- (.manager case-worker) 'ws-send
+           (.client-id case-worker)
+           (gen-payload "notice" sxml)))
+     (define* (get-user-input sxml #:key (checkpoint #t))
+       (when checkpoint
+         (abort-to-prompt %user-io-prompt '*save-checkpoint*))
+       (abort-to-prompt %user-io-prompt '*user-io*
+                        (gen-payload "input-prompt" sxml)))
+     (proc case-worker show-user get-user-input))))
 
 (define (case-worker-init-and-run case-worker m . args)
   (with-case-worker-user-io
-   case-worker demo-script
-   ;; (lambda (show-user get-user-input)
-   ;;   (show-user "Here we go, does it werk?")
-   ;;   (get-user-input "what's next yo")
-   ;;   (show-user "soon soon"))x
-   )
-  ;; (demo-script cw)
-  )
+   case-worker demo-script))
 
 (define (report-it! case-worker key val)
-  (hash-set! (.report case-worker) key val))
+  (set! (.report case-worker) (acons key val (.report case-worker))))
+
+(define* (report-ref case-worker key #:key dflt)
+  (match (assoc key (.report case-worker))
+    ((key . val) val)))
 
 (define (demo-script case-worker show-user get-user-input)
   (show-user "Welcome to the deli counter.  What would you like?")
@@ -238,7 +315,11 @@ This passes two useful arguments to PROC:
               "nothing apparently!"))))
 
       (show-user (format #f  "Okay!  So you want... ~a... coming right up!"
-                         wanted-str))))
+                         wanted-str)))
+    (get-user-input
+     `((h2 "do you get this one though")
+       (p "y/n actually just press submit")))
+    (show-user "Yeah you got it"))
 
   ;; (main-menu)
   ;; (when (hashq-ref report 'sandwich)
@@ -334,9 +415,15 @@ If ERROR-ON-NOTHING, error out if worker is not found."
     (<- worker 'shutdown)
     (hash-remove! (.workers case-manager) client-id)))
 
-(define (case-manager-ws-new-message case-manager client-id data)
-  (let ((worker (case-manager-worker-ref case-manager client-id)))
-    (<- worker 'receive-input data)))
+(define (case-manager-ws-new-message case-manager client-id raw-data)
+  (let ((worker (case-manager-worker-ref case-manager client-id))
+        ;; shadow data with version parsed from json
+        (json-data (read-json-from-string raw-data)))
+    (match (json-object-ref json-data "action")
+      ("send-input"
+       (<- worker 'receive-input (json-object-ref json-data "data")))
+      ("rewind"
+       (<- worker 'rewind)))))
 
 ;; @@: Are these needed really?
 (define (case-manager-send-msg-to-client case-manager m msg)
