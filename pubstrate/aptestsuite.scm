@@ -295,6 +295,151 @@ This passes two useful arguments to PROC:
     (show-user "and we're done")))
 
 
+;;; test-items and responses
+
+;; This isn't 
+(define-class <test-item> ()
+  (sym #:init-keyword #:sym
+       #:getter test-item-sym)
+  (req-level #:init-keyword #:req-level
+             #:getter test-item-req-level)
+  (desc #:init-keyword #:desc
+        #:getter test-item-desc)
+  (subitems #:init-keyword #:subitems
+            #:getter test-item-subitems))
+
+(define req-levels
+  '(MAY MUST SHOULD NON-NORMATIVE))
+(define (req-level? obj)
+  (member obj req-levels))
+
+(define* (test-item sym req-level desc
+                #:key (subitems '()))
+  (make <test-item>
+    #:sym sym #:req-levl req-level #:desc desc
+    #:subitems (build-test-items subitems)))
+(define (build-test-items lst)
+  (map (lambda (args) (apply test-item args)) lst))
+
+(define-class <response> ()
+  (sym #:init-keyword #:sym)
+  (comment #:init-keyword #:comment))
+
+(define-syntax-rule (response-maker name type)
+  (define (constructor-name . args)
+    (apply make type args)))
+
+(define-class <success> (<response>))
+(define-class <fail> (<response>))
+(define-class <inconclusive> (<response>))
+(response-maker success <success>)
+(response-maker fail <fail>)
+(response-maker inconclusive <inconclusive>)
+
+
+;;; Descriptions of the activitystreams requirements
+
+;; This is used to build the implementation report, and is also decent
+;; documentation on "what needs to be done."
+
+(define server-outbox-items
+  (build-test-items
+   `(;;; MUST
+     (outbox:accepts-activities
+      MUST
+      "Accepts Activity Objects")
+     (outbox:accepts-non-activity-objects
+      MUST
+      "Accepts non-Activity Objects, and converts to Create Activities per 7.1.1")
+     (outbox:removes-bto-and-bcc
+      MUST
+      "Removes the `bto` and `bcc` properties from Objects before storage and delivery")
+     (outbox:ignores-id
+      MUST
+      "Ignores 'id' on submitted objects, and generates a new id instead")
+     (outbox:responds-201-created
+      MUST
+      "Responds with status code 201 Created")
+     (outbox:location-header
+      MUST
+      "Response includes Location header whose value is id of new object, unless the Activity is transient")
+     (outbox:upload-media
+      MUST
+      "Accepts Uploaded Media in submissions"
+      #:subitems ((outbox:upload-media:file-parameter
+                   MUST
+                   "accepts uploadedMedia file parameter")
+                  (outbox:upload-media:object-parameter
+                   MUST
+                   "accepts uploadedMedia object parameter")
+                  (outbox:upload-media:201-or-202-status
+                   MUST
+                   "Responds with status code of 201 Created or 202 Accepted as described in 6.")
+                  (outbox:upload-media:location-header
+                   MUST
+                   "Response contains a Location header pointing to the to-be-created object's id.")
+                  (outbox:upload-media:appends-id
+                   MUST
+                   "Appends an id property to the new object")))
+     (outbox:update
+      MUST
+      "Update"
+      #:subitems ((outbox:update:check-authorized
+                   MUST
+                   "Server takes care to be sure that the Update is authorized to modify its object before modifying the server's stored copy")))
+    ;;; SHOULD
+     (outbox:not-trust-submitted
+      SHOULD
+      "Server does not trust client submitted content")
+     (outbox:validate-content
+      SHOULD
+      "Validate the content they receive to avoid content spoofing attacks.")
+     ;; @@: Maybe should be under outbox:upload-media ?
+     (outbox:upload-media-url
+      SHOULD
+      "After receiving submission with uploaded media, the server should include the upload's new URL in the submitted object's url property")
+     (outbox:do-not-overload
+      SHOULD
+      "Take care not to overload other servers with delivery submissions")
+     (outbox:create
+      SHOULD
+      "Create"
+      #:subitems ((outbox:create:merges-audience-properties
+                   SHOULD
+                   "merges audience properties (to, bto, cc, bcc, audience) with the Create's 'object's audience properties")
+                  (outbox:create:actor-to-attributed-to
+                   SHOULD
+                   "Create's actor property is copied to be the value of .object.attributedTo")))
+     (outbox:follow
+      SHOULD
+      "Follow"
+      #:subitems ((outbox:follow:adds-followed-object
+                   SHOULD
+                   "Adds followed object to the actor's Following Collection")))
+     (outbox:add
+      SHOULD
+      "Add"
+      #:subitems ((outbox:add:adds-object-to-target
+                   SHOULD
+                   "Adds object to the target Collection, unless not allowed due to requirements in 7.5")))
+     (outbox:remove
+      SHOULD
+      "Remove"
+      #:subitems ((outbox:remove:removes-from-target
+                   SHOULD
+                   "Remove object from the target Collection, unless not allowed due to requirements in 7.5")))
+     (outbox:like
+      SHOULD
+      "Like"
+      #:subitems ((outbox:like:adds-object-to-likes
+                   SHOULD
+                   "Adds the object to the actor's Likes Collection.")))
+     (outbox:block
+      SHOULD
+      "Block"
+      #:subitems ((outbox:block:prevent-interaction-with-actor
+                   SHOULD
+                   "Prevent the blocked object from interacting with any object posted by the actor."))))))
 
 
 
