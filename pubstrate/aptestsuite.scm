@@ -142,7 +142,7 @@
                #:accessor .checkpoints))
 
 (define (case-worker-receive-input case-worker m input)
-  (call-with-user-io
+  (with-user-io-prompt
    case-worker
    (lambda ()
      ;; Update checkpoints if appropriate
@@ -163,7 +163,12 @@
 
 (define (case-worker-rewind case-worker m)
   "User decided to rewind to a previous prompt."
-  (call-with-user-io
+  (with-case-worker-user-io
+   case-worker
+   (lambda (_ show-user get-user-input)
+     (show-user "*** Rewinding... ***")))
+
+  (with-user-io-prompt
    case-worker
    (lambda ()
      ;; This requires that we have a prompt up also at the moment,
@@ -189,15 +194,9 @@
 (define (case-worker-shutdown case-worker m)
   (self-destruct case-worker))
 
-(define (show-user case-worker data)
-  "Shortcut procedure for sending messages to ther user over websockets"
-   (<- (.manager case-worker) 'ws-send
-       (.client-id case-worker)
-       data))
-
 (define %user-io-prompt (make-prompt-tag))
 
-(define (call-with-user-io case-worker thunk)
+(define (with-user-io-prompt case-worker thunk)
   (let lp ((thunk thunk))
     (match (call-with-prompt %user-io-prompt
              thunk
@@ -217,7 +216,7 @@
                 ;; TODO save checkpoint here
                 (list '*call-again* kont))))
       ;; Maybe we didn't need this loop and we cluld have just
-      ;; called (call-with-user-io) inside the call-with-prompt.
+      ;; called (with-user-io-prompt) inside the call-with-prompt.
       ;; I'm not positive about whether it would be a proper tail
       ;; call tho...
       (('*call-again* kont)
@@ -236,7 +235,7 @@ This passes two useful arguments to PROC:
    will just return the appropriate values when ready.
    (The client js takes care of extracting the values from the input
    fields.)"
-  (call-with-user-io
+  (with-user-io-prompt
    case-worker
    (lambda ()
      (define (gen-payload type sxml)
