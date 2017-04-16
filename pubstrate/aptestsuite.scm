@@ -136,7 +136,7 @@
   ;; Queued to be added to the checkpoints after next time input is
   ;; received
   (next-checkpoint #:accessor .next-checkpoint
-                        #:init-value #f)
+                   #:init-value #f)
   ;; List of checkpoints that can be resumed
   (checkpoints #:init-value '()
                #:accessor .checkpoints))
@@ -181,11 +181,14 @@
        (()
         (throw 'case-worker-nothing-to-rewind
                "Can't rewind because no checkpoints available"))
-       ;; Pop checkpoint off the stack and execute
+       ;; Pop checkpoint off the stack
        ((checkpoint rest-checkpoints ...)
-        ;; Pop!
+        ;; Restore checkpoints state to what it was
         (set! (.checkpoints case-worker)
               rest-checkpoints)
+        ;; Set the "next checkpoint" to be the one we just restored
+        (set! (.next-checkpoint case-worker)
+              checkpoint)
         ;; reset the report back to the state at this checkpoint
         (set! (.report case-worker) (.report-state checkpoint))
         ;; annnnd... we're back!
@@ -202,7 +205,6 @@
              thunk
              (match-lambda*
                ((kont '*user-io* payload)
-                ;; (set! (.save-next-checkpoint case-worker) checkpoint)
                 (set! (.input-kont case-worker)
                       kont)
                 (<- (.manager case-worker) 'ws-send
@@ -318,7 +320,11 @@ This passes two useful arguments to PROC:
     (get-user-input
      `((h2 "do you get this one though")
        (p "y/n actually just press submit")))
-    (show-user "Yeah you got it"))
+    (show-user "Yeah you got it")
+    (get-user-input
+     `((h2 "One more")
+       (p "we promise")))
+    (show-user "and we're done"))
 
   ;; (main-menu)
   ;; (when (hashq-ref report 'sandwich)
