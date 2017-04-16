@@ -148,7 +148,7 @@
                "Can't rewind because no checkpoints available"))
        ;; Pop checkpoint off the stack
        ((checkpoint rest-checkpoints ...)
-        ;; Restore checkpoints state to what it was
+        ;; Pop!
         (set! (.checkpoints case-worker)
               rest-checkpoints)
         ;; Set the "next checkpoint" to be the one we just restored
