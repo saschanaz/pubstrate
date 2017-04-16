@@ -37,36 +37,9 @@
   (define (one-entry msg)
     `(div (@ (class "stream-entry"))
           (p ,msg)))
-  (define test-stream-contents
-    (list
-     ;; (one-entry "Your drink order sir?")
-     ;; (one-entry "Sir, your drinks!")
-     ;; (one-entry "Sir, are you listening to me?")
-     ;; `(div (@ (class "simple-centered-wrap"))
-     ;;       (div (@ (class "prompt-user")
-     ;;               (id "prompt-active"))
-     ;;            (h2 "What would you like to eat?")
-     ;;            (p "I hope you like cafeteria food")
-     ;;            (ul (li (input (@ (name "sandwich")
-     ;;                              (type "checkbox")))
-     ;;                    " Sandwich")
-     ;;                (li (input (@ (name "drink")
-     ;;                              (type "checkbox")))
-     ;;                    " Drink")
-     ;;                (li (input (@ (name "dessert")
-     ;;                              (type "checkbox")))
-     ;;                    " Dessert"))
-     ;;            (div (@ (class "prompt-button-metabox"))
-     ;;                 (button "Submit")
-     ;;                 (button "Back"))))
-     ;; (one-entry "Your drink order sir?")
-     ;; (one-entry "Sir, your drinks!")
-     ;; (one-entry "Sir, are you listening to me?")
-     ))
   (define body-tmpl
     `((div (@ (id "stream-metabox"))
-           (div (@ (id "stream"))
-                ,@test-stream-contents))
+           (div (@ (id "stream"))))
       (div (@ (id "footer-metabox"))
            (div (@ (class "status-wrapper"))
                 (b "ActivityPub Test Suite")
@@ -324,57 +297,7 @@ This passes two useful arguments to PROC:
     (get-user-input
      `((h2 "One more")
        (p "we promise")))
-    (show-user "and we're done"))
-
-  ;; (main-menu)
-  ;; (when (hashq-ref report 'sandwich)
-  ;;   (let ((user-input)))
-
-    ;; > What kind of sandwich?
-    ;; .-----------------------.
-    ;; | (o) Tofu reuben       |
-    ;; | ( ) Philly seitan     |
-    ;; | ( ) Veggie delite     |
-    ;; |               [submit]|
-    ;; '-----------------------'
-
-    ;; > Okay hold on while we get that ready for you.
-    ;; > *Butchering tofu...*
-    ;; > "Hey Timmy, could ya bring me some condiments?"
-    ;; > *Waiting on condiments...*
-    ;; > *Received condiments!*
-    ;; > "Thanks Timmy!"
-    ;; > *Assembles bread*
-    ;; > "Say, did you want pickles or cheese with this?"
-    ;; .----------------------.
-    ;; | [ ] Pickles          |
-    ;; | Cheese:              |
-    ;; |  ( ) Daiya           |
-    ;; |  (X) Cheddar         |
-    ;; |  ( ) Mozzerella      |
-    ;; |              [submit]|
-    ;; '----------------------'
-    ;; > "Ok, no pickles and Mozzerella."
-    ;; > *Assembles rest of sandwich*
-    ;; > "Ok, here's your sandwich!"
-
-  ;; > That'll be $11.50.
-  ;; .----------------------.
-  ;; | Pay amount $[12.00]  |
-  ;; |              [submit]|
-  ;; '----------------------'
-  ;; > "Here's your change."  *hands $0.50*
-  ;; > "Here's your cup.  You can fill your drink over there."
-  ;; .----------------------.
-  ;; | Pick yer soda        |
-  ;; |  (O) Starberry       |
-  ;; |  ( ) Rube Bear       |
-  ;; |  ( ) Corpus Cola     |
-  ;; |              [submit]|
-  ;; '----------------------'
-  ;; > Congrats, you're now eating a delicious meal of
-  ;;   Tofu reuben with cheddar cheese and a starberry soda
-  )
+    (show-user "and we're done")))
 
 
 (define (receive-input case-worker m input)
