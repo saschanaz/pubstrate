@@ -353,13 +353,6 @@ If ERROR-ON-NOTHING, error out if worker is not found."
       ("rewind"
        (<- worker 'rewind)))))
 
-;; @@: Are these needed really?
-(define (case-manager-send-msg-to-client case-manager m msg)
-  'TODO)
-
-(define (case-manager-input-request-to-client case-manager m msg)
-  'TODO)
-
 (define (http-handler request body)
   (receive (view args)
       (route request)
