@@ -75,6 +75,13 @@
   (report-state #:getter .report-state
                 #:init-keyword #:report-state))
 
+;; This handles the logic for working with a single client.
+;; The <case-manager> handles the actual IO with that user, but delegates
+;; to this <case-worker> class to do all the actual state management
+;; and run of the tests, etc.
+;;
+;; When the user's websocket closes, the case-worker for that user
+;; shuts down.
 (define-actor <case-worker> (<actor>)
   ((receive-input case-worker-receive-input)
    (rewind case-worker-rewind)
@@ -229,6 +236,9 @@ This passes two useful arguments to PROC:
   (match (assoc key (.report case-worker))
     ((key . val) val)))
 
+
+;;; Demo, for testing things
+
 (define (demo-script case-worker show-user get-user-input)
   (show-user "Welcome to the deli counter.  What would you like?")
 
@@ -284,6 +294,11 @@ This passes two useful arguments to PROC:
        (p "we promise")))
     (show-user "and we're done")))
 
+
+
+
+
+;;; case manager / case worker stuff
 
 (define (receive-input case-worker m input)
   (match (.input-kont case-worker)
@@ -292,6 +307,9 @@ This passes two useful arguments to PROC:
     ;; Otherwise, resume with this input provided
     (kont (kont input))))
 
+;; This is really the combo web server / websocket server.
+;; It's called case-manager because of bad puns; case-worker is delegated
+;; to for all the communication with the client over the websocket.
 (define-actor <case-manager> (<websocket-server>)
   ((send-msg-to-client case-manager-send-msg-to-client)
    (input-request-to-client case-manager-input-request-to-client))
