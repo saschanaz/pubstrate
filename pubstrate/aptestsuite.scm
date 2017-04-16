@@ -18,21 +18,6 @@
               #:renamer (symbol-prefix-proc 'ps-view:)))
 
 
-(define* (base-template body #:key title)
-  `(html (@ (xmlns "http://www.w3.org/1999/xhtml"))
-         (head (meta (@ (charset "utf-8")))
-               (title ,(if title
-                           (string-append title " -- Pubstrate")
-                           "Pubstrate"))
-               ;; (link (@ (rel "stylesheet")
-               ;;          (href ,(local-uri "static" "css" "main.css"))))
-               (link (@ (rel "stylesheet")
-                        (href ,(local-uri "static" "aptestsuite" "aptestsuite.css"))))
-               (script (@ (type "text/javascript")
-                          (src ,(local-uri "static" "aptestsuite" "testsuite.js")))
-                       ""))
-         ))
-
 (define (view:main-display request body)
   (define (one-entry msg)
     `(div (@ (class "stream-entry"))
