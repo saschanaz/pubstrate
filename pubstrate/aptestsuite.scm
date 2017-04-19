@@ -227,7 +227,7 @@ This passes two useful arguments to PROC:
 
 (define (case-worker-init-and-run case-worker m . args)
   (with-case-worker-user-io
-   case-worker demo-script))
+   case-worker run-main-script))
 
 (define (report-it! case-worker key val)
   (set! (.report case-worker) (acons key val (.report case-worker))))
@@ -442,6 +442,96 @@ This passes two useful arguments to PROC:
                    "Prevent the blocked object from interacting with any object posted by the actor."))))))
 
 
+
+
+
+;;; The main script
+
+(define (link url body)
+  "Construct a link that opens in a new tab, so the user won't accidentally
+leave the tests in progress."
+  `(a (@ (href ,url)
+         (target "_blank"))
+      ,body))
+
+(define (warn body)
+  "Surround text in warning class."
+  `(span (@ (class "warning"))
+         ,body))
+
+(define (run-main-script case-worker show-user get-user-input)
+  ;;; Find out which tests we're running
+  (show-user
+   `((p "Hello!  Welcome to the "
+        ,(link "https://www.w3.org/TR/activitypub/"
+               "ActivityPub")
+        " test suite, part of "
+        ,(link "https://activitypub.rocks/"
+               "activitypub.rocks")
+        "!")
+     (p "Please don't close this tab until you've finished submitting "
+        "your tests; your session is running as long as the tab stays open.")))
+
+  (let get-input-loop ()
+    (let* ((user-input
+            (get-user-input
+             `((h2 "What implementations are we testing today?")
+               (table (@ (class "input-table"))
+                      (tr (td (input (@ (name "testing-client")
+                                        (type "checkbox"))))
+                          (td (b "ActivityPub client")
+                              (br)
+                              "I'm testing an ActivityPub client which speaks the "
+                              ,(link "https://www.w3.org/TR/activitypub/#client-to-server-interactions"
+                                     "ActivityPub client-to-server protocol")
+                              "."))
+                      (tr (td (input (@ (name "testing-c2s-server")
+                                        (type "checkbox"))))
+                          (td (b "ActivityPub client-to-server server")
+                              (br)
+                              "I'm testing an ActivityPub client which follows the commands "
+                              "of clients through the "
+                              ,(link "https://www.w3.org/TR/activitypub/#client-to-server-interactions"
+                                     "ActivityPub client-to-server protocol")
+                              "."))
+                      (tr (td (input (@ (name "testing-s2s-server")
+                                        (type "checkbox"))))
+                          (td (b "ActivityPub federated server")
+                              (br)
+                              "I'm testing an ActivityPub server which speaks to other servers "
+                              "over the "
+                              ,(link "https://www.w3.org/TR/activitypub/#server-to-server-interactions"
+                                     "ActivityPub server-to-server protocol")
+                              "."))))))
+           (testing-client (json-object-ref user-input "testing-client"))
+           (testing-c2s-server (json-object-ref user-input "testing-c2s-server"))
+           (testing-s2s-server (json-object-ref user-input "testing-s2s-server")))
+      (if (or testing-client testing-c2s-server testing-s2s-server)
+          ;; We need at least one to continue
+          (begin
+            (when testing-client
+              (report-it! case-worker 'testing-client #t))
+            (when testing-c2s-server
+              (report-it! case-worker 'testing-c2s-server #t))
+            (when testing-s2s-server
+              (report-it! case-worker 'teseting-s2s-server #t)))
+          ;; We didn't get anything, so let's loop until we do
+          (begin (show-user (warn
+                             '("It looks like you didn't select anything. "
+                               "Please select at least one implementation type to test.")))
+                 (get-input-loop))))
+    
+
+    )
+
+  ;;; And run them
+
+  ;;; TODO: And here's the final report
+  
+
+  )
+
+
 
 ;;; case manager / case worker stuff
 
@@ -475,7 +565,7 @@ This passes two useful arguments to PROC:
 
 (define* (case-manager-worker-ref case-manager client-id
                                   #:key (error-on-nothing #t))
-  "Fetch worker with CLIENT-ID.
+  ")Fetch worker with CLIENT-ID.
 
 If ERROR-ON-NOTHING, error out if worker is not found."
   (let ((worker (hash-ref (.workers case-manager) client-id)))
