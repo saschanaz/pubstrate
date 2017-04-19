@@ -510,27 +510,35 @@ leave the tests in progress."
           ;; We need at least one to continue
           (begin
             (when testing-client
-              (report-it! case-worker 'testing-client #t))
+              (report-it! case-worker 'testing-client #t)
+              (test-client case-worker show-user get-user-input))
             (when testing-c2s-server
-              (report-it! case-worker 'testing-c2s-server #t))
+              (report-it! case-worker 'testing-c2s-server #t)
+              (test-c2s-server case-worker show-user get-user-input))
             (when testing-s2s-server
-              (report-it! case-worker 'teseting-s2s-server #t)))
+              (report-it! case-worker 'teseting-s2s-server #t)
+              (test-s2s-server case-worker show-user get-user-input)))
           ;; We didn't get anything, so let's loop until we do
           (begin (show-user (warn
                              '("It looks like you didn't select anything. "
                                "Please select at least one implementation type to test.")))
-                 (get-input-loop))))
-    
-
-    )
-
-  ;;; And run them
+                 (get-input-loop)))))
 
   ;;; TODO: And here's the final report
-  
-
   )
 
+
+(define (test-client case-worker show-user get-user-input)
+  (show-user "Here's where we'd test the client!")
+  (show-user '("We should issue an apology here that the "
+               "client testing code asks the most questions. "
+               "Server testing code won't have to be as interactive.")))
+
+(define (test-c2s-server case-worker show-user get-user-input)
+  (show-user "Here's where we'd test the server's client-to-server support!"))
+
+(define (test-s2s-server case-worker show-user get-user-input)
+  (show-user "Here's where we'd test the server's federation support!"))
 
 
 ;;; case manager / case worker stuff
