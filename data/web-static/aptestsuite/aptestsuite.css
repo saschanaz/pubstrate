@@ -191,3 +191,12 @@ div.prompt-button-metabox button {
 .status-wrapper {
     font-size: 1.5em;
 }
+
+.input-table td {
+    vertical-align: top;
+}
+
+span.warning {
+    color: #d54a6e;
+    font-weight: bold;
+}
