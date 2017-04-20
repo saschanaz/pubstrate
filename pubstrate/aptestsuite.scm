@@ -128,9 +128,9 @@
 
 (define (case-worker-rewind case-worker m)
   "User decided to rewind to a previous prompt."
-  (with-case-worker-user-io
+  (with-user-io-prompt
    case-worker
-   (lambda (_ show-user get-user-input)
+   (lambda ()
      (show-user "*** Rewinding... ***")))
 
   (with-user-io-prompt
@@ -165,6 +165,7 @@
 (define %user-io-prompt (make-prompt-tag))
 
 (define (with-user-io-prompt case-worker thunk)
+  "Call script PROC with IO procedures that are case-worker driven."
   (let lp ((thunk thunk))
     (match (call-with-prompt %user-io-prompt
              thunk
@@ -190,44 +191,40 @@
        (lp kont))
       (_ 'no-op))))
 
-(define (with-case-worker-user-io case-worker proc)
-  "Call script PROC with IO procedures that are case-worker driven.
+(define (gen-payload case-worker type sxml)
+  (write-json-to-string
+   `(@ ("type" ,type)
+       ("can-go-back" ,(not (eq? (.checkpoints case-worker)
+                                 '())))
+       ("content" 
+        ,(with-output-to-string
+           (lambda ()
+             (sxml->html sxml (current-output-port))))))))
 
-This passes two useful arguments to PROC:
- - show-user: pass it any sxml and it will render it as html
-   and pass it to the stream of notifications the user gets.
- - get-user-input: pass it sxml including html input elements.
-   This will be presented to the user; PROC will suspend its continuation
-   until a response comes back to the user, so the calling this magically
-   will just return the appropriate values when ready.
-   (The client js takes care of extracting the values from the input
-   fields.)"
-  (with-user-io-prompt
-   case-worker
-   (lambda ()
-     (define (gen-payload type sxml)
-       (write-json-to-string
-        `(@ ("type" ,type)
-            ("can-go-back" ,(not (eq? (.checkpoints case-worker)
-                                      '())))
-            ("content" 
-             ,(with-output-to-string
-                (lambda ()
-                  (sxml->html sxml (current-output-port))))))))
-     (define (show-user sxml)
-       (<- (.manager case-worker) 'ws-send
-           (.client-id case-worker)
-           (gen-payload "notice" sxml)))
-     (define* (get-user-input sxml #:key (checkpoint #t))
-       (when checkpoint
-         (abort-to-prompt %user-io-prompt '*save-checkpoint*))
-       (abort-to-prompt %user-io-prompt '*user-io*
-                        (gen-payload "input-prompt" sxml)))
-     (proc case-worker show-user get-user-input))))
+(define (show-user sxml)
+  "Show the user the following SXML.
+
+This must be done within the dynamic execution of both a case worker's
+message handling, and within `with-user-io-prompt'."
+  (define case-worker (%current-actor))
+  (<- (.manager case-worker) 'ws-send
+      (.client-id case-worker)
+      (gen-payload case-worker "notice" sxml)))
+
+(define* (get-user-input sxml #:key (checkpoint #t))
+  "Show user a prompt with SXML, possibly saving a CHECKPOINT
+
+This must be done within the dynamic execution of both a case worker's
+message handling, and within `with-user-io-prompt'."
+  (define case-worker (%current-actor))
+  (if checkpoint
+      (abort-to-prompt %user-io-prompt '*save-checkpoint*)
+      (set! (.next-checkpoint case-worker) #f))
+  (abort-to-prompt %user-io-prompt '*user-io*
+                   (gen-payload case-worker "input-prompt" sxml)))
 
 (define (case-worker-init-and-run case-worker m . args)
-  (with-case-worker-user-io
-   case-worker run-main-script))
+  (with-user-io-prompt case-worker (lambda () (run-main-script case-worker))))
 
 (define (report-it! case-worker key val)
   (set! (.report case-worker) (acons key val (.report case-worker))))
@@ -459,7 +456,11 @@ leave the tests in progress."
   `(span (@ (class "warning"))
          ,body))
 
-(define (run-main-script case-worker show-user get-user-input)
+(define (center-text body)
+  `(div (@ (style "text-align: center;"))
+        ,body))
+
+(define (run-main-script case-worker)
   ;;; Find out which tests we're running
   (show-user
    `((p "Hello!  Welcome to the "
@@ -469,10 +470,10 @@ leave the tests in progress."
         ,(link "https://activitypub.rocks/"
                "activitypub.rocks")
         "!")
-     (p "Please don't close this tab until you've finished submitting "
-        "your tests; your session is running as long as the tab stays open.")))
+     (p (i "Please don't close this tab until you've finished submitting "
+           "your tests; your session is running as long as the tab stays open."))))
 
-  (let get-input-loop ()
+  (let get-input-loop ((checkpoint #t))
     (let* ((user-input
             (get-user-input
              `((h2 "What implementations are we testing today?")
@@ -502,7 +503,8 @@ leave the tests in progress."
                               "over the "
                               ,(link "https://www.w3.org/TR/activitypub/#server-to-server-interactions"
                                      "ActivityPub server-to-server protocol")
-                              "."))))))
+                              "."))))
+             #:checkpoint checkpoint))
            (testing-client (json-object-ref user-input "testing-client"))
            (testing-c2s-server (json-object-ref user-input "testing-c2s-server"))
            (testing-s2s-server (json-object-ref user-input "testing-s2s-server")))
@@ -511,33 +513,150 @@ leave the tests in progress."
           (begin
             (when testing-client
               (report-it! case-worker 'testing-client #t)
-              (test-client case-worker show-user get-user-input))
+              (test-client case-worker))
             (when testing-c2s-server
               (report-it! case-worker 'testing-c2s-server #t)
-              (test-c2s-server case-worker show-user get-user-input))
+              (test-c2s-server case-worker))
             (when testing-s2s-server
               (report-it! case-worker 'teseting-s2s-server #t)
-              (test-s2s-server case-worker show-user get-user-input)))
+              (test-s2s-server case-worker)))
           ;; We didn't get anything, so let's loop until we do
           (begin (show-user (warn
                              '("It looks like you didn't select anything. "
                                "Please select at least one implementation type to test.")))
-                 (get-input-loop)))))
+                 (get-input-loop #f)))))
 
   ;;; TODO: And here's the final report
   )
 
 
-(define (test-client case-worker show-user get-user-input)
+
+;;; Client tests
+
+(define (test-client case-worker)
   (show-user "Here's where we'd test the client!")
   (show-user '("We should issue an apology here that the "
                "client testing code asks the most questions. "
                "Server testing code won't have to be as interactive.")))
 
-(define (test-c2s-server case-worker show-user get-user-input)
-  (show-user "Here's where we'd test the server's client-to-server support!"))
+
+;;; client-to-server server tests
 
-(define (test-s2s-server case-worker show-user get-user-input)
+(define (test-c2s-server case-worker)
+  (show-user "Here's where we'd test the server's client-to-server support!")
+  (set-up-c2s-server-client-auth case-worker)
+  ;;(test-outbox-activity-posted case-worker)
+  )
+
+(define (set-up-c2s-server-client-auth case-worker)
+  (show-user (center-text `(h2 "**** Testing server's client-to-server support! ****")))
+
+  (let ((user-input
+         (get-user-input
+           `((h2 "Authorize test client")
+             (p "In order to test properly, we need to connect "
+                "as a client to your server.  Enter the address of an actor/user "
+                "(we're going to cause a bit of a mess to their timeline, "
+                "so it should probably be a one-off actor you create just for "
+                "this purpose) along with the authentication information below:")
+
+             (p (i "(Note that this assumes that you're using the "
+                   ,(link "https://www.w3.org/TR/activitypub/#authorization-oauth"
+                          "OAuth workflow")
+                   ".  If you are using another auth workflow, please "
+                   ,(link "https://gitlab.com/dustyweb/pubstrate"
+                          "file a bug")
+                   " so we can get it incorporated into the test suite ASAP!"))
+             (dl (dt (b "Actor id (a uri)"))
+                 (dd (input (@ (type "text")
+                               (name "actor-id")))))))))
+    (pk 'user-input user-input)))
+
+(define no-location-present-message
+  "Couldn't verify since no Location header present in response")
+
+;; (define* (test-outbox-activity-posted case-worker)
+;;   ;; TODO: [outbox:removes-bto-and-bcc]
+;;   ;;   Maybe?  This is a bit federation'y, requires that we have
+;;   ;;   a server it can talk to
+;;   (define activity-to-submit
+;;     (as:create #:id "http://tsyesika.co.uk/act/foo-id-here/"  ; id should be removed
+;;                #:object (as:note #:id "http://tsyesika.co.uk/chat/sup-yo/"  ; same with object id
+;;                                  #:content "Up for some root beer floats?")))
+  
+;;   (define activity-submitted #f)
+
+;;   (receive (response body)
+;;       (apclient-submit apclient activity-to-submit)
+;;     ;; [outbox:responds-201-created]
+;;     (match (response-code response)
+;;       (201
+;;        (set! activity-submitted #t)
+;;        (report-on! report 'outbox:responds-201-created
+;;                    <success>))
+;;       (other-status-code
+;;        (report-on! report 'outbox:responds-201-created
+;;                    <fail>
+;;                    #:comment (format #f "Responded with status code ~a"
+;;                                      other-status-code))))
+;;     ;; [outbox:location-header]
+;;     (match (response-location response)
+;;       ((? uri? location-uri)
+;;        (set! activity-submitted #t)
+;;        (report-on! report 'outbox:location-header
+;;                    <success>)
+
+;;        ;; [outbox:ignores-id]
+;;        ;; Now we fetch the object at the location...
+;;        (receive (loc-response loc-asobj)
+;;            (http-get-asobj location-uri)
+;;          (or (and-let* ((is-200 (= (response-code loc-response) 200))
+;;                         (is-asobj (asobj? loc-asobj))
+;;                         (object 
+;;                          (match (asobj-ref loc-asobj "object")
+;;                            ;; nothing there
+;;                            (#f #f)
+;;                            ;; if it's itself an asobj, great
+;;                            ((? asobj? obj) obj)
+;;                            ;; If it looks like it's an identifier, retreive that
+;;                            ;; recursively
+;;                            ((? string? obj)
+;;                             (and=> (string->uri obj)
+;;                                    (lambda (obj-uri)
+;;                                      (receive (obj-response obj-asobj)
+;;                                          (http-get-asobj obj-uri)
+;;                                        (and (= (response-code obj-response) 200) ; ok!
+;;                                             obj-asobj)))))))
+;;                         ;; make sure the id was changed for the outer activity
+;;                         (changed-activity-id
+;;                          (not (equal? (asobj-id loc-asobj)
+;;                                       "http://tsyesika.co.uk/act/foo-id-here/")))
+;;                         ;; ... as well as for the created object
+;;                         (changed-object-id
+;;                          (not (equal? (asobj-id loc-asobj)
+;;                                       "http://tsyesika.co.uk/chat/sup-yo/"))))
+;;                (report-on! report 'outbox:ignores-id
+;;                            <success>))
+;;              (report-on! report 'outbox:ignores-id
+;;                          <fail>))))
+;;       (#f
+;;        (report-on! report 'outbox:location-header
+;;                    <fail>)
+;;        (report-on! report 'outbox:ignores-id
+;;                    <inconclusive>
+;;                    #:comment no-location-present-message)))
+
+;;     (if activity-submitted
+;;         (report-on! report 'accepts-activities
+;;                     <success>)
+;;         (report-on! report 'accepts-activities
+;;                     <inconclusive>
+;;                     #:comment "Response code neither 200 nor 201, and no Location header present"))))
+
+
+;;; server to server server tests
+
+(define (test-s2s-server case-worker)
   (show-user "Here's where we'd test the server's federation support!"))
 
 
@@ -554,8 +673,7 @@ leave the tests in progress."
 ;; It's called case-manager because of bad puns; case-worker is delegated
 ;; to for all the communication with the client over the websocket.
 (define-actor <case-manager> (<websocket-server>)
-  ((send-msg-to-client case-manager-send-msg-to-client)
-   (input-request-to-client case-manager-input-request-to-client))
+  ()
   (workers #:init-thunk make-hash-table
            #:accessor .workers)
   ;; This is a kludge... we really shouldn't have to double
