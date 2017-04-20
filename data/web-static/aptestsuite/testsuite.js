@@ -147,8 +147,13 @@ function processCheckbox(input) {
     return input.checked;
 }
 
+function processText(input) {
+    return input.value;
+}
+
 var input_type_processors = {
-    "checkbox": processCheckbox}
+    "checkbox": processCheckbox,
+    "text": processText}
 
 function getDataFromActivePrompt() {
     var prompt = getActivePrompt();
