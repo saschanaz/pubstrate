@@ -9,6 +9,7 @@
              (8sync systems websocket server)
              (web uri)
              (web request)
+             (web response)
              (pubstrate asobj)
              (pubstrate apclient)
              (pubstrate contrib html)
@@ -16,7 +17,9 @@
              (pubstrate webapp ctx)
              (pubstrate webapp form-widgets)
              ((pubstrate webapp views)
-              #:renamer (symbol-prefix-proc 'ps-view:)))
+              #:renamer (symbol-prefix-proc 'ps-view:))
+             ((pubstrate shorthand)
+              #:renamer (symbol-prefix-proc 'as:)))
 
 
 (define (view:main-display request body)
@@ -322,7 +325,8 @@ message handling, and within `with-user-io-prompt'."
   (desc #:init-keyword #:desc
         #:getter test-item-desc)
   (subitems #:init-keyword #:subitems
-            #:getter test-item-subitems))
+            #:getter test-item-subitems
+            #:init-value '()))
 
 (define req-levels
   '(MAY MUST SHOULD NON-NORMATIVE))
@@ -338,19 +342,65 @@ message handling, and within `with-user-io-prompt'."
   (map (lambda (args) (apply test-item args)) lst))
 
 (define-class <response> ()
-  (sym #:init-keyword #:sym)
-  (comment #:init-keyword #:comment))
+  (sym #:init-keyword #:sym
+       #:accessor .sym)
+  (comment #:init-keyword #:comment
+           #:accessor .comment
+           #:init-value #f))
 
 (define-syntax-rule (response-maker name type)
-  (define (constructor-name . args)
+  (define (name . args)
     (apply make type args)))
+
+(define (response-test-item response)
+  (get-test-item (.sym response)))
 
 (define-class <success> (<response>))
 (define-class <fail> (<response>))
 (define-class <inconclusive> (<response>))
-(response-maker success <success>)
-(response-maker fail <fail>)
-(response-maker inconclusive <inconclusive>)
+
+(define (report-on! sym response-type . args)
+  (define case-worker (%current-actor))
+  (report-it! case-worker sym
+              (apply make response-type
+                     #:sym sym
+                     args)))
+
+(define (log-wrapper . content)
+  `(div (@ (class "test-log"))
+        ,content))
+
+(define-method (response-as-log-result-text (response <success>))
+  `(span (@ (class "result-log-success"))
+         "OK!"))
+
+(define-method (response-as-log-result-text (response <fail>))
+  `(span (@ (class "result-log-fail"))
+         "Failed."))
+
+(define-method (response-as-log-result-text (response <inconclusive>))
+  `(span (@ (class "result-log-inconclusive"))
+         "???"))
+
+(define-method (response-as-log (response <response>))
+  (log-wrapper (test-item-desc (response-test-item response))
+               ": " (response-as-log-result-text response)
+               (if (.comment response)
+                   `((br)
+                     (span (@ (class "test-log-comment"))
+                           ,(.comment response)))
+                   '())))
+
+(define (show-response sym)
+  (define case-worker (%current-actor))
+  (define response (assoc-ref (.report case-worker) sym))
+  (if response
+      (show-user (response-as-log response))
+      (show-user
+       (log-wrapper
+        (warn "Something went wrong... test didn't run for: "
+              (symbol->string sym))))))
+
 
 
 ;;; Descriptions of the activitystreams requirements
@@ -457,8 +507,22 @@ message handling, and within `with-user-io-prompt'."
                    SHOULD
                    "Prevent the blocked object from interacting with any object posted by the actor."))))))
 
+(define all-test-items
+  (append server-outbox-items))
 
+(define all-test-items-hashed
+  (let ((table (make-hash-table)))
+    (let lp ((items all-test-items))
+      (for-each (lambda (test-item)
+                  (hashq-set! table (test-item-sym test-item) test-item)
+                  ;; recursively add all subitems, if any
+                  (lp (test-item-subitems test-item)))
+                items))
+    table))
 
+(define (get-test-item sym)
+  "Get a test item by its symbol"
+  (hashq-ref all-test-items-hashed sym))
 
 
 ;;; The main script
@@ -565,7 +629,7 @@ leave the tests in progress."
 (define (test-c2s-server case-worker)
   (show-user "Here's where we'd test the server's client-to-server support!")
   (set-up-c2s-server-client-auth case-worker)
-  ;;(test-outbox-activity-posted case-worker)
+  (test-outbox-activity-posted case-worker)
   )
 
 (define (set-up-c2s-server-client-auth case-worker)
@@ -641,83 +705,83 @@ leave the tests in progress."
 (define no-location-present-message
   "Couldn't verify since no Location header present in response")
 
-;; (define* (test-outbox-activity-posted case-worker)
-;;   ;; TODO: [outbox:removes-bto-and-bcc]
-;;   ;;   Maybe?  This is a bit federation'y, requires that we have
-;;   ;;   a server it can talk to
-;;   (define activity-to-submit
-;;     (as:create #:id "http://tsyesika.co.uk/act/foo-id-here/"  ; id should be removed
-;;                #:object (as:note #:id "http://tsyesika.co.uk/chat/sup-yo/"  ; same with object id
-;;                                  #:content "Up for some root beer floats?")))
-  
-;;   (define activity-submitted #f)
+(define* (test-outbox-activity-posted case-worker)
+  ;; TODO: [outbox:removes-bto-and-bcc]
+  ;;   Maybe?  This is a bit federation'y, requires that we have
+  ;;   a server it can talk to
+  (define activity-to-submit
+    (as:create #:id "http://tsyesika.co.uk/act/foo-id-here/"  ; id should be removed
+               #:object (as:note #:id "http://tsyesika.co.uk/chat/sup-yo/"  ; same with object id
+                                 #:content "Up for some root beer floats?")))
 
-;;   (receive (response body)
-;;       (apclient-submit apclient activity-to-submit)
-;;     ;; [outbox:responds-201-created]
-;;     (match (response-code response)
-;;       (201
-;;        (set! activity-submitted #t)
-;;        (report-on! report 'outbox:responds-201-created
-;;                    <success>))
-;;       (other-status-code
-;;        (report-on! report 'outbox:responds-201-created
-;;                    <fail>
-;;                    #:comment (format #f "Responded with status code ~a"
-;;                                      other-status-code))))
-;;     ;; [outbox:location-header]
-;;     (match (response-location response)
-;;       ((? uri? location-uri)
-;;        (set! activity-submitted #t)
-;;        (report-on! report 'outbox:location-header
-;;                    <success>)
+  (define activity-submitted #f)
+  (define apclient (.apclient case-worker))
 
-;;        ;; [outbox:ignores-id]
-;;        ;; Now we fetch the object at the location...
-;;        (receive (loc-response loc-asobj)
-;;            (http-get-asobj location-uri)
-;;          (or (and-let* ((is-200 (= (response-code loc-response) 200))
-;;                         (is-asobj (asobj? loc-asobj))
-;;                         (object 
-;;                          (match (asobj-ref loc-asobj "object")
-;;                            ;; nothing there
-;;                            (#f #f)
-;;                            ;; if it's itself an asobj, great
-;;                            ((? asobj? obj) obj)
-;;                            ;; If it looks like it's an identifier, retreive that
-;;                            ;; recursively
-;;                            ((? string? obj)
-;;                             (and=> (string->uri obj)
-;;                                    (lambda (obj-uri)
-;;                                      (receive (obj-response obj-asobj)
-;;                                          (http-get-asobj obj-uri)
-;;                                        (and (= (response-code obj-response) 200) ; ok!
-;;                                             obj-asobj)))))))
-;;                         ;; make sure the id was changed for the outer activity
-;;                         (changed-activity-id
-;;                          (not (equal? (asobj-id loc-asobj)
-;;                                       "http://tsyesika.co.uk/act/foo-id-here/")))
-;;                         ;; ... as well as for the created object
-;;                         (changed-object-id
-;;                          (not (equal? (asobj-id loc-asobj)
-;;                                       "http://tsyesika.co.uk/chat/sup-yo/"))))
-;;                (report-on! report 'outbox:ignores-id
-;;                            <success>))
-;;              (report-on! report 'outbox:ignores-id
-;;                          <fail>))))
-;;       (#f
-;;        (report-on! report 'outbox:location-header
-;;                    <fail>)
-;;        (report-on! report 'outbox:ignores-id
-;;                    <inconclusive>
-;;                    #:comment no-location-present-message)))
+  (receive (response body)
+      (apclient-submit apclient activity-to-submit)
+    ;; [outbox:responds-201-created]
+    (match (response-code (pk 'body body 'response response))
+      (201
+       (set! activity-submitted #t)
+       (report-on! 'outbox:responds-201-created
+                   <success>))
+      (other-status-code
+       (report-on! 'outbox:responds-201-created
+                   <fail>
+                   #:comment (format #f "Responded with status code ~a"
+                                     other-status-code))))
+    (show-response 'outbox:responds-201-created)
 
-;;     (if activity-submitted
-;;         (report-on! report 'accepts-activities
-;;                     <success>)
-;;         (report-on! report 'accepts-activities
-;;                     <inconclusive>
-;;                     #:comment "Response code neither 200 nor 201, and no Location header present"))))
+    ;; [outbox:location-header]
+    (match (response-location response)
+      ((? uri? location-uri)
+       (set! activity-submitted #t)
+       (report-on! 'outbox:location-header
+                   <success>)
+
+       ;; [outbox:ignores-id]
+       ;; Now we fetch the object at the location...
+       (receive (loc-response loc-asobj)
+           (http-get-asobj location-uri)
+         (or (and-let* ((is-200 (= (response-code loc-response) 200))
+                        (is-asobj (asobj? loc-asobj))
+                        (object 
+                         (match (asobj-ref loc-asobj "object")
+                           ;; nothing there
+                           (#f #f)
+                           ;; if it's itself an asobj, great
+                           ((? asobj? obj) obj)
+                           ;; If it looks like it's an identifier, retreive that
+                           ;; recursively
+                           ((? string? obj)
+                            (and=> (string->uri obj)
+                                   (lambda (obj-uri)
+                                     (receive (obj-response obj-asobj)
+                                         (http-get-asobj obj-uri)
+                                       (and (= (response-code obj-response) 200) ; ok!
+                                            obj-asobj)))))))
+                        ;; make sure the id was changed for the outer activity
+                        (changed-activity-id
+                         (not (equal? (asobj-id loc-asobj)
+                                      "http://tsyesika.co.uk/act/foo-id-here/")))
+                        ;; ... as well as for the created object
+                        (changed-object-id
+                         (not (equal? (asobj-id loc-asobj)
+                                      "http://tsyesika.co.uk/chat/sup-yo/"))))
+               (report-on! 'outbox:ignores-id <success>))
+             (report-on! 'outbox:ignores-id <fail>))))
+      (#f
+       (report-on! 'outbox:location-header <fail>)
+       (report-on! 'outbox:ignores-id <inconclusive>
+                   #:comment no-location-present-message)))
+    (show-response 'outbox:location-header)
+    (show-response 'outbox:ignores-id)
+
+    (if activity-submitted
+        (report-on! 'outbox:accepts-activities <success>)
+        (report-on! 'outbox:accepts-activities <inconclusive>
+                    #:comment "Response code neither 200 nor 201, and no Location header present"))
+    (show-response 'outbox:accepts-activities)))
 
 
 ;;; server to server server tests
