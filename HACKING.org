@@ -1,0 +1,200 @@
+#+TITLE: Hacking on Pubstrate!
+
+* Introduction
+
+Pubstrate has a lot of stuff... probably (definitely) too much.
+(That's because I started Pubstrate as originally an experimental
+playground for ActivityStreams and etc, and every time I needed to
+work on something else related I just added it to this repo... now
+it's kind of a monster.)
+
+Things in here:
+
+ - The "asobj" ActivityStreams object system, including a very nice
+   generic methods system (utilized well by the ActivityPub server)
+ - An ActivityPub server (see =pubstrate/webapp/=)
+ - Some utilities for writing web applications which definitely need
+   to be factored out
+ - A standards test suite for the ActivityPub spec, in
+   =pubstrate/aptestsuite.scm=
+ - A halfway written json-ld processor in =pubstrate/json-ld.scm=.
+   It can do expansion, but needs some fixing up since I changed
+   the way json stuff is handled.  Oops!
+
+We use [[https://gnu.org/s/8sync][8sync]] as an actor model for the web application and for the
+standards test suite, though it isn't needed for just the
+ActivityStreams / linked data tooling.  The [[https://www.gnu.org/software/8sync/manual/html_node/Tutorial.html#Tutorial][8sync tutorial]] is
+fairly fun and doesn't take long to get through, and it teaches you
+how to build an irc bot.  I also recommend watching the video on the
+[[https://gnu.org/s/8sync][8sync homepage]] for a "fun" introduction, though it isn't really
+necessary for getting work done here.
+
+We also use [[https://gitlab.com/dustyweb/guile-sjson][guile-sjson]] for the json representations.  This is great
+because it looks like normal scheme, is quasiquote friendly, and is
+immutable not unlike an alist.  Unfortunately it also has linear
+access like an alist.  In the future we should probably hook it up to
+something like Andy Wingo's [[https://wingolog.org/pub/fash.scm][fash.scm]].
+
+* Getting started
+
+** Getting dependencies set up
+
+Use Guix.  No seriously, use Guix.  It'll save you so many headaches.
+Go install it if you haven't already.  It can be installed in any
+GNU/Linux system as a userspace package manager.  Once you've done
+that, you can do:
+
+  guix environment -l guix.scm
+
+Some things will be downloaded, and presto, you'll be in a shell with
+all the necessary dependencies set up.
+
+** Hacking:
+
+You can run Guile like so:
+
+  ./pre-inst-env guile
+
+Personally, I recommend live-hacking with [[http://geiser.nongnu.org/][Geiser]].  This makes hacking
+in Guile much much nicer; you can "live hack" as you go.  When hacking
+Pubstrate's web application and standards test suite, this is
+particularly set up for live hacking; you can redefine elements on the
+fly without restarting the server.
+
+Personally, I recommend connecting Geiser to your running process via
+unix domain sockets because this isn't vulnerable to attacks in the
+way that [[https://lists.gnu.org/archive/html/guile-user/2016-10/msg00007.html][localhost + port number is]].
+
+  ./pre-inst-env guile --listen=/tmp/guile-socket; rm /tmp/guile-socket
+
+(I have a patch for Guile to that the "rm" is not necessary but it
+hasn't been merged yet.)
+
+Next you want to connect in Emacs:
+
+  M-x geiser-connect-local <RET> guile <RET> /tmp/guile-socket <RET>
+
+And you should be up and running.  Look up what these keys do if you
+haven't already (`C-h k' in emacs self-documents keybindings):
+
+ - *C-M-.* for evaluating an expression at point, anywhere in the expression
+ - *C-c C-z* for switching from the module you're working on to the REPL
+ - *C-c C-a* for switching from the module you're working on into the REPL,
+   but also "switch" the current module over to the module you're in
+   (ie if you're in asobj.scm this will switch the module to (pubstrate asobj))
+ - *C-c C-d* Document the procedure at point.
+ - *M-.* Pull up the procedure at point.
+
+** Running the web server
+
+To run the Pubstrate web server, first you need to set up the config file.
+
+  # or wherever
+  mkdir -p ~/sandbox/pubstrate-data/
+  ./pre-inst-env pubstrate-web configure ~/sandbox/pubstrate-data/pubstrate-cfg.scm
+
+Now add a user:
+
+  ./pre-inst-env pubstrate-web adduser \
+     ~/sandbox/pubstrate-data/pubstrate-cfg.scm
+
+Now you can run it:
+
+  # --repl-server is optional but recommended
+  ./pre-inst-env pubstrate-web run \
+     --repl-server=/tmp/guile-pubstrate-server-socket \
+     ~/sandbox/pubstrate-data/pubstrate-cfg.scm
+
+FYI though the web UI doesn't do much but display things.  You can't
+submit things except from a client.  You can use apclient.scm from
+Pubstrate or soci-el for emacs, or something...
+
+** Running the test suite
+
+Pretty easy:
+
+:  ./pre-inst-env guile -e main pubstrate/aptestsuite.scm 
+
+Now connect http://localhost:8989/
+
+Anyway just follow the prompts.  You can press "back" if you make a
+mistake.  It uses some fancy delimited continuations hacks to enable
+that roll-back behavior.
+
+* Commentary on the code
+** Contributing to standards tests
+
+Open up pubstrate/aptestsuite.scm.
+
+It's kind of a mess, should def be split into different files.
+
+The actual tests start at =run-main-script=.  The client to server
+specific tests are in =test-c2s-server=.  There's a set of test items
+that are being checked against in =all-test-items=; these are all
+taken from the implementation report template.  Only
+=server-outbox-items= has been written at the time of writing.  Help
+in pulling out more from the test suite to match this syntax would be
+appreciated.
+
+Things are fairly "automatically" asynchronous thanks to 8sync; if you
+do an http get it shouldn't block the other actors running for
+instance.
+
+The main commands you need to know while writing tests:
+ - *show-user:* Shows the user some text.  Accepts SXML.
+ - *get-user-input:* Shows the user a set of information in a "prompt"
+   with some inputs.  Automagically returns with the appropriate info
+   once the user hits "submit".  
+   
+   (The javascript client-side will scrape the input contents and
+   submit them back over the websocket.  However it's only set up to
+   know how to deal with input text boxes and checkboxes.  The
+   javascript for adding a new "input type" should be pretty simple to
+   hack though.)
+
+   The user can also hit "back" and it'll start executing the code at
+   the last of these prompts as a "checkpoint.
+
+ - *report-on!*: Report on some item from the test suite.
+
+Deets:
+ - The <case-manager> is actually the combo http and websocket server.
+ - The <case-worker> delegates to the <case-worker>, which does
+   all the logic of interacting with the user and stuff.
+   
+Currently I'm working on the client to server tests but it's taken
+until just now until they've been easy to hook in.  I'm pretty happy
+with the interface now but hoo boy.
+
+** asobj tutorial
+
+TODO... I think asobj is one of the nicest things in pubstrate, but
+see the unit tests for how used currently.
+
+** Pubstrate's ActivityPub server implementaion
+
+ - Pretty cool design ideas in many places
+ - Yet kind of a disaster in many places
+ - Uses a flexible "store" system, but the only real store
+   systems you can use for now are the in-memory store or the gdbm
+   store.  In the future this should all be trashed and replaced
+   with a postgres database.
+ - Templating uses SXML.  SXML is the shit.  Quasiquote away!
+ - Has a config system, which is really just writing out scheme.
+   But the scheme loading stuff has some nice validators and default
+   behavior stuff.
+ - The "ctx" stuff is a dynamic scoping thing, really.  Maybe a bit silly,
+   I'm not sure.  Anyway, you can use it to set up a dynamic scope in which
+   a user is enabled, the store is enabled, there's a default uri base,
+   etc.
+ - OAuth stuff is definitely broken.  This is my first time doing this
+   and I had a hard time wading through the manuals, etc.
+ - Uses signed cookies for sessions.  That uses our own implementation.
+ - You can see good use of the asobj generics in the templates.  That's
+   how we're able to 
+
+** Unit tests
+
+Just run "make check"
+
+Tests are all in tests/
