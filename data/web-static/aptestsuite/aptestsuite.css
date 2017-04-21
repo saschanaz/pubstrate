@@ -214,5 +214,6 @@ input[type='text'] {
     padding-top: 3px;
     font-family: 'Inconsolata', monospace;
     width: 75ch;
+    max-width: 100%;
 }
 

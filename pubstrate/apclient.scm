@@ -49,7 +49,7 @@
   (id #:init-keyword #:id
       #:getter apclient-id)
   (auth-token #:init-keyword #:auth-token
-              #:getter apclient-auth-token)
+              #:accessor apclient-auth-token)
   ;; Filled in as needed
   (user #:init-value #f)   ; @@: Why not let the user supply this one?
   (inbox-uri #:init-value #f)
@@ -87,12 +87,18 @@
     (receive (response body)
         (http-get (apclient-id apclient)
                   #:headers (list as2-accept-header))
-      (make-asobj
-       (read-json-from-string
-        (if (bytevector? body)
-            (utf8->string body)
-            body))
-       (%default-env))))
+      (catch 'json-error
+        (lambda ()
+          (make-asobj
+           (read-json-from-string
+            (if (bytevector? body)
+                (utf8->string body)
+                body))
+           (%default-env)))
+        (lambda _
+          (throw 'invalid-as2
+                 #:response response
+                 #:body body)))))
   (match (slot-ref apclient 'user)
     (#f
      (let ((user (retrieve-user)))

@@ -9,6 +9,7 @@
              (8sync systems websocket server)
              (web uri)
              (web request)
+             (pubstrate asobj)
              (pubstrate apclient)
              (pubstrate contrib html)
              (pubstrate webapp utils)
@@ -104,7 +105,11 @@
                    #:init-value #f)
   ;; List of checkpoints that can be resumed
   (checkpoints #:init-value '()
-               #:accessor .checkpoints))
+               #:accessor .checkpoints)
+
+  ;; ActivityPub client used to connect to the server
+  (apclient #:init-value #f
+            #:accessor .apclient))
 
 (define (case-worker-receive-input case-worker m input)
   (with-user-io-prompt
@@ -222,6 +227,20 @@ message handling, and within `with-user-io-prompt'."
       (set! (.next-checkpoint case-worker) #f))
   (abort-to-prompt %user-io-prompt '*user-io*
                    (gen-payload case-worker "input-prompt" sxml)))
+
+(define (case-worker-drop-top-checkpoint! case-worker)
+  "Drop the top checkpoint, in case we're doing something over"
+  (match (.checkpoints case-worker)
+    ((top-checkpoint rest-checkpoints ...)
+     (set! (.checkpoints case-worker)
+           rest-checkpoints))
+    ;; no checkpoints?  no-op!
+    (() #f)))
+
+(define (drop-top-checkpoint!)
+  "Shortcut for case-worker-drop-top-checkpoint! using (%current-actor) parameter"
+  (case-worker-drop-top-checkpoint! (%current-actor)))
+
 
 (define (case-worker-init-and-run case-worker m . args)
   (with-user-io-prompt case-worker (lambda () (run-main-script case-worker))))
@@ -451,10 +470,10 @@ leave the tests in progress."
          (target "_blank"))
       ,body))
 
-(define (warn body)
+(define (warn . body)
   "Surround text in warning class."
   `(span (@ (class "warning"))
-         ,body))
+         ,@body))
 
 (define (center-text body)
   `(div (@ (style "text-align: center;"))
@@ -524,7 +543,8 @@ leave the tests in progress."
           (begin (show-user (warn
                              '("It looks like you didn't select anything. "
                                "Please select at least one implementation type to test.")))
-                 (get-input-loop #f)))))
+                 (drop-top-checkpoint!)
+                 (get-input-loop #t)))))
 
   ;;; TODO: And here's the final report
   )
@@ -549,28 +569,74 @@ leave the tests in progress."
   )
 
 (define (set-up-c2s-server-client-auth case-worker)
+  (define (get-user-obj)
+    (let* ((user-input
+            (get-user-input
+             `((h2 "Authorize test client")
+               (p "In order to test properly, we need to connect "
+                  "as a client to your server.  Enter the address of an actor/user "
+                  "(we're going to cause a bit of a mess to their timeline, "
+                  "so it should probably be a one-off actor you create just for "
+                  "this purpose) along with the authentication information below:")
+
+               (p (i "(Note that this assumes that you're using the "
+                     ,(link "https://www.w3.org/TR/activitypub/#authorization-oauth"
+                            "OAuth workflow")
+                     ".  If you are using another auth workflow, please "
+                     ,(link "https://gitlab.com/dustyweb/pubstrate"
+                            "file a bug")
+                     " so we can get it incorporated into the test suite ASAP!"))
+               (dl (dt (b "Actor id (a uri)"))
+                   (dd (input (@ (type "text")
+                                 (name "actor-id"))))))))
+           (user-id (json-object-ref user-input "actor-id"))
+           (retry (lambda ()
+                    (drop-top-checkpoint!)
+                    (get-user-obj))))
+      (catch 'invalid-as2
+        (lambda ()
+          (cond
+           ((or (not user-id)
+                (not (string->uri user-id)))
+            (show-user (warn "Not a valid uri!"))
+            (retry))
+           (else
+            (make-apclient user-id))))
+        (lambda _
+          (show-user (warn "Sorry, there doesn't seem to be a valid AS2 object "
+                           "at that endpoint?"))
+          (retry)))))
+  ;; Now we need to get their token...
+  (define (setup-auth-info apclient)
+    (define auth-token-endpoint
+      (asobj-ref (apclient-user apclient) '("endpoints" "getAuthToken")))
+    (let lp ()
+      (let ((user-input
+             (get-user-input
+              ;; so badly phrased
+              `(,(if auth-token-endpoint
+                     `(p "Visit "
+                         (a (@ (href ,auth-token-endpoint))
+                            "this link")
+                         " and fill in the auth token")
+                     `(p "Unable to find OAuth endpoints... please manually insert "
+                         "the auth token:"))
+                (dl (dt (b "Auth token"))
+                    (dd (input (@ (type "text")
+                                  (name "auth-token")))))))))
+        (cond ((json-object-ref user-input "auth-token") =>
+               (lambda (auth-token)
+                 (set! (apclient-auth-token apclient) auth-token)))
+              (else
+               (drop-top-checkpoint!)
+               (lp)))))
+
+    ;; Add the fully setup apclient to the case-worker
+    (set! (.apclient case-worker) apclient))
+
   (show-user (center-text `(h2 "**** Testing server's client-to-server support! ****")))
-
-  (let ((user-input
-         (get-user-input
-           `((h2 "Authorize test client")
-             (p "In order to test properly, we need to connect "
-                "as a client to your server.  Enter the address of an actor/user "
-                "(we're going to cause a bit of a mess to their timeline, "
-                "so it should probably be a one-off actor you create just for "
-                "this purpose) along with the authentication information below:")
-
-             (p (i "(Note that this assumes that you're using the "
-                   ,(link "https://www.w3.org/TR/activitypub/#authorization-oauth"
-                          "OAuth workflow")
-                   ".  If you are using another auth workflow, please "
-                   ,(link "https://gitlab.com/dustyweb/pubstrate"
-                          "file a bug")
-                   " so we can get it incorporated into the test suite ASAP!"))
-             (dl (dt (b "Actor id (a uri)"))
-                 (dd (input (@ (type "text")
-                               (name "actor-id")))))))))
-    (pk 'user-input user-input)))
+  (setup-auth-info (get-user-obj))
+  (pk '(.apclient case-worker) (.apclient case-worker)))
 
 (define no-location-present-message
   "Couldn't verify since no Location header present in response")
