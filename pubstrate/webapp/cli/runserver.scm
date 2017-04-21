@@ -41,16 +41,6 @@
     (config (single-char #\c) (value #t))
     (repl-server (single-char #\r) (value optional))))
 
-(define* (get-store-from-db-path db-path #:key (warn-if-memory-store #t))
-  (if db-path
-      (make-gdbm-store db-path)
-      (begin
-        (if warn-if-memory-store
-            (display
-             "WARNING: db-path not provided, so using memory store only\n"
-             (current-error-port)))
-        (make-memory-store))))
-
 (define %webapp-help-text
   "\
 pubstrate-web run [options] configfile
