@@ -20,6 +20,7 @@
   #:use-module (pubstrate package-config)
   #:use-module (pubstrate webapp cli runserver)
   #:use-module (pubstrate webapp cli configure)
+  #:use-module (pubstrate webapp cli adduser)
   #:use-module (ice-9 format)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 match)
@@ -32,7 +33,8 @@
 (define subcommands
   `(("run" . (,run-cli "Run the web server"))
     ;; ("demo" . ,demo-cli)
-    ("configure" . (,configure-cli "Write out initial configuration file"))))
+    ("configure" . (,configure-cli "Write out initial configuration file"))
+    ("adduser" . (,adduser-cli "Add a new user to the store"))))
 
 (define (show-main-help)
   (display "Usage: pubstrate-web [--help | --version] [command [command-options]]\n")
