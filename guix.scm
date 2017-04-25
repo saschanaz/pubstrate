@@ -53,15 +53,14 @@
 (define guile-sjson
   (package
     (name "guile-sjson")
-    (version "0.2-pre")
+    (version "0.2")
     (source (origin
-              (method git-fetch)
-              (uri (git-reference
-                    (url "https://gitlab.com/dustyweb/guile-sjson.git")
-                    (commit "f007a8c14dece197b9095f149b4c1f4da2d91258")))
+              (method url-fetch)
+              (uri (string-append "http://dustycloud.org/misc/sjson-" version
+                                  ".tar.gz"))
               (sha256
                (base32
-                "0x9j1mm48b8x975nhvjmxik0sxh117jgmwiw05q05cr9nwp01ccg"))))
+                "09hnh2brc7ihh8dv4g5hdmdj8rs8p9l3pmlgafkx145grdg7wprx"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases
