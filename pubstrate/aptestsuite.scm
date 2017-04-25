@@ -281,16 +281,16 @@ message handling, and within `with-user-io-prompt'."
                 (li (input (@ (name "dessert")
                               (type "checkbox")))
                     " Dessert"))))))
-    (report-it! case-worker 'sandwich (json-object-ref user-input "sandwich"))
-    (report-it! case-worker 'drink (json-object-ref user-input "drink"))
-    (report-it! case-worker 'dessert (json-object-ref user-input "dessert"))
+    (report-it! case-worker 'sandwich (jsobj-ref user-input "sandwich"))
+    (report-it! case-worker 'drink (jsobj-ref user-input "drink"))
+    (report-it! case-worker 'dessert (jsobj-ref user-input "dessert"))
     (let ((wanted-str
            (match (delete #f (list
-                              (and (json-object-ref user-input "sandwich")
+                              (and (jsobj-ref user-input "sandwich")
                                    "a sandwich")
-                              (and (json-object-ref user-input "drink")
+                              (and (jsobj-ref user-input "drink")
                                    "a drink")
-                              (and (json-object-ref user-input "dessert")
+                              (and (jsobj-ref user-input "dessert")
                                    "a dessert")))
              ((item)
               (string-append "just " item))
@@ -588,9 +588,9 @@ leave the tests in progress."
                                      "ActivityPub server-to-server protocol")
                               "."))))
              #:checkpoint checkpoint))
-           (testing-client (json-object-ref user-input "testing-client"))
-           (testing-c2s-server (json-object-ref user-input "testing-c2s-server"))
-           (testing-s2s-server (json-object-ref user-input "testing-s2s-server")))
+           (testing-client (jsobj-ref user-input "testing-client"))
+           (testing-c2s-server (jsobj-ref user-input "testing-c2s-server"))
+           (testing-s2s-server (jsobj-ref user-input "testing-s2s-server")))
       (if (or testing-client testing-c2s-server testing-s2s-server)
           ;; We need at least one to continue
           (begin
@@ -653,7 +653,7 @@ leave the tests in progress."
                (dl (dt (b "Actor id (a uri)"))
                    (dd (input (@ (type "text")
                                  (name "actor-id"))))))))
-           (user-id (json-object-ref user-input "actor-id"))
+           (user-id (jsobj-ref user-input "actor-id"))
            (retry (lambda ()
                     (drop-top-checkpoint!)
                     (get-user-obj))))
@@ -688,7 +688,7 @@ leave the tests in progress."
                 (dl (dt (b "Auth token"))
                     (dd (input (@ (type "text")
                                   (name "auth-token")))))))))
-        (cond ((json-object-ref user-input "auth-token") =>
+        (cond ((jsobj-ref user-input "auth-token") =>
                (lambda (auth-token)
                  (set! (apclient-auth-token apclient) auth-token)))
               (else
@@ -841,9 +841,9 @@ If ERROR-ON-NOTHING, error out if worker is not found."
   (let ((worker (case-manager-worker-ref case-manager client-id))
         ;; shadow data with version parsed from json
         (json-data (read-json-from-string raw-data)))
-    (match (json-object-ref json-data "action")
+    (match (jsobj-ref json-data "action")
       ("send-input"
-       (<- worker 'receive-input (json-object-ref json-data "data")))
+       (<- worker 'receive-input (jsobj-ref json-data "data")))
       ("rewind"
        (<- worker 'rewind)))))
 

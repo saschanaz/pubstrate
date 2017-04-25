@@ -111,8 +111,8 @@ of a specified length is fine."
 
 (define (sjson->salted-hash sjson)
   "Convert sjson serialization back to <salted-hash>"
-  (make-salted-hash (json-object-ref sjson "salt")
-                    (json-object-ref sjson "hash")))
+  (make-salted-hash (jsobj-ref sjson "salt")
+                    (jsobj-ref sjson "hash")))
 
 
 ;;; Bearer token http header support

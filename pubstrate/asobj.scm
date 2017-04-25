@@ -75,7 +75,7 @@
   (inherits-promise asobj-inherits-promise set-asobj-inherits-promise!))
 
 ;; @@: maybe have env be a kwarg?  Maybe use some kind of default-env?
-(define* (make-asobj sjson env #:optional (private json-object-nil))
+(define* (make-asobj sjson env #:optional (private atlist-nil))
   (let* ((asobj
           (make-asobj-intern sjson env private))
          (types-promise
@@ -139,20 +139,20 @@
    (asobj-types asobj)))
 
 (define (asobj-id asobj)
-  (match (or (asobj-assoc "id" asobj)
-             (asobj-assoc "@id" asobj))
+  (match (or (asobj-assoc asobj "id")
+             (asobj-assoc asobj "@id"))
     ((_ . val)
      val)
     (#f #f)))
 
 (define (asobj-type-field asobj)
-  (match (or (asobj-assoc "type" asobj)
-             (asobj-assoc "@type" asobj))
+  (match (or (asobj-assoc asobj "type")
+             (asobj-assoc asobj "@type"))
     ((_ . val)
      val)
     (#f #f)))
 
-(define (json-object-assoc-recursive key-list sjson)
+(define (jsobj-assoc-recursive sjson key-list)
   "Recursively traverse an sjson structure, and try to extract a value
 from a key list"
   (define (traverse)
@@ -163,8 +163,8 @@ from a key list"
        ((eq? key-list '())
         (cons '*got-it* sjson))
        ;; Okay, try matching the next part
-       ((json-object? sjson)
-        (match (json-object-assoc (car key-list) sjson)
+       ((jsobj? sjson)
+        (match (jsobj-assoc sjson (car key-list))
           ((_ . val)
            (lp (cdr key-list) val))
           (#f #f)))
@@ -175,24 +175,24 @@ from a key list"
      (cons key-list val))
     (#f #f)))
 
-(define (asobj-sjson-assoc key asobj)
+(define (asobj-sjson-assoc asobj key)
   "Pull the value out of ASOBJ that matches KEY
 
 If KEY is a list, recursively look up keys until we (hopefully) find a value."
   (if (pair? key)
-      (json-object-assoc-recursive key (asobj-sjson asobj))
-      (json-object-assoc key (asobj-sjson asobj))))
+      (jsobj-assoc-recursive (asobj-sjson asobj) key)
+      (jsobj-assoc (asobj-sjson asobj) key)))
 
-(define (asobj-assoc key asobj)
+(define (asobj-assoc asobj key)
   "Pull the value out of ASOBJ that matches KEY, and return it as an asobj
 
 If it isn't a javascript object with a 'type' key, we return it as-is though.
 
 If KEY is a list, recursively look up keys until we (hopefully) find a value."
   (define (asobj-style-json-object? obj)
-    (and (json-object? obj)
-         (or (json-object-assoc "type" obj)
-             (json-object-assoc "@type" obj))))
+    (and (jsobj? obj)
+         (or (jsobj-assoc obj "type")
+             (jsobj-assoc obj "@type"))))
 
   (define (convert-obj obj)
     (match obj
@@ -204,13 +204,13 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
        (map convert-obj lst))
       (_ obj)))
 
-  (match (asobj-sjson-assoc key asobj)
+  (match (asobj-sjson-assoc asobj key)
     ((key . val)
      (cons key (convert-obj val)))
     (#f #f)))
 
 (define* (asobj-ref asobj key #:optional dflt)
-  (match (asobj-assoc key asobj)
+  (match (asobj-assoc asobj key)
     ((_ . val)
      val)
     (#f dflt)))
@@ -233,18 +233,17 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
   "Return a new asobj with FIELD set to VALUE.
 Field can be a string for a top-level field "
   (let ((jsobj (if delete
-                   (json-object-delete key (asobj-sjson asobj))
+                   (jsobj-delete (asobj-sjson asobj) key)
                    (asobj-sjson asobj))))
     (make-asobj
-     (json-object-acons
-      key (convert-sjson-with-maybe-asobj value)
-      jsobj)
+     (jsobj-acons jsobj
+                  key (convert-sjson-with-maybe-asobj value))
      (asobj-env asobj)
      (asobj-private asobj))))
 
 (define* (asobj-delete asobj key)
   (make-asobj
-   (json-object-delete key (asobj-sjson asobj))
+   (jsobj-delete (asobj-sjson asobj) key)
    (asobj-env asobj)
    (asobj-private asobj)))
 
@@ -254,13 +253,13 @@ Field can be a string for a top-level field "
               (asobj-env asobj)
               private))
 
-(define (asobj-private-assoc key asobj)
+(define (asobj-private-assoc asobj key)
   (if (pair? key)
-      (json-object-assoc-recursive key (asobj-private asobj))
-      (json-object-assoc key (asobj-private asobj))))
+      (jsobj-assoc-recursive (asobj-private asobj) key)
+      (jsobj-assoc (asobj-private asobj) key)))
 
 (define* (asobj-private-ref asobj key #:optional dflt)
-  (match (asobj-private-assoc key asobj)
+  (match (asobj-private-assoc asobj key)
     ((_ . val)
      val)
     (#f dflt)))
@@ -272,16 +271,15 @@ If #:delete is provided, make sure this is the only item with this key."
   ;; @@: TODO: this is super similar to asobj-cons, could probably
   ;;  do with a shared abstraction!
   (let ((jsobj (if delete
-                   (json-object-delete key (asobj-private asobj))
+                   (jsobj-delete (asobj-private asobj) key)
                    (asobj-private asobj))))
     (make-asobj
      (asobj-sjson asobj)
      (asobj-env asobj)
      ;; @@: Do we need convert-sjson-with-maybe-asobj here?
      ;;   Will people really whack asobjs into the private field?
-     (json-object-acons
-      key (convert-sjson-with-maybe-asobj value)
-      jsobj))))
+     (jsobj-acons (convert-sjson-with-maybe-asobj value) key
+                  jsobj))))
 
 (define (asobj-set-private* asobj . kwargs)
   "Like asobj-set-private, but uses keyword argument fanciness instead of sjson"
@@ -297,8 +295,8 @@ Will look something like:
       ("private" ,(asobj-private asobj))))
 
 (define (combined-sjson->asobj combined-sjson env)
-  (let* ((sjson (json-object-ref combined-sjson "sjson"))
-         (private (json-object-ref combined-sjson "private")))
+  (let* ((sjson (jsobj-ref combined-sjson "sjson"))
+         (private (jsobj-ref combined-sjson "private")))
     (make-asobj sjson env private)))
 
 (define (asobj->combined-string asobj)
@@ -478,7 +476,7 @@ and convert to sjson"
       ;; TODO: use json-object? instead
       (('@ . rest)
        (cons '@
-        ;; @@: Maybe use json-object-fold-unique?
+        ;; @@: Maybe use jsobj-fold-unique?
         (map
          (match-lambda
            ((key val)
@@ -515,10 +513,9 @@ and convert to sjson"
 (define (make-as astype asenv . kwargs)
   ;; TODO: Add the type from asenv, and add to the sjson
   (let* ((initial-sjson (kwargs-to-sjson kwargs))
-         (sjson-with-type (json-object-acons "type"
-                                            (or (astype-short-id astype)
-                                                (astype-uri astype))
-                                            initial-sjson)))
+         (sjson-with-type (jsobj-acons initial-sjson
+                                       "type" (or (astype-short-id astype)
+                                                  (astype-uri astype)))))
     (make-asobj sjson-with-type asenv)))
 
 (define (as-maker asenv)
@@ -545,7 +542,7 @@ and convert to sjson"
                  (asobj-types asobj))
             ", ")
            (asobj-id asobj)
-           (if (json-object-null? (asobj-private asobj))
+           (if (jsobj-null? (asobj-private asobj))
                ""
                " +private"))))
 

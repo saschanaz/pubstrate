@@ -101,37 +101,34 @@
 (test-equal (asobj-types root-beer-note)
   (list ^Create))
 
-(test-equal (asobj-assoc "to" root-beer-note)
+(test-equal (asobj-assoc root-beer-note "to")
   '("to" . "acct:cwebber@identi.ca"))
-(test-assert (asobj? (cdr (asobj-assoc "actor" root-beer-note))))
+(test-assert (asobj? (cdr (asobj-assoc root-beer-note "actor"))))
 (test-assert (asobj? (asobj-ref root-beer-note "actor")))
 (test-equal (asobj-types root-beer-note)
   (list ^Create))
 
 ;; is the sjson-assoc-recursive helper working?
 (test-equal
-    ((@@ (pubstrate asobj) json-object-assoc-recursive)
-     '("actor" "displayName")
-     root-beer-note-sjson)
+    ((@@ (pubstrate asobj) jsobj-assoc-recursive)
+     root-beer-note-sjson
+     '("actor" "displayName"))
   '(("actor" "displayName") . "Jessica Tallon"))
 ;; and via the asobj
 (test-equal
-    (asobj-sjson-assoc
-     '("actor" "displayName")
-     root-beer-note)
+    (asobj-sjson-assoc root-beer-note
+                       '("actor" "displayName"))
   '(("actor" "displayName") . "Jessica Tallon"))
 
 ;; If we can't find such a key, it shouldn't panic
 (test-equal
-    ((@@ (pubstrate asobj) json-object-assoc-recursive)
+    ((@@ (pubstrate asobj) jsobj-assoc-recursive)
      '("actor" "not-a-field")
      root-beer-note-sjson)
   #f)
 ;; and via the asobj
-(test-equal
-    (asobj-sjson-assoc
-     '("actor" "not-a-field")
-     root-beer-note)
+(test-equal (asobj-sjson-assoc root-beer-note
+                               '("actor" "not-a-field"))
   #f)
 
 ;; Test that inheritance works right
@@ -150,7 +147,7 @@
   (test-equal (asobj-types (asobj-ref invitation "object"))
     (list ^Invite))
   ;; but of course, it should still just be inserted as a jsmap...
-  (test-assert (jsmap? (cdr (asobj-sjson-assoc "object" invitation)))))
+  (test-assert (jsmap? (cdr (asobj-sjson-assoc invitation "object")))))
 
 ;; Create a version of the root-beer-note with private data attached
 ;; to it
