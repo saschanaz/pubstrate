@@ -45,6 +45,7 @@
              (gnu packages guile)
              (gnu packages pkg-config)
              (gnu packages texinfo)
+             (gnu packages tls)
              (gnu packages gnupg)
              (guix licenses))
 
@@ -121,7 +122,8 @@ It has a nice, simple s-expression based syntax.")
        ("guile-8sync" ,guile-8sync-latest)
        ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
-     `(("guile-gdbm-ffi" ,guile2.2-gdbm-ffi)
+     `(("gnutls" ,gnutls)
+       ("guile-gdbm-ffi" ,guile2.2-gdbm-ffi)
        ("guile-irregex" ,guile2.2-irregex)
        ("guile-lib" ,guile2.2-lib)
        ("guile-sjson" ,guile-sjson)))
