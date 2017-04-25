@@ -18,28 +18,12 @@
 
 ;; See http://www.w3.org/TR/json-ld-api/
 
-;; Note that this module uses alists, specifically because the json library
-;; we're using also uses alists.  But is this a good idea?
-;;
-;; For small lists (~20 or so items) which is what I think most json
-;; docs average out to, alists are just fine.  I didn't believe this,
-;; but I was proven wrong by benchmarking myself: alists at this size
-;; are much faster than vhashes and even slightly faster than hashmaps.
-;; 
-;; ... but we're planning on using these tools with contexts as big
-;; as http://www.w3.org/ns/activitystreams and that might turn out to be
-;; a real nightmare?
-;;
-;; So in the future we might move this into more efficient
-;; datastructures ;P
-;;
-;; NOTE: moving to vhashes should be very easy now,
-;; just a matter of switching out the jsmap calls in json-utils
-;; NOTE: There's also a fashes branch we could explore
+;; NOTE: This uses sjson's sexp style json currently, but we should move
+;;   it over to fashes.
 
 (define-module (pubstrate json-ld)
-  ;; TODO: Update for sjson module
-  #:use-module (pubstrate json-utils)
+  #:use-module (sjson)
+  #:use-module (sjson utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-9 gnu)
@@ -48,6 +32,7 @@
   #:use-module (ice-9 receive)
   #:use-module (ice-9 vlist)
   #:use-module (web uri)
+  #:use-module (fash)
   #:export (update-context))
 
 
@@ -150,18 +135,18 @@
 
 (define (list-object? obj)
   "A list object is a JSON object that has a @list member"
-  (and (jsmap? obj)
-       (jsmap-assoc "@list" obj)))
+  (and (jsobj? obj)
+       (jsobj-assoc obj "@list")))
 
 (define (value-object? obj)
   "A value object is a JSON object that has a @value member"
-  (and (jsmap? obj)
-       (jsmap-assoc "@value" obj)))
+  (and (jsobj? obj)
+       (jsobj-assoc obj "@value")))
 
 (define (set-object? obj)
   "A set object is a JSON object that has a @set member"
-  (and (jsmap? obj)
-       (jsmap-assoc "@set" obj)))
+  (and (jsobj? obj)
+       (jsobj-assoc obj "@set")))
 
 (define (maybe-append-uri-to-base uri base)
   "A sorta-correct way to join a URI to BASE, assuming there is a BASE,
@@ -268,6 +253,35 @@ Example:
   (apply compose
          (reverse (list func1 func2 ...))))
 
+;;; ==== Some crufty utilities ====
+
+(define (jsobj->unique-alist jsobj)
+  "Return an alist with only unique key-value pairs"
+  (if (fash? jsobj)
+      (fash->alist jsobj)
+      (delete-duplicates (jsobj->alist jsobj)
+                         (lambda (x y)
+                           (equal? (car x) (car y))))))
+
+(define* (jsobj->sorted-unique-alist jsobj #:optional (compare string<?))
+  "Return a unique and sorted alist
+
+Protip: change compare to string>? if you want to
+fold instead of fold-right >:)"
+  (sort (jsobj->unique-alist jsobj)
+        (lambda (x y) (compare (car x) (car y)))))
+
+;; @@: This procedure sucks.  Fix it.
+(define (jsobj-length jsobj)
+  "Find the number of pairs in a jsobj"
+  (if (fash? jsobj)
+      (fash-size jsobj)
+      ;; @@: could just use atlist-tail if we didn't care about precision
+      (length (jsobj->unique-alist jsobj))))
+
+;;; =============
+
+
 
 ;; Algorithm 6.1
 
@@ -330,8 +344,8 @@ remaining context information to process from local-context"
                   #:context context))
        (let ((derefed-context (deref-context context))
              (remote-contexts (cons context remote-contexts)))
-         (if (not (and (jsmap? derefed-context)
-                       (jsmap-ref derefed-context "@context")))
+         (if (not (and (jsobj? derefed-context)
+                       (jsobj-ref derefed-context "@context")))
              (throw 'json-ld-error #:code "invalid remote context"
                     #:context context))
          ;; We made it this far, so recurse on the derefed context
@@ -342,7 +356,7 @@ remaining context information to process from local-context"
                                          #:deref-context deref-context)))
            (loop result next-contexts remote-contexts))))
 
-      ((? jsmap? context)
+      ((? jsobj? context)
        ;; Time to process over a json object of data.  Yay!
        ;; We're really just folding over this object here,
        ;; but three keys are special:
@@ -376,7 +390,7 @@ remaining context information to process from local-context"
                ((? string? relative-base-uri)
                 ;; If the current *result's* base-uri is not null....
                 ;; resolve it against current base URI of result
-                (if (string? (jsmap-ref result "@base"))
+                (if (string? (jsobj-ref result "@base"))
                     (set-field result
                                (active-context-base)
                                (maybe-append-uri-to-base
@@ -422,7 +436,7 @@ remaining context information to process from local-context"
 
        (define (build-result)
          (car
-          (jsmap-fold-unique
+          (jsobj-fold-unique
            (lambda (ctx-key ctx-val prev)
              (match prev
                ((result . defined)
@@ -502,22 +516,22 @@ remaining context information to process from local-context"
            ;; but might it just be overridden?
            (active-context
             (active-context-terms-delete term active-context))
-           (value (jsmap-ref local-context term)))
+           (value (jsobj-ref local-context term)))
        (cond
         ;; If value is null or a json object with "@id" mapping to null,
         ;; then mark term as defined and set term in
         ;; resulting context to null
         ((or (eq? value #nil)
-             (and (jsmap? value)
-                  (eq? (jsmap-ref value "@id") #nil)))
+             (and (jsobj? value)
+                  (eq? (jsobj-ref value "@id") #nil)))
          (values
           (active-context-terms-cons term #nil active-context)
           (vhash-cons term #t defined)))
         ;; otherwise, possibly convert value and continue...
         (else
          (let* ((value (cond ((string? value)
-                              (jsmap-cons "@id" value jsmap-nil))
-                             ((jsmap? value)
+                              (jsobj-acons jsobj-nil "@id" value))
+                             ((jsobj? value)
                               value)
                              (else
                               (throw 'json-ld-error
@@ -525,7 +539,7 @@ remaining context information to process from local-context"
            (call/ec
             (lambda (return)
               (define (definition-handle-type definition active-context defined)
-                (match (jsmap-assoc "@type" value)
+                (match (jsobj-assoc value "@type")
                   ;; no match, return definition as-is
                   (#f (values definition active-context defined))
                   ;; type value must be a string
@@ -537,9 +551,8 @@ remaining context information to process from local-context"
                                       #:local-context local-context
                                       #:defined defined)
                      (values
-                      (jsmap-cons "@type"
-                                  expanded-iri
-                                  definition)
+                      (jsobj-acons definition "@type"
+                                   expanded-iri)
                       active-context defined)))
                   ;; Otherwise, it's an error!
                   (_
@@ -548,12 +561,12 @@ remaining context information to process from local-context"
 
               ;; sec 11
               (define (definition-handle-reverse definition active-context defined)
-                (match (jsmap-assoc "@reverse" value)
+                (match (jsobj-assoc value "@reverse")
                   ;; no match, carry on!
                   (#f (values definition active-context defined))
                   ;; value must be a string
                   ((_ . (? string? reverse-prop))
-                   (if (jsmap-assoc "@id" value)
+                   (if (jsobj-assoc value "@id")
                        (throw 'json-ld-error
                               #:code "invalid reverse property"))
 
@@ -568,11 +581,11 @@ remaining context information to process from local-context"
                                 #:code "invalid IRI mapping"))
 
                      (let ((definition
-                             (jsmap-cons
-                              "reverse" #t
+                             (jsobj-acons
                               ;; 11.4
                               (%definition-handle-container-reverse
-                                definition))))
+                                definition)
+                              "reverse" #t)))
                        ;; return early with new active context
                        ;; w/ term definition and defined
                        (return
@@ -586,13 +599,13 @@ remaining context information to process from local-context"
               ;; Helper method for 11
               (define (%definition-handle-container-reverse definition)
                 ;; 11.4
-                (match (jsmap-assoc "@container" value)
+                (match (jsobj-assoc value "@container")
                   ;; just return original efinition if no @container
                   (#f definition)
                   ;; Otherwise make sure it's @set or @index or @nil
                   ;; and set @container to this
                   ((_ . (? (cut member <> '("@set" "@index" #nil)) container))
-                   (jsmap-cons "@container" container definition))
+                   (jsobj-acons definition "@container" container))
                   ;; Uhoh, looks like that wasn't valid...
                   (_
                    (throw 'json-ld-error
@@ -600,7 +613,7 @@ remaining context information to process from local-context"
 
               ;; 12
               (define (definition-set-reverse-to-false definition active-context defined)
-                (values (jsmap-cons "reverse" #f definition) active-context defined))
+                (values (jsobj-acons definition "reverse" #f) active-context defined))
 
               ;; This one is an adjustment deluxe, it does a significant
               ;; amount of adjustments to the definition and builds
@@ -610,10 +623,10 @@ remaining context information to process from local-context"
                        definition active-context defined)
                 (cond
                  ;; sec 13
-                 ((and (jsmap-assoc "@id" value)
-                       (not (equal? (jsmap-ref value "@id")
+                 ((and (jsobj-assoc value "@id")
+                       (not (equal? (jsobj-ref value "@id")
                                     term)))
-                  (let ((id-val (jsmap-ref value "@id")))
+                  (let ((id-val (jsobj-ref value "@id")))
                     (if (not (string? id-val))
                         (throw 'json-ld-error
                                #:code "invalid IRI mapping"))
@@ -633,7 +646,7 @@ remaining context information to process from local-context"
                                  #:code "invalid keyword alias"))
 
                       ;; otherwise, onwards and upwards
-                      (values (jsmap-cons "@id" expanded-iri definition)
+                      (values (jsobj-set definition "@id" expanded-iri)
                               active-context defined))))
 
                  ;; sec 14
@@ -643,7 +656,7 @@ remaining context information to process from local-context"
                     ((prefix suffix-list ...)
                      (receive (active-context defined)
                          ;; see if we should update the context...
-                         (if (jsmap-assoc term local-context)
+                         (if (jsobj-assoc local-context term)
                              ;; It's in the local context...
                              ;; so we should update the active context so we can
                              ;; match against it!
@@ -655,25 +668,22 @@ remaining context information to process from local-context"
                        (let ((prefix-in-context
                               (active-context-terms-assoc prefix active-context)))
                          (if prefix-in-context
-                             (values (jsmap-cons
-                                      "@id"
-                                      (string-append
-                                       (jsmap-ref (cdr prefix-in-context) "@id")
-                                       (string-join suffix-list ":"))
-                                      definition)
+                             (values (jsobj-acons definition "@id"
+                                                  (string-append
+                                                   (jsobj-ref (cdr prefix-in-context) "@id")
+                                                   (string-join suffix-list ":")))
                                      active-context defined)
                              ;; okay, yeah, it's set-iri-mapping-of-def-to-term
                              ;; but we want to return the new active-context
-                             (values (jsmap-cons "@id" term definition)
+                             (values (jsobj-acons definition "@id" term)
                                      active-context defined)))))))
 
                  ;; sec 15
-                 ((jsmap-assoc "@vocab" active-context)
-                  (values (jsmap-cons "@id"
-                                      (string-append
-                                       (jsmap-ref active-context "@vocab")
-                                       term)
-                           definition)
+                 ((jsobj-assoc active-context "@vocab")
+                  (values (jsobj-acons definition "@id"
+                                       (string-append
+                                        (jsobj-ref active-context "@vocab")
+                                        term))
                           active-context defined))
 
                  (else
@@ -682,7 +692,7 @@ remaining context information to process from local-context"
 
               ;; 16
               (define (definition-handle-container definition active-context defined)
-                (let ((value-container (jsmap-assoc "@container" value)))
+                (let ((value-container (jsobj-assoc value "@container")))
                   (if value-container
                       ;; Make sure container has an appropriate value,
                       ;; set it in the definition
@@ -691,14 +701,14 @@ remaining context information to process from local-context"
                                                      "@index" "@language")))
                             (throw 'json-ld-error
                                    #:code "invalid container mapping"))
-                        (values (jsmap-cons "@container" container definition)
+                        (values (jsobj-acons definition "@container" container)
                                 active-context defined))
                       ;; otherwise, no adjustment needed apparently
                       (values definition active-context defined))))
 
               ;; 17
               (define (definition-handle-language definition active-context defined)
-                (let ((value-language (jsmap-assoc "@language" value)))
+                (let ((value-language (jsobj-assoc value "@language")))
                   (if value-language
                       ;; Make sure language has an appropriate value,
                       ;; set it in the definition
@@ -706,7 +716,7 @@ remaining context information to process from local-context"
                         (if (not (or (eq? language #nil) (string? language)))
                             (throw 'json-ld-error
                                    #:code "invalid language mapping"))
-                        (values (jsmap-cons "@language" language definition)
+                        (values (jsobj-acons definition "@language" language)
                                 active-context defined))
                       ;; otherwise, no adjustment needed apparently
                       (values definition active-context defined))))
@@ -720,7 +730,7 @@ remaining context information to process from local-context"
                                     more-definition-adjustments
                                     definition-handle-container
                                     definition-handle-language)
-                   jsmap-nil active-context defined)
+                   jsobj-nil active-context defined)
                 (values (active-context-terms-cons term definition active-context)
                         (vhash-cons term #t defined))))))))))))
 
@@ -742,9 +752,9 @@ remaining context information to process from local-context"
 
 Does a multi-value-return of (expanded-iri active-context defined)"
   (define (maybe-update-active-context)
-    (if (and (jsmap? local-context)
-             (jsmap-assoc value local-context)
-             (not (eq? (jsmap-ref local-context value)
+    (if (and (jsobj? local-context)
+             (jsobj-assoc local-context value)
+             (not (eq? (jsobj-ref local-context value)
                        #t)))
         ;; Okay, we're updating the context even further...
         (create-term-definition active-context local-context value defined)
@@ -764,7 +774,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          ((and (eq? vocab #t)
                (active-context-terms-assoc value active-context))
           (values
-           (jsmap-ref (cdr (active-context-terms-assoc value active-context)) "@id")
+           (jsobj-ref (cdr (active-context-terms-assoc value active-context)) "@id")
            active-context
            defined))
          ;; 4
@@ -779,8 +789,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                 ;; otherwise, carry on to 4.3...
                 (receive (active-context defined)
                     (if (and (not (eq? local-context #nil))
-                             (jsmap-assoc prefix local-context)
-                             (not (eq? (jsmap-ref local-context prefix))))
+                             (jsobj-assoc local-context prefix)
+                             (not (eq? (jsobj-ref local-context prefix))))
                         ;; ok, update active-context and defined
                         (create-term-definition active-context local-context
                                                 prefix defined)
@@ -793,7 +803,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                     ((_ . prefix-term-def)
                      (values
                       (string-concatenate
-                       (list (jsmap-ref prefix-term-def "@id") suffix))
+                       (list (jsobj-ref prefix-term-def "@id") suffix))
                       active-context
                       defined))
                     ;; otherwise, return the value; it's already an absolute IRI!
@@ -837,7 +847,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
               (if (and (or (equal? active-property "@list")
                            (and active-property-term-result
                                 (equal?
-                                 (jsmap-ref (cdr active-property-term-result)
+                                 (jsobj-ref (cdr active-property-term-result)
                                             "@container")
                                  "@list")))
                        (or (json-array? expanded-item)
@@ -871,7 +881,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          (container-mapping
           (delay
             (if (force term-mapping)
-                (jsmap-ref (cdr (force term-mapping))
+                (jsobj-ref (cdr (force term-mapping))
                            "@container")))))
     (define (get-expanded-value return)
       "Get expanded value; return is a prompt to bail out early"
@@ -894,7 +904,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
               (throw 'json-ld-error
                      #:code "invalid reverse property map"))
           ;; already defined, uhoh
-          (if (jsmap-assoc expanded-property result)
+          (if (jsobj-assoc result expanded-property)
               (throw 'json-ld-error
                      #:code "colliding keywords"))
 
@@ -940,7 +950,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                  (match value
                    (#nil
                     ;; jump out of processing this pair
-                    (return (jsmap-cons "@value" #nil result)
+                    (return (jsobj-set result "@value" #nil)
                             active-context))
                    ;; otherwise, expanded value *is* value!
                    ((? scalar? _)
@@ -981,7 +991,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                 ;; 7.4.11
                 ;; I'm so sorry this is so complicated
                 ("@reverse"
-                 (if (not (jsmap? value))
+                 (if (not (jsobj? value))
                      (throw 'json-ld-error "invalid @reverse value"))
 
                  (receive (expanded-value active-context)
@@ -990,21 +1000,20 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                     ;; here might be a great place to break out
                     ;; another function
                     (cond
-                     ((jsmap-assoc "@reverse" expanded-value)
-                      (jsmap-fold-unique
+                     ((jsobj-assoc expanded-value "@reverse")
+                      (jsobj-fold-unique
                        (lambda (property item result)
                          (let ((property-in-result
-                                (jsmap-assoc result property)))
-                           (jsmap-cons
-                            property
-                            (if property-in-result
-                                (cons item (cdr property-in-result))
-                                (list item))
-                            result)))
+                                (jsobj-assoc result property)))
+                           ;; @@: jsobj-set maybe?
+                           (jsobj-acons result property
+                                        (if property-in-result
+                                            (cons item (cdr property-in-result))
+                                            (list item)))))
                        result
-                       (jsmap-ref expanded-value "@reverse")))
+                       (jsobj-ref expanded-value "@reverse")))
                      ((pair? expanded-value)
-                      (jsmap-fold-unique
+                      (jsobj-fold-unique
                        (lambda (property items result)
                          (if (equal? property "@reverse")
                              ;; skip this one
@@ -1012,27 +1021,25 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                              ;; otherwise, continue
                              (fold
                               (lambda (item result)
-                                (let ((reverse-map (jsmap-ref result "@reverse")))
+                                (let ((reverse-map (jsobj-ref result "@reverse")))
                                   (if (or (value-object? item)
                                           (list-object? item))
                                       (throw 'json-ld-error
                                              #:code "invalid reverse property value"))
-                                  (jsmap-cons
-                                   "@reverse"
-                                   (jsmap-cons
-                                    key
-                                    (cons item
-                                          (if (jsmap-assoc property reverse-map)
-                                              (jsmap-ref property reverse-map)
-                                              '()))
-                                    reverse-map)
-                                   result)))
+                                  (jsobj-set result "@reverse"
+                                             (jsobj-set reverse-map key
+                                                        (cons item
+                                                              ;; @@: this can be simplified
+                                                              (if (jsobj-assoc reverse-map property)
+                                                                  (jsobj-ref reverse-map property)
+                                                                  '()))))))
                               result
                               items)))
-                       (if (jsmap-assoc "@reverse" result)
+                       (if (jsobj-assoc result "@reverse")
                            result
                            ;; TODO: fix this
-                           (jsmap-cons "@reverse" jsmap-nil result))
+                           ;; TODO: What were we fixing
+                           (jsobj-set result "@reverse" jsobj-nil))
                        expanded-value))
                      (else result))
                     active-context))))
@@ -1042,14 +1049,14 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                  result
                  ;; otherwise, set expanded-property member of result
                  ;; to expanded-value
-                 (jsmap-cons expanded-property expanded-value result))
+                 (jsobj-set result expanded-property expanded-value))
              active-context)))
 
          ;; 7.5
          ;; If key's container mapping in active-context is @language and
-         ;; value is a jsmap then value is expanded from a language map
+         ;; value is a jsobj then value is expanded from a language map
          ((and (equal? (force container-mapping) "@language")
-               (jsmap? value))
+               (jsobj? value))
           (values
            (fold
             (lambda (x expanded-value)
@@ -1060,7 +1067,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                     (if (not (string? item))
                         (throw 'json-ld-error #:code "invalid language map value"))
                     (cons
-                     (alist->jsmap
+                     (alist->atlist
                       `(("@value" . ,item)
                         ("@language" . ,(string-downcase language))))
                      expanded-value))
@@ -1072,16 +1079,16 @@ Does a multi-value-return of (expanded-iri active-context defined)"
             ;; As a hack, this is sorted in REVERSE!
             ;; This way we can use normal fold instead of fold right.
             ;; Mwahahaha!
-            (jsmap->sorted-unique-alist value string>?))
+            (jsobj->sorted-unique-alist value string>?))
            expanded-property
            active-context))
          
          ;; 7.6
          ((and (equal? (force container-mapping) "@index")
-               (jsmap? value))
+               (jsobj? value))
           ;; @@: In reality the code here is very similar to 
           ;;   in 7.5, but I think this is much more readable...
-          (let loop ((l (jsmap->sorted-unique-alist value string>?))
+          (let loop ((l (jsobj->sorted-unique-alist value string>?))
                      (active-context active-context)
                      (expanded-value '()))
             (match l
@@ -1097,13 +1104,13 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                        (fold-right
                         (lambda (item expanded-value)
                           (cons
-                           (if (jsmap-assoc "@index" item)
+                           (if (jsobj-assoc item "@index")
                                item
-                               (jsmap-cons "@index" index item))
+                               (jsobj-set item "@index" index))
                            expanded-value))
                         expanded-value
                         index-value)))))))
-         
+
          ;; 7.7
          (else
           (receive (expanded-value active-context)
@@ -1116,13 +1123,11 @@ Does a multi-value-return of (expanded-iri active-context defined)"
            (get-expanded-value return)
          (define (append-prop-val-to-result expanded-property expanded-value
                                             result)
-           (jsmap-cons
-            expanded-property
-            (cons expanded-value
-                  (if (jsmap-assoc expanded-property result)
-                      (jsmap-ref result expanded-property)
-                      '()))
-            result))
+           (jsobj-set result expanded-property
+                      (cons expanded-value
+                            (if (jsobj-assoc result expanded-property)
+                                (jsobj-ref result expanded-property)
+                                '()))))
 
          ;; 7.8
          ;; if expanded value is null, ignore key by continuing
@@ -1141,7 +1146,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
            (values
             (append-prop-val-to-result
              expanded-property
-             (alist->jsmap
+             (alist->atlist
               `(("@list" . ,(if (json-array? expanded-value)
                                 expanded-value
                                 (list expanded-value)))))
@@ -1151,11 +1156,11 @@ Does a multi-value-return of (expanded-iri active-context defined)"
           ;; 7.10
           ;; Looks like a reverse property?
           ((and (force term-mapping)
-                (jsmap-ref (cdr (force term-mapping)) "reverse"))
-           (let* ((result (if (jsmap-assoc "@reverse" result)
+                (jsobj-ref (cdr (force term-mapping)) "reverse"))
+           (let* ((result (if (jsobj-assoc result "@reverse")
                               result
-                              (jsmap-cons "@reverse" '() result)))
-                  (reverse-map (jsmap-ref result "@reverse"))
+                              (jsobj-acons result "@reverse" '())))
+                  (reverse-map (jsobj-ref result "@reverse"))
                   (expanded-value (if (json-array? expanded-value)
                                       expanded-value
                                       (list expanded-value))))
@@ -1166,14 +1171,12 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                  (if (or (value-object? item)
                          (list-object? item))
                      (throw 'json-ld-error #:code "invalid reverse property value"))
-                 (jsmap-cons "@reverse"
-                             (jsmap-cons expanded-property
-                                         (cons item
-                                               (if (jsmap-assoc expanded-property reverse-map)
-                                                   (jsmap-ref reverse-map expanded-property)
-                                                   '()))
-                                         reverse-map)
-                             result))
+                 (jsobj-set result "@reverse"
+                            (jsobj-set reverse-map expanded-property
+                                       (cons item
+                                             (if (jsobj-assoc reverse-map expanded-property)
+                                                 (jsobj-ref reverse-map expanded-property)
+                                                 '())))))
                result
                expanded-value)
               active-context)))
@@ -1184,14 +1187,14 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                     expanded-property expanded-value result)
                    active-context))))))))
 
-(define (expand-json-object active-context active-property jsmap)
+(define (expand-json-object active-context active-property jsobj)
   (define (build-result active-context)
     ;; Thaere's a (admittedly unlikely?) chance that builing up the
     ;; active-context this way could result in things being wrong?
     ;; we're consing in the other direction, so...
-    (let loop ((l (jsmap->sorted-unique-alist jsmap string>?))
+    (let loop ((l (jsobj->sorted-unique-alist jsobj string>?))
                (active-context active-context)
-               (result jsmap-nil))
+               (result jsobj-nil))
       (match l
         ('()
          (values result active-context))
@@ -1200,10 +1203,10 @@ Does a multi-value-return of (expanded-iri active-context defined)"
              (expand-json-object-pair key val result active-context active-property)
            (loop rest active-context result))))))
 
-  (let* ((jsmap-context (jsmap-assoc "@context" jsmap))
+  (let* ((jsobj-context (jsobj-assoc jsobj "@context"))
          (active-context
-          (if jsmap-context
-              (process-context active-context (cdr jsmap-context))
+          (if jsobj-context
+              (process-context active-context (cdr jsobj-context))
               active-context))
          (permitted-value-results '("@value" "@language" "@type" "@index")))
     (receive (result active-context)
@@ -1213,49 +1216,49 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          (define (adjust-result-1 result)
            (cond
             ;; sec 8
-            ((jsmap-assoc "@value" result)
+            ((jsobj-assoc result "@value")
              ;; 8.1, make sure result does not contain keys outside
              ;;   of permitted set
-             (if (or (not (match (jsmap->alist result)
+             (if (or (not (match (jsobj->alist result)
                             ((((? (cut member <> permitted-value-results)
                                   key) . val) ...)
                              #t)
                             (_ #f)))
-                     (and (jsmap-assoc "@language" result)
-                          (jsmap-assoc "@type" result)))
+                     (and (jsobj-assoc result "@language")
+                          (jsobj-assoc result "@type")))
                  (throw 'json-ld-error #:code "invalid value object"))
 
-             (let ((result-value (jsmap-ref result "@value")))
+             (let ((result-value (jsobj-ref result "@value")))
                (cond ((eq? result-value #nil)
                       (return #nil active-context))
                      ((and (not (string? result-value))
-                           (jsmap-assoc "@language" result))
+                           (jsobj-assoc result "@language"))
                       (throw 'json-ld-error #:code "invalid typed value"))
-                     ((and (jsmap-assoc "@type" result)
-                           (not (absolute-uri? (jsmap-ref result "@type"))))
+                     ((and (jsobj-assoc result "@type")
+                           (not (absolute-uri? (jsobj-ref result "@type"))))
                       (throw 'json-ld-error #:code "invalid typed value"))
                      (else result))))
             ;; sec 9
             ;; @@: unnecessarily pulling type out of result several times,
             ;;   we could do it just once... maybe with a (delay) at top
             ;;   of cond?
-            ((and (jsmap-assoc "@type" result)
-                  (json-array? (jsmap-ref result "@type")))
-             (jsmap-cons "@type" (jsmap-ref result "@type") result))
+            ((and (jsobj-assoc result "@type")
+                  (json-array? (jsobj-ref result "@type")))
+             (jsobj-set result "@type" (jsobj-ref result "@type")))
 
             ;; sec 10
-            ((or (jsmap-assoc "@set" result)
-                 (jsmap-assoc "@list" result))
+            ((or (jsobj-assoc result "@set")
+                 (jsobj-assoc result "@list"))
              ;; @@: Hacky
-             (let* ((num-members (jsmap-length result)))
+             (let* ((num-members (jsobj-length result)))
                ;; 10.1
                (if (not (or (eqv? num-members 1)
-                            (and (jsmap-assoc "@index" result)
+                            (and (jsobj-assoc result "@index")
                                  (eqv? num-members 2))))
                    (throw 'json-ld-error #:code "invalid set or list object"))
 
                ;; 10.2
-               (let ((set-mapping (jsmap-assoc "@set" result)))
+               (let ((set-mapping (jsobj-assoc result "@set")))
                  (if set-mapping
                      (cdr set-mapping)
                      result))))
@@ -1263,8 +1266,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
          ;; sec 11
          (define (adjust-result-2 result)
-           (if (and (jsmap-assoc "@language" result)
-                    (eqv? (jsmap-length result) 1))
+           (if (and (jsobj-assoc result "@language")
+                    (eqv? (jsobj-length result) 1))
                (return #nil active-context)
                result))
 
@@ -1273,15 +1276,15 @@ Does a multi-value-return of (expanded-iri active-context defined)"
            ;; Graph adjustments...
            (if (member active-property '(#nil "@graph"))
                ;; drop free-floating values
-               (cond ((or (eqv? (jsmap-length result) 0)
-                          (jsmap-assoc "@value" result)
-                          (jsmap-assoc "@list" result))
+               (cond ((or (eqv? (jsobj-length result) 0)
+                          (jsobj-assoc result "@value")
+                          (jsobj-assoc result "@list"))
                       (return #nil active-context))
-                     ;; @@: Do we need to check jsmap? at this point?
+                     ;; @@: Do we need to check jsobj? at this point?
                      ;;   I think the only other thing result becomes is #nil
                      ;;   and we return it explicitly in such a case
-                     ((and (jsmap-assoc "@id" result)
-                           (eqv? 1 (jsmap-length result)))
+                     ((and (jsobj-assoc result "@id")
+                           (eqv? 1 (jsobj-length result)))
                       (return #nil active-context))
 
                      (else result))
@@ -1307,20 +1310,19 @@ Does a multi-value-return of (expanded-iri active-context defined)"
     ((? json-array? _)
      ;; Does a multi-value return with active context
      (expand-json-array active-context active-property element))
-    ((? jsmap? _)
+    ((? jsobj? _)
      (expand-json-object active-context active-property element))))
 
-(define (expand vjson)
-  ;; TODO: convert all jsmap to vjson so we don't have this (v?)
+(define (expand jsobj)
   "Expand (v?)json using json-ld processing algorithms"
   (receive (expanded-result active-context)
-      (expand-element initial-active-context #nil vjson)
+      (expand-element initial-active-context #nil jsobj)
     ;; final other than arrayify that is!
     (define (final-adjustments expanded-result)
-      (cond ((and (jsmap? expanded-result)
-                 (eqv? 1 (jsmap-length expanded-result))
-                 (jsmap-assoc "@graph" expanded-result))
-            (jsmap-ref "@graph" expanded-result))
+      (cond ((and (jsobj? expanded-result)
+                 (eqv? 1 (jsobj-length expanded-result))
+                 (jsobj-assoc expanded-result "@graph"))
+            (jsobj-ref expanded-result "@graph"))
            ((eq? expanded-result #nil)
             '())
            (else expanded-result)))
@@ -1342,13 +1344,13 @@ Does a multi-value-return of (expanded-iri active-context defined)"
      (let* ((term-mapping (active-context-terms-assoc active-property active-context))
             (type-mapping
              (if term-mapping
-                 (jsmap-assoc "@type" (cdr term-mapping))
+                 (jsobj-assoc (cdr term-mapping) "@type")
                  #f)))
        (define (id-or-vocab-return expansion-thunk)
          (receive (result active-context)
              (expansion-thunk)
            (return
-            (alist->jsmap
+            (alist->atlist
              `(("@id" . ,result)))
             active-context)))
 
@@ -1368,18 +1370,18 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                              #:document-relative #t))))
 
        ;; sec 3
-       (let ((result (alist->jsmap `(("@value" . ,value)))))
+       (let ((result (alist->atlist `(("@value" . ,value)))))
          (cond
           ;; sec 4
           (type-mapping
            (values
-            (jsmap-cons "@type" (cdr type-mapping) result)
+            (jsobj-set result "@type" (cdr type-mapping))
             active-context))
           ;; sec 5
           ((string? value)
            (let ((language-mapping
                   (if term-mapping
-                      (jsmap-assoc "@language" (cdr term-mapping))
+                      (jsobj-assoc (cdr term-mapping) "@language")
                       #f)))
              (match language-mapping
                ;; if no mapping, or the mapping value is nil,
@@ -1389,13 +1391,13 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                ;; Otherwise if there's a match add @language to result
                ((_ . language)
                 (values
-                 (jsmap-cons "@language" language result)
+                 (jsobj-set result "@language" language)
                  active-context))
                ;; otherwise...
                (_
                 (let ((default-language (active-context-language active-context)))
                   (if (defined? default-language)
-                      (values (jsmap-cons "@language" default-language result)
+                      (values (jsobj-set result "@language" default-language)
                               active-context)
                       (values result active-context)))))))
           (else (values result active-context))))))))
