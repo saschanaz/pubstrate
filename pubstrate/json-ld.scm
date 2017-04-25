@@ -279,6 +279,14 @@ fold instead of fold-right >:)"
       ;; @@: could just use atlist-tail if we didn't care about precision
       (length (jsobj->unique-alist jsobj))))
 
+;; for debugging
+(define-syntax-rule (pk-values print-these ... body)
+  (call-with-values
+      (lambda () body)
+    (lambda vals
+      (pk print-these ... '*pk-values:* vals)
+      (apply values vals))))
+
 ;;; =============
 
 
@@ -908,149 +916,150 @@ Does a multi-value-return of (expanded-iri active-context defined)"
               (throw 'json-ld-error
                      #:code "colliding keywords"))
 
-          (receive (expanded-value active-context)
-              (match expanded-property
-                ;; 7.4.3
-                ("@id"
-                 (if (not (string? value))
-                     (throw 'json-ld-error
-                            #:code "invalid @id value"))
-                 ;; calls to iri-expansion also multi-value-return "defined"
-                 ;; as well, but as the third argument, that's ignored by our receive
-                 (iri-expansion active-context value
-                                #:document-relative #t))
-                ;; 7.4.4
-                ("@type"
-                 (match value
-                   ((? string? _)
-                    (iri-expansion active-context value
-                                   #:vocab #t #:document-relative #t))
-                   (((? string? _) ...)
-                    (match 
-                      (fold-right
-                       (lambda (item prev)
-                         (match prev
-                           ((array-result . active-context)
-                            (receive (active-context expanded)
-                                (iri-expansion active-context item
-                                               #:document-relative #t)
-                              (cons (cons expanded array-result) active-context)))))
-                       (cons '() active-context)
-                       value)
-                      ((array-result . active-context)
-                       (values array-result active-context))))
-                   (_ (throw 'json-ld-error #:code "invalid type value"))))
+          (call-with-values
+              (lambda ()
+                (match expanded-property
+                  ;; 7.4.3
+                  ("@id"
+                   (if (not (string? value))
+                       (throw 'json-ld-error
+                              #:code "invalid @id value"))
+                   ;; calls to iri-expansion also multi-value-return "defined"
+                   ;; as well, but as the third argument, that's ignored by our receive
+                   (iri-expansion active-context value
+                                  #:document-relative #t))
+                  ;; 7.4.4
+                  ("@type"
+                   (match value
+                     ((? string? _)
+                      (iri-expansion active-context value
+                                     #:vocab #t #:document-relative #t))
+                     (((? string? _) ...)
+                      (let lp ((items value)
+                               (result '())
+                               (active-context active-context))
+                        (match items
+                          (() (values result active-context))
+                          ((item remaining-items ...)
+                           (call-with-values
+                               (lambda ()
+                                 (iri-expansion active-context item
+                                                #:document-relative #t))
+                             (lambda* (expanded active-context #:optional _)
+                               (lp remaining-items expanded active-context)))))))
+                     (_ (throw 'json-ld-error #:code "invalid type value"))))
 
-                ;; 7.4.5
-                ("@graph"
-                 (expand-element active-context "@graph" value))
+                  ;; 7.4.5
+                  ("@graph"
+                   (expand-element active-context "@graph" value))
 
-                ;; 7.4.6
-                ("@value"
-                 (match value
-                   (#nil
-                    ;; jump out of processing this pair
-                    (return (jsobj-set result "@value" #nil)
-                            active-context))
-                   ;; otherwise, expanded value *is* value!
-                   ((? scalar? _)
-                    (values value active-context))
-                   (_ (throw 'json-ld-error #:code "invalid value object"))))
+                  ;; 7.4.6
+                  ("@value"
+                   (match value
+                     (#nil
+                      ;; jump out of processing this pair
+                      (return (jsobj-set result "@value" #nil)
+                              active-context))
+                     ;; otherwise, expanded value *is* value!
+                     ((? scalar? _)
+                      (values value active-context))
+                     (_ (throw 'json-ld-error #:code "invalid value object"))))
 
-                ;; 7.4.7
-                ("@language"
-                 (match value
-                   ((? string? _)
-                    (values (string-downcase value) active-context))
-                   (_ (throw 'json-ld-error #:code "invalid language-tagged string"))))
+                  ;; 7.4.7
+                  ("@language"
+                   (match value
+                     ((? string? _)
+                      (values (string-downcase value) active-context))
+                     (_ (throw 'json-ld-error #:code "invalid language-tagged string"))))
 
-                ;; 7.4.8
-                ("@index"
-                 (match value
-                   ((? string? _)
-                    (values value active-context))
-                   (_ (throw 'json-ld-error #:code "invalid @index value"))))
+                  ;; 7.4.8
+                  ("@index"
+                   (match value
+                     ((? string? _)
+                      (values value active-context))
+                     (_ (throw 'json-ld-error #:code "invalid @index value"))))
 
-                ;; 7.4.9
-                ("@list"
-                 ;; Bail out early if null or @graph to remove free-floating list
-                 (if (member active-property '(#nil "@graph"))
-                     (return result active-context))
-                 (receive (expanded-value active-context)
-                     (expand-element active-context active-property value)
-                   ;; oops!  no lists of lists
-                   (if (list-object? expanded-value)
-                       (throw 'json-ld-error #:code "list of lists"))
-                   ;; otherwise, continue with this as expanded value
-                   (values expanded-value active-context)))
+                  ;; 7.4.9
+                  ("@list"
+                   ;; Bail out early if null or @graph to remove free-floating list
+                   (if (member active-property '(#nil "@graph"))
+                       (return result active-context))
+                   (receive (expanded-value active-context)
+                       (expand-element active-context active-property value)
+                     ;; oops!  no lists of lists
+                     (if (list-object? expanded-value)
+                         (throw 'json-ld-error #:code "list of lists"))
+                     ;; otherwise, continue with this as expanded value
+                     (values expanded-value active-context)))
 
-                ;; 7.4.10
-                ("@set"
-                 (expand-element active-context active-property value))
+                  ;; 7.4.10
+                  ("@set"
+                   (expand-element active-context active-property value))
 
-                ;; 7.4.11
-                ;; I'm so sorry this is so complicated
-                ("@reverse"
-                 (if (not (jsobj? value))
-                     (throw 'json-ld-error "invalid @reverse value"))
+                  ;; 7.4.11
+                  ;; I'm so sorry this is so complicated
+                  ("@reverse"
+                   (if (not (jsobj? value))
+                       (throw 'json-ld-error "invalid @reverse value"))
 
-                 (receive (expanded-value active-context)
-                     (expand-element active-context "@reverse" value)
-                   (return
-                    ;; here might be a great place to break out
-                    ;; another function
-                    (cond
-                     ((jsobj-assoc expanded-value "@reverse")
-                      (jsobj-fold-unique
-                       (lambda (property item result)
-                         (let ((property-in-result
-                                (jsobj-assoc result property)))
-                           ;; @@: jsobj-set maybe?
-                           (jsobj-acons result property
-                                        (if property-in-result
-                                            (cons item (cdr property-in-result))
-                                            (list item)))))
-                       result
-                       (jsobj-ref expanded-value "@reverse")))
-                     ((pair? expanded-value)
-                      (jsobj-fold-unique
-                       (lambda (property items result)
-                         (if (equal? property "@reverse")
-                             ;; skip this one
+                   (receive (expanded-value active-context)
+                       (expand-element active-context "@reverse" value)
+                     (return
+                      ;; here might be a great place to break out
+                      ;; another function
+                      (cond
+                       ((jsobj-assoc expanded-value "@reverse")
+                        (jsobj-fold-unique
+                         (lambda (property item result)
+                           (let ((property-in-result
+                                  (jsobj-assoc result property)))
+                             ;; @@: jsobj-set maybe?
+                             (jsobj-acons result property
+                                          (if property-in-result
+                                              (cons item (cdr property-in-result))
+                                              (list item)))))
+                         result
+                         (jsobj-ref expanded-value "@reverse")))
+                       ((pair? expanded-value)
+                        (jsobj-fold-unique
+                         (lambda (property items result)
+                           (if (equal? property "@reverse")
+                               ;; skip this one
+                               result
+                               ;; otherwise, continue
+                               (fold
+                                (lambda (item result)
+                                  (let ((reverse-map (jsobj-ref result "@reverse")))
+                                    (if (or (value-object? item)
+                                            (list-object? item))
+                                        (throw 'json-ld-error
+                                               #:code "invalid reverse property value"))
+                                    (jsobj-set result "@reverse"
+                                               (jsobj-set reverse-map key
+                                                          (cons item
+                                                                ;; @@: this can be simplified
+                                                                (if (jsobj-assoc reverse-map property)
+                                                                    (jsobj-ref reverse-map property)
+                                                                    '()))))))
+                                result
+                                items)))
+                         (if (jsobj-assoc result "@reverse")
                              result
-                             ;; otherwise, continue
-                             (fold
-                              (lambda (item result)
-                                (let ((reverse-map (jsobj-ref result "@reverse")))
-                                  (if (or (value-object? item)
-                                          (list-object? item))
-                                      (throw 'json-ld-error
-                                             #:code "invalid reverse property value"))
-                                  (jsobj-set result "@reverse"
-                                             (jsobj-set reverse-map key
-                                                        (cons item
-                                                              ;; @@: this can be simplified
-                                                              (if (jsobj-assoc reverse-map property)
-                                                                  (jsobj-ref reverse-map property)
-                                                                  '()))))))
-                              result
-                              items)))
-                       (if (jsobj-assoc result "@reverse")
-                           result
-                           ;; TODO: fix this
-                           ;; TODO: What were we fixing
-                           (jsobj-set result "@reverse" jsobj-nil))
-                       expanded-value))
-                     (else result))
-                    active-context))))
-            (return
-             (if (eq? expanded-value #nil)
-                 ;; return as-is
-                 result
-                 ;; otherwise, set expanded-property member of result
-                 ;; to expanded-value
-                 (jsobj-set result expanded-property expanded-value))
-             active-context)))
+                             ;; TODO: fix this
+                             ;; TODO: What were we fixing
+                             (jsobj-set result "@reverse" jsobj-nil))
+                         expanded-value))
+                       (else result))
+                      active-context)))))
+            (lambda* (expanded-value active-context #:optional _) ; ignore defined here
+              (return
+               (if (eq? expanded-value #nil)
+                   ;; return as-is
+                   result
+                   ;; otherwise, set expanded-property member of result
+                   ;; to expanded-value
+                   (jsobj-set result expanded-property expanded-value))
+               active-context))))
 
          ;; 7.5
          ;; If key's container mapping in active-context is @language and
