@@ -117,7 +117,7 @@
   "Check if OBJ is an absolute uri or not.
 
 If #:sloppy is true (the default), just ensure that this is a string
-with a #\: in it."
+with a #\\: in it."
   (and (string? obj)
        (if sloppy
            (string-index obj #\:)
