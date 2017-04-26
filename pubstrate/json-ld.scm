@@ -111,13 +111,13 @@
   (throw 'json-ld-error "remote resolver not implemented yet :)"))
 
 
-;; This is effectively a check to see if something's an asbolute uri anyway...
-;; TODO: in pyld this is much simpler, basically just (string-index obj #:\)
-;;       ... is that good enough for us too?  It speeds up our implementation to
-;;       about 25% faster faster...
-;;       so maybe change the default...
-(define* (absolute-uri? obj #:key (sloppy #f))
-  "Check if OBJ is a uri or not."
+;; Just checking if it's a string with a #\: is sloppy probably, but
+;; that's what pyld does
+(define* (absolute-uri? obj #:key (sloppy #t))
+  "Check if OBJ is an absolute uri or not.
+
+If #:sloppy is true (the default), just ensure that this is a string
+with a #\: in it."
   (and (string? obj)
        (if sloppy
            (string-index obj #\:)
