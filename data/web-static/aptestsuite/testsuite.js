@@ -113,7 +113,11 @@ function delegateMessage(message_json, ws) {
 
 function installWebsocket() {
     // TODO: Don't hardcode the websocket path; pull it from the DOM
-    var address = "ws://".concat(window.location.hostname, ":", window.location.port);
+    var protocol = "ws://";
+    if (window.location.protocol == "https:") {
+        protocol = "wss://";
+    }
+    var address = protocol.concat(window.location.hostname, ":", window.location.port);
     var ws = new WebSocket(address);
     ws.onmessage = function(evt) {
         console.log(evt.data);
