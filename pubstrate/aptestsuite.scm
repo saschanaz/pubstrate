@@ -13,6 +13,7 @@
              (pubstrate asobj)
              (pubstrate apclient)
              (pubstrate contrib html)
+             (pubstrate vocab)
              (pubstrate webapp utils)
              (pubstrate webapp ctx)
              (pubstrate webapp form-widgets)
@@ -630,7 +631,7 @@ leave the tests in progress."
   (show-user "Here's where we'd test the server's client-to-server support!")
   (set-up-c2s-server-client-auth case-worker)
   (test-outbox-activity-posted case-worker)
-  )
+  (test-outbox-non-activity case-worker))
 
 (define (set-up-c2s-server-client-auth case-worker)
   (define (get-user-obj)
@@ -698,7 +699,7 @@ leave the tests in progress."
     ;; Add the fully setup apclient to the case-worker
     (set! (.apclient case-worker) apclient))
 
-  (show-user (center-text `(h2 "**** Testing server's client-to-server support! ****")))
+  (show-user (center-text `(h2 "Testing server's client-to-server support...")))
   (setup-auth-info (get-user-obj))
   (pk '(.apclient case-worker) (.apclient case-worker)))
 
@@ -783,6 +784,96 @@ leave the tests in progress."
                     #:comment "Response code neither 200 nor 201, and no Location header present"))
     (show-response 'outbox:accepts-activities)))
 
+
+(define (test-outbox-non-activity case-worker)
+  (define activity-to-submit
+    (as:note #:content "Up for some root beer floats?"))
+  (define apclient (.apclient case-worker))
+
+  ;; [outbox:accepts-non-activity-objects]
+  (receive (response body)
+      (apclient-submit apclient activity-to-submit)
+    (match (response-location response)
+      ((? uri? location-uri)
+       (receive (loc-response loc-asobj)
+           (http-get-asobj location-uri)
+         (if (and (asobj? loc-asobj)
+                  (asobj-is-a? loc-asobj ^Create))
+             (report-on! 'outbox:accepts-non-activity-objects
+                         <success>)
+             (report-on! 'outbox:accepts-non-activity-objects
+                         <fail>))))
+      (#f
+       (report-on! 'outbox:accepts-non-activity-objects
+                   <inconclusive>
+                   #:comment no-location-present-message))))
+  (show-response 'outbox:accepts-non-activity-objects))
+
+(define (test-outbox-verification)
+  ;; [outbox:not-trust-submitted]
+  ;; [outbox:validate-content]
+  'TODO
+  )
+
+(define (test-outbox-upload-media)
+  ;; [outbox:upload-media]
+  ;; [outbox:upload-media:file-parameter]
+  ;; [outbox:upload-media:object-parameter]
+  ;; [outbox:upload-media:201-or-202-status]
+  ;; [outbox:upload-media:location-header]
+  ;; [outbox:upload-media:appends-id]
+  ;; [outbox:upload-media-url]
+  'TODO
+  )
+
+(define (test-outbox-update)
+  ;; [outbox:update]
+  ;; [outbox:update:check-authorized]
+  ;; [outbox:not-trust-submitted]
+  'TODO
+  )
+
+(define (test-outbox-subjective)
+  ;; [outbox:do-not-overload]
+  'TODO
+  )
+
+(define (test-outbox-activity-create)
+  ;; [outbox-create]
+  ;; [outbox:create:merges-audience-properties]
+  ;; [outbox:create:actor-to-attributed-to]
+  'TODO
+  )
+
+(define (test-outbox-activity-follow)
+  ;; [outbox:follow]
+  ;; [outbox:follow:adds-followed-object]
+  'TODO
+  )
+
+(define (test-outbox-activity-add)
+  ;; [outbox:add]
+  ;; [outbox:add:adds-object-to-target]
+  'TODO
+  )
+
+(define (test-outbox-activity-remove)
+  ;; [outbox:remove]
+  ;; [outbox:remove:removes-from-target]
+  'TODO
+  )
+
+(define (test-outbox-activity-like)
+  ;; [outbox:like]
+  ;; [outbox:like:adds-object-to-likes]
+  'TODO
+  )
+
+(define (test-outbox-activity-block)
+  ;; [outbox:block]
+  ;; [outbox:block:prevent-interaction-with-actor]
+  'TODO
+  )
 
 
 ;;; server to server server tests
