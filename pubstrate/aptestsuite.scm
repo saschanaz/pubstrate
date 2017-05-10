@@ -783,6 +783,7 @@ leave the tests in progress."
                     #:comment "Response code neither 200 nor 201, and no Location header present"))
     (show-response 'outbox:accepts-activities)))
 
+
 
 ;;; server to server server tests
 
@@ -865,4 +866,5 @@ If ERROR-ON-NOTHING, error out if worker is not found."
                       #:on-ws-client-disconnect (wrap-apply case-manager-ws-client-disconnect)
                       #:on-ws-message (wrap-apply case-manager-ws-new-message))
      (bootstrap-actor hive <repl-manager>)
+     (display "Running on http://localhost:8989/\n")
      (run-hive hive '()))))
