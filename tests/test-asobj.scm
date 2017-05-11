@@ -131,6 +131,18 @@
                                '("actor" "not-a-field"))
   #f)
 
+;; Assert that asobj-ref-id works on both embedded objects and
+;; just ids as strings
+(test-equal (asobj-ref-id root-beer-note "object")
+  "http://tsyesika.co.uk/chat/sup-yo/")
+(test-equal (asobj-ref-id (as:create #:id "http://tsyesika.co.uk/act/foo-id-here/"
+                                     #:actor (as:person #:id "http://tsyesika.co.uk"
+                                                        #:displayName "Jessica Tallon")
+                                     #:to "acct:cwebber@identi.ca"
+                                     #:object "http://tsyesika.co.uk/chat/sup-yo/")
+                          "object")
+  "http://tsyesika.co.uk/chat/sup-yo/")
+
 ;; Test that inheritance works right
 (test-equal
     ((@@ (pubstrate asobj) astype-list-inheritance)

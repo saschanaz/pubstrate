@@ -32,7 +32,8 @@
             asobj-types asobj-expanded asobj-inherits
             asobj-id asobj-is-a?
 
-            asobj-assoc asobj-ref asobj-sjson-assoc asobj-cons asobj-delete
+            asobj-assoc asobj-ref asobj-ref-id asobj-sjson-assoc
+            asobj-cons asobj-delete
             asobj-from-json-string
 
             asobj-set-private asobj-set-private*
@@ -214,6 +215,41 @@ If KEY is a list, recursively look up keys until we (hopefully) find a value."
     ((_ . val)
      val)
     (#f dflt)))
+
+(define* (asobj-ref-id asobj key)
+  "Returns the id of whatever asobj's key is as a string, regardless
+of whether the object matching the key is just a uri or is a full object. 
+
+For example, for either of the following structures
+
+  {\"type\": \"Create\",
+   \"id\": \"https://example.org/foo/\",
+   \"actor\": \"https://example.org/somebody/\",
+   \"object\": {\"id\": \"https://example.org/bar/\",
+                \"type\": \"Note\",
+                \"content\": \"blah blah\"}}
+
+or even:
+
+  {\"type\": \"Create\",
+   \"id\": \"https://example.org/foo/\",
+   \"actor\": \"https://example.org/somebody/\",
+   \"object\": \"https://example.org/bar/\"}
+
+If we did:
+
+  (asobj-ref-id asobj \"object\")
+
+we'd get back:
+
+  \"https://example.org/bar/\""
+  (match (asobj-ref asobj key)
+    ;; Got nothing?  return nothing
+    (#f #f)
+    ((? string? id-str)
+     id-str)
+    ((? asobj? obj)
+     (asobj-id obj))))
 
 ;; User exposed methods
 (define (asobj-types asobj)
