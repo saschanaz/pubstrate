@@ -51,35 +51,6 @@
 
 (define %source-dir (dirname (current-filename)))
 
-(define guile-sjson
-  (package
-    (name "guile-sjson")
-    (version "0.2")
-    (source (origin
-              (method url-fetch)
-              (uri (string-append "http://dustycloud.org/misc/sjson-" version
-                                  ".tar.gz"))
-              (sha256
-               (base32
-                "09hnh2brc7ihh8dv4g5hdmdj8rs8p9l3pmlgafkx145grdg7wprx"))))
-    (build-system gnu-build-system)
-    (arguments
-     '(#:phases
-       (modify-phases %standard-phases
-         (add-after 'unpack 'bootstrap
-           (lambda _ (zero? (system* "sh" "bootstrap.sh")))))))
-    (native-inputs
-     `(("pkg-config" ,pkg-config)
-       ("autoconf" ,autoconf)
-       ("automake" ,automake)))
-    (inputs
-     `(("guile" ,guile-2.2)))
-    (home-page "https://gitlab.com/dustyweb/guile-sjson")
-    (synopsis "s-expression based json reader/writer for Guile")
-    (description "guile-sjson is a json reader/writer for Guile.
-It has a nice, simple s-expression based syntax.")
-    (license lgpl3+)))
-
 (define guile-8sync-latest
   (package
     (inherit guile-8sync)
