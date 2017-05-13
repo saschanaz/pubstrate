@@ -1,4 +1,5 @@
-(use-modules (ice-9 match)
+(use-modules (ice-9 control)
+             (ice-9 match)
              (ice-9 format)
              (ice-9 and-let-star)
              (ice-9 receive)
@@ -7,6 +8,7 @@
              (8sync)
              (8sync repl)
              (8sync systems websocket server)
+             (srfi srfi-11)
              (web uri)
              (web request)
              (web response)
@@ -61,6 +63,19 @@
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
     (() (values view:main-display '()))
 
+    ;; emulating activitypub actors and endpoints
+    ;; (("ap" "u" actor-id)
+    ;;  (values view:activitypub-faux-actor))
+    ;; (("ap" "u" actor-id "inbox")
+    ;;  (values view:activitypub-faux-actor-inbox))
+    ;; (("ap" "u" actor-id "outbox")
+    ;;  (values view:activitypub-faux-actor-outbox))
+    ;; (("ap" "u" actor-id "followers")
+    ;;  (values view:activitypub-faux-actor-followers))
+    ;; (("ap" "u" actor-id "following")
+    ;;  (values view:activitypub-faux-actor-following))
+
+    ;; static files 
     (("static" static-path ...)
      ;; TODO: make this toggle'able
      (values ps-view:render-static
@@ -631,7 +646,8 @@ leave the tests in progress."
   (show-user "Here's where we'd test the server's client-to-server support!")
   (set-up-c2s-server-client-auth case-worker)
   (test-outbox-activity-posted case-worker)
-  (test-outbox-non-activity case-worker))
+  (test-outbox-non-activity case-worker)
+  (test-outbox-update case-worker))
 
 (define (set-up-c2s-server-client-auth case-worker)
   (define (get-user-obj)
@@ -701,7 +717,7 @@ leave the tests in progress."
 
   (show-user (center-text `(h2 "Testing server's client-to-server support...")))
   (setup-auth-info (get-user-obj))
-  (pk '(.apclient case-worker) (.apclient case-worker)))
+  (.apclient case-worker))
 
 (define no-location-present-message
   "Couldn't verify since no Location header present in response")
@@ -826,20 +842,124 @@ leave the tests in progress."
   'TODO
   )
 
-(define (test-outbox-update)
+(define (test-outbox-update case-worker)
+  "Test the Update activity"
   ;; [outbox:update]
-  ;; [outbox:update:check-authorized]
+  ;; TODO: [outbox:update:check-authorized]
+  (define %nothing '(nothing))
+  (define apclient (.apclient case-worker))
+
+  (define (abort-because-no-location abort)
+    (report-on! 'outbox:update <fail>  ; fail or inconclusive?
+                #:comment no-location-present-message)
+    (abort))
+
+  (define (abort-because-no-asobj abort uri)
+    (report-on! 'outbox:update <fail>  ; fail or inconclusive?
+                #:comment
+                (format #f "Couldn't find an ActivityStreams object at the expected URI: ~a"
+                        (match uri
+                          ((? uri? _)
+                           (uri->string uri))
+                          ((? string? _) uri))))
+    (abort))
+
+  (define (submit-create abort)
+    "Try to submit the Create activity, and return the location-uri"
+    (define to-submit
+      (as:create
+       #:object (as:note #:content "I'm feeling indecisive!"
+                         #:name "An indecisive note")))
+    ;; Submit initial activity
+    (receive (response body)
+        (apclient-submit apclient to-submit)
+      (match (response-location response)
+        ((? uri? location-uri)
+         location-uri)
+        (#f (abort-because-no-location abort)))))
+
+  (define (get-object-id-from-location abort location)
+    (define asobj-at-location
+      (receive (_ asobj)
+          (apclient-get-local-asobj apclient location)
+        (unless (asobj? asobj)
+          (abort-because-no-asobj abort location))
+        asobj))
+    (or (asobj-ref-id asobj-at-location "object")
+        (begin
+          (report-on! 'outbox:update <fail>  ; fail or inconclusive?
+                      #:comment
+                      "Create object contained no id for \"object\"")
+          (abort))))
+
+  (define (submit-update abort object-location)
+    ;; Submit with name removed and content changed
+    (apclient-submit apclient
+                     (as:update
+                      #:object (as:note #:id object-location
+                                        #:content "I've changed my mind!"
+                                        #:name 'null)))
+
+    (receive (_ updated-asobj)
+        (apclient-get-local-asobj apclient object-location)
+      ;; content should be changed
+      (unless (equal? (asobj-ref updated-asobj "content")
+                      "I've changed my mind!")
+        (report-on! 'outbox:update <fail>  ; fail or inconclusive?
+                    #:comment
+                    "Failed to update field with replacement data")
+        (abort))
+      ;; name should be gone
+      (unless (eq? (asobj-ref updated-asobj "content" %nothing)
+                   %nothing)
+        (report-on! 'outbox:update <fail>  ; fail or inconclusive?
+                    #:comment
+                    "Unable to delete field by passing an Update with null value")
+        (abort)))
+
+    ;; Now let's try one more update, where we add back the name with
+    ;; new content
+    (apclient-submit apclient
+                     (as:update
+                      #:object (as:note #:id object-location
+                                        #:name "new name, same flavor")))
+
+    (receive (_ updated-asobj)
+        (apclient-get-local-asobj apclient object-location)
+      ;; content should be the same as last time
+      (unless (equal? (asobj-ref updated-asobj "content")
+                      "I've changed my mind!")
+        (report-on! 'outbox:update <fail>
+                    #:comment
+                    "Field changed, despite not being included in update")
+        (abort))
+
+      (unless (equal? (asobj-ref updated-asobj "name")
+                      "new name, same flavor")
+        (report-on! 'outbox:update <fail>  ; fail or inconclusive?
+                    #:comment
+                    "Failed to update field with replacement data")
+        (abort)))
+
+    ;; Make it this far?  Looks like it passed!
+    (report-on! 'outbox:update <success>))
+  
+  (call/ec
+   (lambda (abort)
+     (define create-location (submit-create abort))
+     (define object-id (get-object-id-from-location abort create-location))
+     (submit-update abort object-id)))
+
+  (show-response 'outbox:update))
+
+(define (test-outbox-subjective)
+  ;; [outbox:do-not-overload]
   ;; [outbox:not-trust-submitted]
   'TODO
   )
 
-(define (test-outbox-subjective)
-  ;; [outbox:do-not-overload]
-  'TODO
-  )
-
 (define (test-outbox-activity-create)
-  ;; [outbox-create]
+  ;; [outbox:create]
   ;; [outbox:create:merges-audience-properties]
   ;; [outbox:create:actor-to-attributed-to]
   'TODO
