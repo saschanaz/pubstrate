@@ -314,8 +314,7 @@ If #:delete is provided, make sure this is the only item with this key."
      (asobj-env asobj)
      ;; @@: Do we need convert-sjson-with-maybe-asobj here?
      ;;   Will people really whack asobjs into the private field?
-     (jsobj-acons (convert-sjson-with-maybe-asobj value) key
-                  jsobj))))
+     (jsobj-acons jsobj key (convert-sjson-with-maybe-asobj value)))))
 
 (define (asobj-set-private* asobj . kwargs)
   "Like asobj-set-private, but uses keyword argument fanciness instead of sjson"
