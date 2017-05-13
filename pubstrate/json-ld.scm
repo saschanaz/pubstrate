@@ -73,7 +73,7 @@
   (vocab active-context-vocab))
 
 (define initial-active-context
-  (make-active-context #nil vlist-null #nil
+  (make-active-context 'null vlist-null 'null
                        undefined undefined))
 
 ;; @@: Should we have a make-initial-active-context that looks at
@@ -297,7 +297,7 @@ fold instead of fold-right >:)"
                           #:optional (remote-contexts '())
                           #:key
                           (deref-context basic-deref-remote-context)
-                          (base-iri #nil))
+                          (base-iri 'null))
   "This function builds up a new active-context based on the
 remaining context information to process from local-context"
   (process-context-loop active-context
@@ -309,7 +309,7 @@ remaining context information to process from local-context"
 (define* (process-context-loop result local-context remote-contexts
                                #:key
                                (deref-context basic-deref-remote-context)
-                               (base-iri #nil))
+                               (base-iri 'null))
   ;; call ourselves, but with the key defaults also
   (define* (loop result local-context remote-contexts
                  #:key
@@ -336,7 +336,7 @@ remaining context information to process from local-context"
   (define (process-this-context context next-contexts)
     (match context
       ;; If null, result is a newly-initialized active context 
-      (#nil
+      ('null
        (loop
         ;; new active context based on initial-active-context
         ;; but setting base-iri
@@ -376,13 +376,13 @@ remaining context information to process from local-context"
        ;; we break these out into functions then do the fold.
        (define (modify-result-from-base result base)
          (if (and base
-                  (eq? remote-contexts #nil))
+                  (eq? remote-contexts 'null))
              ;; In this case we'll adjusting the result's "@base"
              ;; depending on what this context's @base is
              (match base
                ;; If the @base in this context is null, remove
                ;; whatever current @base is in the result
-               (#nil
+               ('null
                 ;; Remove base iri from result
                 (set-field result (active-context-base) undefined))
 
@@ -421,7 +421,7 @@ remaining context information to process from local-context"
              result))
 
        (define (modify-result-from-vocab result vocab)
-         (cond ((eq? vocab #nil)
+         (cond ((eq? vocab 'null)
                 ;; remove vocabulary mapping from result
                 (set-field result (active-context-vocab) undefined))
                ;; If either an absolute IRI or blank node,
@@ -433,7 +433,7 @@ remaining context information to process from local-context"
                 (throw 'json-ld-error #:code "invalid vocab mapping"))))
 
        (define (modify-result-from-language result language)
-         (cond ((eq? language #nil)
+         (cond ((eq? language 'null)
                 ;; remove vocabulary mapping from result
                 (set-field result (active-context-language) undefined))
                ((string? language)
@@ -529,11 +529,11 @@ remaining context information to process from local-context"
         ;; If value is null or a json object with "@id" mapping to null,
         ;; then mark term as defined and set term in
         ;; resulting context to null
-        ((or (eq? value #nil)
+        ((or (eq? value 'null)
              (and (jsobj? value)
-                  (eq? (jsobj-ref value "@id") #nil)))
+                  (eq? (jsobj-ref value "@id") 'null)))
          (values
-          (active-context-terms-cons term #nil active-context)
+          (active-context-terms-cons term 'null active-context)
           (vhash-cons term #t defined)))
         ;; otherwise, possibly convert value and continue...
         (else
@@ -612,7 +612,7 @@ remaining context information to process from local-context"
                   (#f definition)
                   ;; Otherwise make sure it's @set or @index or @nil
                   ;; and set @container to this
-                  ((_ . (? (cut member <> '("@set" "@index" #nil)) container))
+                  ((_ . (? (cut member <> '("@set" "@index" 'null)) container))
                    (jsobj-acons definition "@container" container))
                   ;; Uhoh, looks like that wasn't valid...
                   (_
@@ -721,7 +721,7 @@ remaining context information to process from local-context"
                       ;; Make sure language has an appropriate value,
                       ;; set it in the definition
                       (let ((language (cdr value-language)))
-                        (if (not (or (eq? language #nil) (string? language)))
+                        (if (not (or (eq? language 'null) (string? language)))
                             (throw 'json-ld-error
                                    #:code "invalid language mapping"))
                         (values (jsobj-acons definition "@language" language)
@@ -752,7 +752,7 @@ remaining context information to process from local-context"
 (define* (iri-expansion active-context value
                         #:key
                         (document-relative #f) (vocab #f)
-                        (local-context #nil)
+                        (local-context 'null)
                         ;; @@: spec says defined should be null, but
                         ;;   vlist-null seems to make more sense in our case
                         (defined vlist-null))
@@ -769,7 +769,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
         ;; nope, return as-is
         (values active-context defined)))
 
-  (if (or (eq? value #nil)
+  (if (or (eq? value 'null)
           (json-ld-keyword? value))
       ;; keywords / null are just returned as-is
       (values value active-context defined)
@@ -796,7 +796,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                 (values value active-context defined)
                 ;; otherwise, carry on to 4.3...
                 (receive (active-context defined)
-                    (if (and (not (eq? local-context #nil))
+                    (if (and (not (eq? local-context 'null))
                              (jsobj-assoc local-context prefix)
                              (not (eq? (jsobj-ref local-context prefix))))
                         ;; ok, update active-context and defined
@@ -869,8 +869,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                  (cons (append expanded-item result)
                        active-context))
                 ;; TODO: Is this right?  Shouldn't we just skip if null?
-                (#nil
-                 (cons #nil active-context))
+                ('null
+                 (cons 'null active-context))
                 (_
                  (cons (cons expanded-item result) active-context))))))))
      (cons '() active-context)
@@ -901,7 +901,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
           (iri-expansion active-context key #:vocab #t)
         (cond
          ;; 7.3
-         ((or (eq? #nil expanded-property)
+         ((or (eq? 'null expanded-property)
               (not (or (string-index expanded-property #\:)
                        (json-ld-keyword? expanded-property))))
           ;; carry on to the next key
@@ -956,9 +956,9 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                   ;; 7.4.6
                   ("@value"
                    (match value
-                     (#nil
+                     ('null
                       ;; jump out of processing this pair
-                      (return (jsobj-set result "@value" #nil)
+                      (return (jsobj-set result "@value" 'null)
                               active-context))
                      ;; otherwise, expanded value *is* value!
                      ((? scalar? _)
@@ -982,7 +982,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                   ;; 7.4.9
                   ("@list"
                    ;; Bail out early if null or @graph to remove free-floating list
-                   (if (member active-property '(#nil "@graph"))
+                   (if (member active-property '('null "@graph"))
                        (return result active-context))
                    (receive (expanded-value active-context)
                        (expand-element active-context active-property value)
@@ -1053,7 +1053,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                       active-context)))))
             (lambda* (expanded-value active-context #:optional _) ; ignore defined here
               (return
-               (if (eq? expanded-value #nil)
+               (if (eq? expanded-value 'null)
                    ;; return as-is
                    result
                    ;; otherwise, set expanded-property member of result
@@ -1141,7 +1141,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          ;; 7.8
          ;; if expanded value is null, ignore key by continuing
          ;; @@: could just be in the cond, right?
-         (if (eq? expanded-value #nil)
+         (if (eq? expanded-value 'null)
              (return result active-context))
          
          ;; Augh, these 7.9-7.11 sections are frustrating
@@ -1238,8 +1238,8 @@ Does a multi-value-return of (expanded-iri active-context defined)"
                  (throw 'json-ld-error #:code "invalid value object"))
 
              (let ((result-value (jsobj-ref result "@value")))
-               (cond ((eq? result-value #nil)
-                      (return #nil active-context))
+               (cond ((eq? result-value 'null)
+                      (return 'null active-context))
                      ((and (not (string? result-value))
                            (jsobj-assoc result "@language"))
                       (throw 'json-ld-error #:code "invalid typed value"))
@@ -1277,24 +1277,24 @@ Does a multi-value-return of (expanded-iri active-context defined)"
          (define (adjust-result-2 result)
            (if (and (jsobj-assoc result "@language")
                     (eqv? (jsobj-length result) 1))
-               (return #nil active-context)
+               (return 'null active-context)
                result))
 
          ;; sec 12
          (define (adjust-result-3 result)
            ;; Graph adjustments...
-           (if (member active-property '(#nil "@graph"))
+           (if (member active-property '('null "@graph"))
                ;; drop free-floating values
                (cond ((or (eqv? (jsobj-length result) 0)
                           (jsobj-assoc result "@value")
                           (jsobj-assoc result "@list"))
-                      (return #nil active-context))
+                      (return 'null active-context))
                      ;; @@: Do we need to check jsobj? at this point?
-                     ;;   I think the only other thing result becomes is #nil
+                     ;;   I think the only other thing result becomes is 'null
                      ;;   and we return it explicitly in such a case
                      ((and (jsobj-assoc result "@id")
                            (eqv? 1 (jsobj-length result)))
-                      (return #nil active-context))
+                      (return 'null active-context))
 
                      (else result))
                ;; otherwise, do nothing
@@ -1308,11 +1308,11 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 
 (define (expand-element active-context active-property element)
   (match element
-    (#nil
-     (values #nil active-context))
+    ('null
+     (values 'null active-context))
     ((? scalar? _)
-     (if (member active-property '(#nil "@graph"))
-         (values #nil active-context)
+     (if (member active-property '('null "@graph"))
+         (values 'null active-context)
          ;; Note that value-expansion should also do a multi-value return
          ;; with active-context... in theory...
          (value-expansion active-context active-property element)))
@@ -1325,14 +1325,14 @@ Does a multi-value-return of (expanded-iri active-context defined)"
 (define (expand jsobj)
   "Expand (v?)json using json-ld processing algorithms"
   (receive (expanded-result active-context)
-      (expand-element initial-active-context #nil jsobj)
+      (expand-element initial-active-context 'null jsobj)
     ;; final other than arrayify that is!
     (define (final-adjustments expanded-result)
       (cond ((and (jsobj? expanded-result)
                  (eqv? 1 (jsobj-length expanded-result))
                  (jsobj-assoc expanded-result "@graph"))
             (jsobj-ref expanded-result "@graph"))
-           ((eq? expanded-result #nil)
+           ((eq? expanded-result 'null)
             '())
            (else expanded-result)))
     (define (arrayify expanded-result)
@@ -1395,7 +1395,7 @@ Does a multi-value-return of (expanded-iri active-context defined)"
              (match language-mapping
                ;; if no mapping, or the mapping value is nil,
                ;; return as-is
-               ((_ . #nil)
+               ((_ . 'null)
                 (values result active-context))
                ;; Otherwise if there's a match add @language to result
                ((_ . language)
