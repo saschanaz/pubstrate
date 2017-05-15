@@ -33,11 +33,11 @@
             asobj-id asobj-is-a?
 
             asobj-assoc asobj-ref asobj-ref-id asobj-sjson-assoc
-            asobj-cons asobj-delete
+            asobj-set asobj-delete
             asobj-from-json-string
 
             asobj-set-private asobj-set-private*
-            asobj-private-assoc asobj-private-ref asobj-private-cons
+            asobj-private-assoc asobj-private-ref asobj-private-set
 
             asobj-pprint asobj-pprint-private asobj-pprint-combined
 
@@ -263,9 +263,9 @@ we'd get back:
   "Check whether or not ASOBJ is of ASTYPE."
   (member astype (asobj-inherits asobj)))
 
-;; TODO: Document that if you asobj-cons another asobj in,
+;; TODO: Document that if you asobj-set another asobj in,
 ;;   any private data in the to-be-nested asobj will be dropped!
-(define* (asobj-cons asobj key value #:key (delete #t))
+(define* (asobj-set asobj key value #:key (delete #t))
   "Return a new asobj with FIELD set to VALUE.
 Field can be a string for a top-level field "
   (let ((jsobj (if delete
@@ -300,11 +300,11 @@ Field can be a string for a top-level field "
      val)
     (#f dflt)))
 
-(define* (asobj-private-cons asobj key value #:key (delete #t))
+(define* (asobj-private-set asobj key value #:key (delete #t))
   "Append KEY and VALUE to ASOBJ's private field.
 
 If #:delete is provided, make sure this is the only item with this key."
-  ;; @@: TODO: this is super similar to asobj-cons, could probably
+  ;; @@: TODO: this is super similar to asobj-set, could probably
   ;;  do with a shared abstraction!
   (let ((jsobj (if delete
                    (jsobj-delete (asobj-private asobj) key)

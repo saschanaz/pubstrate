@@ -150,11 +150,11 @@
   (list ^Question ^Content ^IntransitiveActivity ^Invite ^Offer
         ^Activity ^Object))
 
-;; Make sure asobj-cons works and can set asobj things
+;; Make sure asobj-set works and can set asobj things
 (let ((invitation
-       (asobj-cons root-beer-note "object"
-                   (as:invite #:content
-                              "Libreplanet root beer floats party"))))
+       (asobj-set root-beer-note "object"
+                  (as:invite #:content
+                             "Libreplanet root beer floats party"))))
   (test-assert (asobj? (asobj-ref invitation "object")))
   (test-equal (asobj-types (asobj-ref invitation "object"))
     (list ^Invite))

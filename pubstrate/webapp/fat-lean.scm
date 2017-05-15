@@ -84,15 +84,15 @@
   (let ((cur-val (asobj-ref asobj field)))
     (cond
       ((uri? cur-val)
-       (asobj-cons asobj field
-                   (retriever-retrieve retriever cur-val)))
+       (asobj-set asobj field
+                  (retriever-retrieve retriever cur-val)))
       ((json-array? cur-val)
-       (asobj-cons asobj field
-                   (map (lambda (item)
-                          (if (uri? item)
-                              (retriever-retrieve retriever item)
-                              item))
-                        cur-val)))
+       (asobj-set asobj field
+                  (map (lambda (item)
+                         (if (uri? item)
+                             (retriever-retrieve retriever item)
+                             item))
+                       cur-val)))
 
       ;; anything else, return asobj as-is
       (else asobj))))

@@ -138,9 +138,9 @@ to the database (in this case, the collections!)"
   (let* ((password-sjson
           (salted-hash->sjson
            (salt-and-hash-password new-password)))
-         (user (asobj-private-cons (store-user-ref store username)
-                                   "password"
-                                   password-sjson)))
+         (user (asobj-private-set (store-user-ref store username)
+                                  "password"
+                                  password-sjson)))
     (store-asobj-set! store user)))
 
 (define (store-user-container-key store user collection-name)

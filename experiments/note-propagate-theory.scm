@@ -96,7 +96,7 @@
     (post-to-outbox
      actor
      (wrap-in-create
-      (asobj-cons
+      (asobj-set
        (note #:actor actor
              #:content "cool!"
              #:inReplyTo incoming
@@ -123,7 +123,7 @@
   (post-to-outbox
    actor
    (wrap-in-create
-    (asobj-cons
+    (asobj-set
      (note #:actor actor
            #:content "RDF sucks"
            #:inReplyTo incoming

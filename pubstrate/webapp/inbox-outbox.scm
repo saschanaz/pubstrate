@@ -1,4 +1,4 @@
-;;; Pubstrate --- ActivityStreams based social networking for Guile
+ ;;; Pubstrate --- ActivityStreams based social networking for Guile
 ;;; Copyright © 2016 Christopher Allan Webber <cwebber@dustycloud.org>
 ;;;
 ;;; This file is part of Pubstrate.
@@ -89,8 +89,8 @@ from the web if necessary."
              ;; What's up with cons'ing the id onto here?  It might
              ;; already have an id!
              ;; Well, it turns out there's a good reason.
-             (asobj-cons (http-get-asobj id)
-                         "id" id)))
+             (asobj-set (http-get-asobj id)
+                        "id" id)))
         (if store-new
             (store-asobj-set! store result))
         result))
@@ -277,15 +277,15 @@ thrown.")
   ;; TODO: Also strip out any @id that may have been attached...
   ((compose
     (cut asobj-delete <> "@id")
-    (cut asobj-cons <> "id" (gen-asobj-id-for-user outbox-user))
+    (cut asobj-set <> "id" (gen-asobj-id-for-user outbox-user))
     ;; Copy the id of our actor onto the actor field
-    (cut asobj-cons <> "actor" (asobj-id outbox-user))
-    (cut asobj-cons <> "published"
+    (cut asobj-set <> "actor" (asobj-id outbox-user))
+    (cut asobj-set <> "published"
          (date->rfc3339-string (current-date 0))))
    asobj))
 
 (define-as-method (asobj-outbox-effects! (asobj ^Create)
-                                          outbox-user)
+                                         outbox-user)
   (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
     (let-asobj-fields
      asobj ((object "object"))
@@ -296,16 +296,16 @@ thrown.")
               (lambda (object)
                 (incoming-activity-common-tweaks object outbox-user))
               (lambda (object)
-                (asobj-cons object "id"
-                            (gen-asobj-id-for-user outbox-user)))
+                (asobj-set object "id"
+                           (gen-asobj-id-for-user outbox-user)))
               ;; Copy the actor over to attributedTo
               (lambda (object)
-                (asobj-cons object "attributedTo"
-                            (asobj-ref asobj "actor")))
+                (asobj-set object "attributedTo"
+                           (asobj-ref asobj "actor")))
               ;; Copy the published date
               (lambda (object)
-                (asobj-cons object "published"
-                            (asobj-ref asobj "published")))))
+                (asobj-set object "published"
+                           (asobj-ref asobj "published")))))
             (object
              ;; saving is also done here, as well as any final modifications
              ;; by the object.
@@ -314,7 +314,7 @@ thrown.")
             (asobj
              ;; We replace the asobj's object reference with just the
              ;; identifier for the object rather than the object itself
-             (asobj-cons asobj "object" (asobj-id object))))
+             (asobj-set asobj "object" (asobj-id object))))
        asobj))))
 
 (define-as-generic create-outbox-object!
@@ -357,7 +357,7 @@ save it and return it.")
             (fold (lambda (prop to-asobj)
                     (let ((from-val (asobj-ref from-asobj prop %nothing)))
                       (if (not (eq? from-val %nothing))
-                          (asobj-cons to-asobj prop from-val)
+                          (asobj-set to-asobj prop from-val)
                           to-asobj)))
                   to-asobj
                   props)))
@@ -370,7 +370,7 @@ save it and return it.")
 
 ;;; Follow
 (define-as-method (asobj-outbox-effects! (asobj ^Follow)
-                                          outbox-user)
+                                         outbox-user)
   (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
     (let-asobj-fields
      asobj ((object "object"))
@@ -387,9 +387,9 @@ save it and return it.")
             ;; Add follow-uri to the bcc list.  It doesn't matter
             ;; if there's already a bcc item, since recipients should be
             ;; de-duped.
-            (asobj (asobj-cons asobj "bcc"
-                               (cons follow-uri
-                                     (asobj-ref asobj "bcc" '())))))
+            (asobj (asobj-set asobj "bcc"
+                              (cons follow-uri
+                                    (asobj-ref asobj "bcc" '())))))
        ;; Add to following list
        ;; TODO: Do we need to check if we're already subscribed?
        (user-add-to-following! (ctx-ref 'store) outbox-user
@@ -399,7 +399,7 @@ save it and return it.")
        asobj))))
 
 (define-as-method (asobj-outbox-effects! (asobj ^Delete)
-                                          outbox-user)
+                                         outbox-user)
   (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
     (let-asobj-fields
      asobj ((object "object"))
@@ -434,7 +434,7 @@ save it and return it.")
              (save-asobj! tombstone)
              ;; make sure the saved Delete object just refers to object by id,
              ;; not structure
-             (asobj-cons asobj "object" object-id))
+             (asobj-set asobj "object" object-id))
            (throw 'effect-error
                   "User doesn't have permission to delete this object."
                   #:asobj asobj))))))
@@ -459,7 +459,7 @@ thrown.")
                                         inbox-user)
   (let-asobj-fields
    asobj ((object "object"))
-   (let ((asobj (asobj-cons asobj "object" object)))
+   (let ((asobj (asobj-set asobj "object" object)))
      ;; We need to break this apart more, but for now...
      ;; TODO: Also do verification that this object really is what it
      ;;   claims to be

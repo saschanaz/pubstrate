@@ -78,9 +78,9 @@
                            #f #f))))
   (define user (store-user-ref (ctx-ref 'store) username))
   (define (user-with-extra-endpoints)
-    (asobj-cons user "endpoints"
-                `(@ ("getAuthToken" ,(abs-local-uri "api" "get-auth-token"))
-                    ("uploadMedia" ,(abs-local-uri "api" "upload-media")))))
+    (asobj-set user "endpoints"
+               `(@ ("getAuthToken" ,(abs-local-uri "api" "get-auth-token"))
+                   ("uploadMedia" ,(abs-local-uri "api" "upload-media")))))
 
   (cond
    ;; User not found, so 404
@@ -157,13 +157,13 @@
   (define (maybe-add-next-prev ocp next prev)
     ((compose (lambda (ocp)
                 (if next
-                    (asobj-cons ocp "next"
-                                next)
+                    (asobj-set ocp "next"
+                               next)
                     ocp))
               (lambda (ocp)
                 (if prev
-                    (asobj-cons ocp "prev"
-                                prev)
+                    (asobj-set ocp "prev"
+                               prev)
                     ocp)))
      ocp))
 
