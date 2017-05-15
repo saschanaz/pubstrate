@@ -16,6 +16,11 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
+;;;; @@: We should defend this code... what does it really give us that
+;;;;   parameters don't already give us?  I'm not sure it does give
+;;;;   anything after rethinking it except consolidating parameters
+;;;;   into a single place...
+
 (define-module (pubstrate webapp ctx)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
