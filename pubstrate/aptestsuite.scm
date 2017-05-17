@@ -271,68 +271,10 @@ message handling, and within `with-user-io-prompt'."
   (match (assoc key (.report case-worker))
     ((key . val) val)))
 
-
-;;; Demo, for testing things
-
-(define (demo-script case-worker show-user get-user-input)
-  (show-user "Welcome to the deli counter.  What would you like?")
-
-  ;; .-----------------------.
-  ;; | Menu:                 |
-  ;; |  [X] sandwich         |
-  ;; |  [X] drink            |
-  ;; |  [ ] dessert          |
-  ;; |               [submit]|
-  ;; '-----------------------'
-  (let ((user-input
-         (get-user-input
-          `((h2 "What would you like to eat?")
-            (p "I hope you like cafeteria food")
-            (ul (li (input (@ (name "sandwich")
-                              (type "checkbox")))
-                    " Sandwich")
-                (li (input (@ (name "drink")
-                              (type "checkbox")))
-                    " Drink")
-                (li (input (@ (name "dessert")
-                              (type "checkbox")))
-                    " Dessert"))))))
-    (report-it! case-worker 'sandwich (jsobj-ref user-input "sandwich"))
-    (report-it! case-worker 'drink (jsobj-ref user-input "drink"))
-    (report-it! case-worker 'dessert (jsobj-ref user-input "dessert"))
-    (let ((wanted-str
-           (match (delete #f (list
-                              (and (jsobj-ref user-input "sandwich")
-                                   "a sandwich")
-                              (and (jsobj-ref user-input "drink")
-                                   "a drink")
-                              (and (jsobj-ref user-input "dessert")
-                                   "a dessert")))
-             ((item)
-              (string-append "just " item))
-             ((items ... last-item)
-              (string-append (string-join
-                              (append items
-                                      (list (string-append "and " last-item)))
-                              ", ")))
-             (()
-              "nothing apparently!"))))
-
-      (show-user (format #f  "Okay!  So you want... ~a... coming right up!"
-                         wanted-str)))
-    (get-user-input
-     `((h2 "do you get this one though")
-       (p "y/n actually just press submit")))
-    (show-user "Yeah you got it")
-    (get-user-input
-     `((h2 "One more")
-       (p "we promise")))
-    (show-user "and we're done")))
 
 
 ;;; test-items and responses
 
-;; This isn't 
 (define-class <test-item> ()
   (sym #:init-keyword #:sym
        #:getter test-item-sym)
