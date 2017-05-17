@@ -484,9 +484,15 @@ save it and return it.")
     ;; But which fields are okay to update?
     (let* ((new-object (jsobj-fold
                         (lambda (key val obj)
-                          (if (member key %update-properties-blacklist)
-                              obj
-                              (asobj-set obj key val)))
+                          (cond
+                           ;; If it's a member of the blacklist, skip this
+                           ((member key %update-properties-blacklist)
+                            obj)
+                           ;; If the value is null, we'll delete the property
+                           ((eq? val 'null)
+                            (asobj-delete obj key))
+                           (else
+                            (asobj-set obj key val))))
                         stored-object
                         (asobj-sjson object-from-update)))
            (new-create (asobj-set asobj "object" new-object)))
