@@ -439,6 +439,60 @@ save it and return it.")
                   "User doesn't have permission to delete this object."
                   #:asobj asobj))))))
 
+(define %update-properties-blacklist
+  '(;; Playing it safe, haven't really tested updating the "authors" of posts
+    "actor" "attributedTo"
+    ;; Definitely can't update type or context or id
+    "type" "@type" "id" "@id" "@context"
+    ;; No updating the addressing, at least not yet
+    "audience" "bcc" "bto" "cc" "to"
+    ;; AFAIK it doesn't make sense to update the collection type properties
+    ;; "current" "first" "last"
+    "current" "first" "last" "next" "items"
+    ;; Can't update the published time?
+    ;; (I'm not sure about this one...)
+    "published" "updated"
+    ;; Not relevant to anything other than Tombstones
+    "deleted" "formerType"))
+
+(define-as-method (asobj-outbox-effects! (asobj ^Update) outbox-user)
+  (let* ((former-asobj asobj)
+         (asobj (incoming-activity-common-tweaks asobj outbox-user))
+         (object-from-update (asobj-ref asobj "object"))
+         (object-id (asobj-id object-from-update))
+         (stored-object (and object-id
+                             (store-asobj-ref (ctx-ref 'store) object-id))))
+    ;; @@: This is the same as in the ^Delete code...
+    (define (can-update?)
+      (define outbox-user-id (asobj-id outbox-user))
+      (or (equal? (id-or-id-from (asobj-ref stored-object
+                                            "actor"))
+                  outbox-user-id)
+          (equal? (id-or-id-from (asobj-ref stored-object
+                                            "attributedTo"))
+                  outbox-user-id)))
+    ;; Do we have something to update?
+    (when (not (or object-from-update object-id))
+      (throw 'effect-error
+             "No object with an id to update."))
+    (when (or (not stored-object)
+              (not (can-update?)))
+      (throw 'effect-error
+             "User has no permission to update this object or object does not exist."))
+    ;; Otherwise, we're good to go.
+    ;; Update the old object based on the new fields.
+    ;; But which fields are okay to update?
+    (let* ((new-object (jsobj-fold
+                        (lambda (key val obj)
+                          (if (member key %update-properties-blacklist)
+                              obj
+                              (asobj-set obj key val)))
+                        stored-object
+                        (asobj-sjson object-from-update)))
+           (new-create (asobj-set asobj "object" new-object)))
+      ;; TODO: We want to leanify this structure...
+      (save-asobj! new-object)
+      new-create)))
 
 
 ;;; Posting to inbox generics.  AKA server to server / federation interactions.
