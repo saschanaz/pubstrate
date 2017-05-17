@@ -24,7 +24,6 @@
              ((pubstrate shorthand)
               #:renamer (symbol-prefix-proc 'as:)))
 
-
 (define (view:main-display request body)
   (define (one-entry msg)
     `(div (@ (class "stream-entry"))
@@ -59,21 +58,46 @@
   (respond-html
    (main-tmpl)))
 
+(define (view:activitypub-faux-actor request body
+                                     client-id pseudoactor)
+  'TODO)
+
+(define (view:activitypub-faux-actor-inbox request body
+                                           client-id pseudoactor)
+  'TODO)
+
+(define (view:activitypub-faux-actor-outbox request body
+                                            client-id pseudoactor)
+  'TODO)
+
+(define (view:activitypub-faux-actor-followers request body
+                                               client-id pseudoactor)
+  'TODO)
+
+(define (view:activitypub-faux-actor-following request body
+                                               client-id pseudoactor)
+  'TODO)
+
 (define (route request)
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
     (() (values view:main-display '()))
 
     ;; emulating activitypub actors and endpoints
-    ;; (("ap" "u" actor-id)
-    ;;  (values view:activitypub-faux-actor))
-    ;; (("ap" "u" actor-id "inbox")
-    ;;  (values view:activitypub-faux-actor-inbox))
-    ;; (("ap" "u" actor-id "outbox")
-    ;;  (values view:activitypub-faux-actor-outbox))
-    ;; (("ap" "u" actor-id "followers")
-    ;;  (values view:activitypub-faux-actor-followers))
-    ;; (("ap" "u" actor-id "following")
-    ;;  (values view:activitypub-faux-actor-following))
+    (("ap" "u" client-id pseudoactor)
+     (values view:activitypub-faux-actor
+             client-id pseudoactor))
+    (("ap" "u" client-id pseudoactor "inbox")
+     (values view:activitypub-faux-actor-inbox
+             client-id pseudoactor))
+    (("ap" "u" client-id pseudoactor "outbox")
+     (values view:activitypub-faux-actor-outbox
+             client-id pseudoactor))
+    (("ap" "u" client-id pseudoactor "followers")
+     (values view:activitypub-faux-actor-followers
+             client-id pseudoactor))
+    (("ap" "u" client-id pseudoactor "following")
+     (values view:activitypub-faux-actor-following
+             client-id pseudoactor))
 
     ;; static files 
     (("static" static-path ...)
