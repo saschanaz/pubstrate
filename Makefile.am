@@ -47,6 +47,7 @@ godir=$(libdir)/guile/2.0/ccache
 SOURCES =  \
 	pubstrate/asobj.scm				\
 	pubstrate/apclient.scm				\
+	pubstrate/aptestsuite.scm			\
 	pubstrate/date.scm				\
 	pubstrate/config.scm				\
 	pubstrate/crypto.scm				\
