@@ -910,7 +910,7 @@ leave the tests in progress."
                     "Failed to update field with replacement data")
         (abort))
       ;; name should be gone
-      (unless (eq? (asobj-ref updated-asobj "content" %nothing)
+      (unless (eq? (asobj-ref updated-asobj "name" %nothing)
                    %nothing)
         (report-on! 'outbox:update <fail>  ; fail or inconclusive?
                     #:comment
