@@ -70,6 +70,75 @@
 ;;                               (lambda _
 ;;                                 (zero? (system* "./bootstrap.sh")))))))))
 
+(define guile-gcrypt
+  (package
+    (name "guile-gcrypt")
+    (version "git")
+    (source
+     (origin
+       (method git-fetch)
+       (uri (git-reference
+             (url "https://notabug.org/cwebber/guile-gcrypt.git")
+             (commit "6bda028ad7f67a1b75a04b1e3f172ec3d975391c")))
+       (sha256
+        (base32
+         "1xmlhkzd9b29rmipw7g71j5fvbzlj24wgpx1m2g49rm932f9pn8r"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'bootstrap
+           (lambda _ (zero? (system* "sh" "bootstrap.sh")))))))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("autoconf" ,autoconf)
+       ("automake" ,automake)
+       ("texinfo" ,texinfo)))
+    (inputs
+     `(("guile" ,guile-2.2)
+       ("libgcrypt" ,libgcrypt)))
+    (home-page "https://notabug.org/cwebber/guile-gcrypt")
+    (synopsis "Crypto library for Guile using libgcrypt")
+    (description "guile-gcrypt uses Guile's foreign function interface to wrap
+libgcrypt to provide a variety of encryption tooling.")
+    (license gpl3+)))
+
+(define guile-webutils
+  (package
+    (name "guile-webutils")
+    (version "git")
+    (source
+     (origin
+       (method git-fetch)
+       (uri (git-reference
+             (url "https://notabug.org/cwebber/guile-webutils.git")
+             (commit "7ef45b5396373ff42e91a1ecad1d9be6389d6934")))
+       (sha256
+        (base32
+         "03hdz70l4ymbdvfm1xc3aycafps4x6al16qd4kzxxmyvkqxb7agh"))))
+    (build-system gnu-build-system)
+    (arguments
+     '(#:phases
+       (modify-phases %standard-phases
+         (add-after 'unpack 'bootstrap
+           (lambda _ (zero? (system* "sh" "bootstrap.sh")))))))
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("autoconf" ,autoconf)
+       ("automake" ,automake)
+       ("texinfo" ,texinfo)))
+    (inputs
+     `(("guile" ,guile-2.2)))
+    (propagated-inputs
+     ;; @@: We use guile-irregex for date.scm, but we could refactor
+     ;; it and get rid of this dependency.
+     `(("guile-irregex" ,guile2.2-irregex)
+       ("guile-gcrypt" ,guile-gcrypt)))
+    (home-page "https://notabug.org/cwebber/guile-webutils")
+    (synopsis "Web application authoring utilities for Guile")
+    (description "Tooling to write web applications in Guile.")
+    (license gpl3+)))
+
 (define pubstrate
   (package
     (name "pubstrate")
@@ -96,7 +165,9 @@
        ("guile-gdbm-ffi" ,guile2.2-gdbm-ffi)
        ("guile-irregex" ,guile2.2-irregex)
        ("guile-lib" ,guile2.2-lib)
-       ("guile-sjson" ,guile-sjson)))
+       ("guile-sjson" ,guile-sjson)
+       ("guile-gcrypt" ,guile-gcrypt)
+       ("guile-webutils" ,guile-webutils)))
     (home-page #f)
     (synopsis "ActivityStreams and ActivityPub implementation in Guile.")
     (description "ActivityStreams and ActivityPub implementation in Guile.
