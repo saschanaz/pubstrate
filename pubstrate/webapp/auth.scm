@@ -21,7 +21,7 @@
   #:use-module (rnrs bytevectors)
   #:use-module (web http)
   #:use-module (sjson utils)
-  #:use-module (pubstrate contrib gcrypt-hash)
+  #:use-module (gcrypt hash)
   #:use-module (pubstrate contrib base32)
   #:export (gen-bearer-token
 

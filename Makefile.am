@@ -48,9 +48,7 @@ SOURCES =  \
 	pubstrate/asobj.scm				\
 	pubstrate/apclient.scm				\
 	pubstrate/aptestsuite.scm			\
-	pubstrate/date.scm				\
 	pubstrate/config.scm				\
-	pubstrate/crypto.scm				\
 	pubstrate/generics.scm				\
 	pubstrate/vocab.scm				\
 	pubstrate/json-utils.scm			\
@@ -62,12 +60,10 @@ SOURCES =  \
 	pubstrate/webapp/cli/configure.scm		\
 	pubstrate/webapp/cli/runserver.scm		\
 	pubstrate/webapp/form-widgets.scm		\
-	pubstrate/webapp/sessions.scm			\
 	pubstrate/webapp/store.scm			\
 	pubstrate/webapp/store-gdbm.scm			\
 	pubstrate/webapp/http-status.scm		\
 	pubstrate/webapp/config.scm			\
-	pubstrate/webapp/cookie.scm			\
 	pubstrate/webapp/ctx.scm			\
 	pubstrate/webapp/fat-lean.scm			\
 	pubstrate/webapp/inbox-outbox.scm		\
@@ -83,25 +79,19 @@ SOURCES =  \
 	pubstrate/webapp/user.scm			\
 	pubstrate/webapp/views.scm			\
 	pubstrate/contrib/base32.scm			\
-	pubstrate/contrib/base64.scm			\
 	pubstrate/contrib/define-method-star.scm	\
 	pubstrate/contrib/html.scm			\
 	pubstrate/contrib/mime-types.scm		\
-	pubstrate/contrib/gcrypt.scm			\
-	pubstrate/contrib/gcrypt-hash.scm		\
 	pubstrate/contrib/json.scm
 
 TESTS =							\
 	tests/test-asobj.scm				\
 	tests/test-auth.scm				\
-	tests/test-date.scm				\
-	tests/test-crypto.scm				\
 	tests/test-list-pagination.scm			\
 	tests/test-store.scm				\
 	tests/test-snoop.scm				\
 	tests/test-web-ctx.scm				\
 	tests/test-web-utils.scm			\
-	tests/test-web-sessions.scm			\
 	tests/test-web-user.scm				\
 	tests/test-generics.scm
 
