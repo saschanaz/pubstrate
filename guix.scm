@@ -51,24 +51,24 @@
 
 (define %source-dir (dirname (current-filename)))
 
-(define guile-8sync-latest
-  (package
-    (inherit guile-8sync)
-    (version "git")
-    (source
-     (origin
-       (method git-fetch)
-       (uri (git-reference
-             (url "git://git.savannah.gnu.org/8sync.git")
-             (commit "dfde2119df2a0adb86ec4921f95ef2c15692a593")))
-       (sha256
-        (base32
-         "086smlch92n6z5xng0la9l9g6m145klw1c8222cgj32qhyarbkpk"))))
-    (arguments
-     `(#:phases (modify-phases %standard-phases
-                  (add-before 'configure 'bootstrap
-                              (lambda _
-                                (zero? (system* "./bootstrap.sh")))))))))
+;; (define guile-8sync-latest
+;;   (package
+;;     (inherit guile-8sync)
+;;     (version "git")
+;;     (source
+;;      (origin
+;;        (method git-fetch)
+;;        (uri (git-reference
+;;              (url "git://git.savannah.gnu.org/8sync.git")
+;;              (commit "dfde2119df2a0adb86ec4921f95ef2c15692a593")))
+;;        (sha256
+;;         (base32
+;;          "086smlch92n6z5xng0la9l9g6m145klw1c8222cgj32qhyarbkpk"))))
+;;     (arguments
+;;      `(#:phases (modify-phases %standard-phases
+;;                   (add-before 'configure 'bootstrap
+;;                               (lambda _
+;;                                 (zero? (system* "./bootstrap.sh")))))))))
 
 (define pubstrate
   (package
@@ -90,7 +90,6 @@
        ("texinfo" ,texinfo)))
     (inputs
      `(("guile" ,guile-2.2)
-       ("guile-8sync" ,guile-8sync-latest)
        ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
      `(("gnutls" ,gnutls)
