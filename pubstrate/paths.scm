@@ -24,7 +24,7 @@
 ;;; Patches welcome.
 
 (define-module (pubstrate paths)
-  #:export (path-join mkdir-recursive))
+  #:export (path-join clean-path mkdir-recursive))
 
 (define file-name-separator-char
   (string-ref file-name-separator-string 0))
@@ -43,6 +43,11 @@ procedure will not preserve it."
     (string-join (append (list stripped-base-path)
                          stripped-paths)
      file-name-separator-string)))
+
+(define (clean-path path)
+  "Remove any nasty .. stuff from the path"
+  (string-join (delete ".." (string-split path file-name-separator-char))
+               file-name-separator-string))
 
 (define* (mkdir-recursive path #:optional mode)
   "Like `mkdir', but recursively make PATH"
