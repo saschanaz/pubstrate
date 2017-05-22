@@ -413,6 +413,10 @@
 
 ;;; Static site rendering... only available on devel instances (hopefully!)
 (define (render-static request body static-path)
-  (respond
-   (call-with-input-file (web-static-filepath static-path) get-bytevector-all)
-   #:content-type (mime-type static-path)))
+  (let ((filepath
+         (web-static-filepath static-path)))
+    (if (file-exists? filepath)
+        (respond
+         (call-with-input-file (web-static-filepath static-path) get-bytevector-all)
+         #:content-type (mime-type static-path))
+        (respond-not-found))))
