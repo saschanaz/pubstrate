@@ -31,7 +31,7 @@
   #:use-module (pubstrate generics)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp ctx)
-  #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp db)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
   #:use-module (pubstrate webapp auth) ; for gen-bearer-token
@@ -71,16 +71,16 @@
           body))
      (%default-env))))
 
-;; @@: Maybe store-new should 
+;; @@: Maybe db-new should 
 ;; TODO: This needs *way* more async support
-(define* (get-asobj id #:key (store-new #t))
-  "Retrieve an asobj, either from the current store or by fetching
+(define* (get-asobj id #:key (db-new #t))
+  "Retrieve an asobj, either from the current db or by fetching
 from the web if necessary."
-  (let ((store (ctx-ref 'store))
+  (let ((db (ctx-ref 'db))
         (id-uri (string->uri id)))
     (cond
-     ;; Return the version from the store, if we have that
-     ((store-asobj-ref store id) => identity)
+     ;; Return the version from the db, if we have that
+     ((db-asobj-ref db id) => identity)
 
      ;; We can handle this scheme type, right?
      ((member (uri-scheme id-uri) '(http https))
@@ -91,8 +91,8 @@ from the web if necessary."
              ;; Well, it turns out there's a good reason.
              (asobj-set (http-get-asobj id)
                         "id" id)))
-        (if store-new
-            (store-asobj-set! store result))
+        (if db-new
+            (db-asobj-set! db result))
         result))
      
      (else
@@ -104,17 +104,17 @@ from the web if necessary."
 
 ;; TODO: Eventually, we'll want to look up recipient profiles using
 ;;   a user's permissions / signed requests
-(define* (collect-recipients asobj #:key (store-new #t))
+(define* (collect-recipients asobj #:key (db-new #t))
   "Collect a list of all actors to deliver to
 
 Note that this has potential side effects; it fetches objects from
-the store, but also if it does not yet have references to these objects,
+the db, but also if it does not yet have references to these objects,
 it will fetch them remotely from the web.  It may even stick them
-in the store!"
+in the db!"
   (define (append-actor-or-collection id lst)
     ;; TODO: Dereference collections...!
     ;; TODO Handle inline actors!
-    (let ((actor-obj (get-asobj id #:store-new store-new)))
+    (let ((actor-obj (get-asobj id #:db-new db-new)))
       (if actor-obj
           (cons actor-obj lst)
           lst)))
@@ -166,7 +166,7 @@ in the store!"
   "Add ASOBJ to actor's inbox, posibly saving in the process.
 
 Returns #t if the object is added to the inbox, #f otherwise."
-  (define store (ctx-ref 'store))
+  (define db (ctx-ref 'db))
   (define id (asobj-id asobj))
   (define (asobj-acceptability asobj)
     ;; TODO
@@ -174,13 +174,13 @@ Returns #t if the object is added to the inbox, #f otherwise."
     'accept)
   (case (asobj-acceptability asobj)
     ((accept)
-     ;; Add this object to the store if it's not there already
-     (if (not (store-asobj-ref store id))
-         (store-asobj-set! store asobj))
+     ;; Add this object to the db if it's not there already
+     (if (not (db-asobj-ref db id))
+         (db-asobj-set! db asobj))
      ;; Add to the actor's inbox
-     (when (not (user-inbox-member? store actor id))
+     (when (not (user-inbox-member? db actor id))
        (asobj-inbox-effects! asobj actor)
-       (user-add-to-inbox! store actor id)))
+       (user-add-to-inbox! db actor id)))
     (else
      'TODO)))
 
@@ -203,7 +203,7 @@ Returns #t if the object is added to the inbox, #f otherwise."
       (post-locally)
       (post-remotely)))
 
-(define* (deliver-asobj asobj recipients #:key (store-new #t))
+(define* (deliver-asobj asobj recipients #:key (db-new #t))
   "Send activitystreams object to recipients."
   (for-each (cut post-asobj-to-actor asobj <>)
             recipients))
@@ -249,7 +249,7 @@ a field isn't found, we throw an exception."
    (asobj-ref user "preferredUsername")))
 
 (define (save-asobj! asobj)
-  (store-asobj-set! (ctx-ref 'store) asobj))
+  (db-asobj-set! (ctx-ref 'db) asobj))
 
 (define (string-uri? obj)
   (and (string? obj) (string->uri obj)))
@@ -392,7 +392,7 @@ save it and return it.")
                                     (asobj-ref asobj "bcc" '())))))
        ;; Add to following list
        ;; TODO: Do we need to check if we're already subscribed?
-       (user-add-to-following! (ctx-ref 'store) outbox-user
+       (user-add-to-following! (ctx-ref 'db) outbox-user
                                follow-uri)
 
        ;; Return asobj
@@ -404,7 +404,7 @@ save it and return it.")
     (let-asobj-fields
      asobj ((object "object"))
      (let* ((object-id (id-or-id-from object))
-            (stored-object (store-asobj-ref (ctx-ref 'store) object-id))
+            (stored-object (db-asobj-ref (ctx-ref 'db) object-id))
             ;; TODO: This isn't necessarily correct for checking permissions,
             ;;   but it'll do for the second.  We need a more robust permission
             ;;   system.
@@ -461,7 +461,7 @@ save it and return it.")
          (object-from-update (asobj-ref asobj "object"))
          (object-id (asobj-id object-from-update))
          (stored-object (and object-id
-                             (store-asobj-ref (ctx-ref 'store) object-id))))
+                             (db-asobj-ref (ctx-ref 'db) object-id))))
     ;; @@: This is the same as in the ^Delete code...
     (define (can-update?)
       (define outbox-user-id (asobj-id outbox-user))
@@ -531,7 +531,7 @@ thrown.")
    asobj ((object "object")
           (actor "actor"))
    ;; TODO: Again, we need to "audit" this incoming message
-   (user-add-to-followers! (ctx-ref 'store) inbox-user
+   (user-add-to-followers! (ctx-ref 'db) inbox-user
                            (match actor
                              ((? asobj? _)
                               (asobj-id actor))

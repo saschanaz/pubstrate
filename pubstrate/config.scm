@@ -18,7 +18,7 @@
 
 (define-module (pubstrate config)
   #:use-module (pubstrate paths)
-  #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp db)
   #:use-module (srfi srfi-1)  ; list lib
   #:use-module (srfi srfi-9)  ; records
   #:use-module (ice-9 format)

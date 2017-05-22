@@ -21,19 +21,19 @@
   #:use-module (srfi srfi-64)
   #:use-module (web uri)
   #:use-module (pubstrate webapp ctx)
-  #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp db)
   #:use-module (pubstrate webapp user))
 
 (test-begin "test-web-user")
 
 (with-extended-ctx
  `((base-uri . ,(string->uri "https://coolsite.example/"))
-   (store . ,(make-memory-store)))
+   (db . ,(make-memory-db)))
  (lambda ()
    (test-equal (user-id-from-username "discocat")
      "https://coolsite.example/u/discocat")
-   (store-add-new-user! (ctx-ref 'store) "seadub" "monkeybarf")
-   (let ((user (store-user-ref (ctx-ref 'store) "seadub")))
+   (db-add-new-user! (ctx-ref 'db) "seadub" "monkeybarf")
+   (let ((user (db-user-ref (ctx-ref 'db) "seadub")))
      (test-assert (user-password-matches? user "monkeybarf"))
      (test-assert (not (user-password-matches? user "bananapudding"))))))
 

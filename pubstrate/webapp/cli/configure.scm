@@ -50,7 +50,7 @@
 (define* (build-config filename
                        #:key (base-uri-str "http://localhost:8080/")
                        (state-dir (dirname filename))
-                       (store-setup #f)
+                       (db-setup #f)
                        (extra-imports '()))
   (mkdir-recursive (dirname filename))
   (when (file-exists? filename)
@@ -72,8 +72,8 @@
        `(configure
          (base-uri (string->uri ,base-uri-str))
          (state-dir %state-dir)
-         ,@(if store-setup
-               `((store ,store-setup))
+         ,@(if db-setup
+               `((db ,db-setup))
                '()))))))
 
 ;; TODO: copied from runserver.scm, maybe we should put this in a utils
@@ -105,7 +105,7 @@ application.
                        If not given, will default to http://localhost:8080/.
                        (Unless you're just testing things locally, you'll
                        want to change this!)
- --store-type=DB-TYPE  What database/store type you'd like to use.
+ --db-type=DB-TYPE     What database type you'd like to use.
                        Available options are: memory, gdbm.
                        (Defaults to implicitly gdbm.)\n")
 
@@ -114,7 +114,7 @@ application.
     (interactive (single-char #\i) (value #f))
     (state-dir (single-char #\d) (value #t))
     (base-uri (single-char #\u) (value #t))
-    (store-type (value #t))))
+    (db-type (value #t))))
 
 (define (configure-cli args)
   ;; Maybe append a keyword argument to a list of existing
@@ -132,24 +132,24 @@ application.
      ((option-ref options 'interactive #f)
       (build-config-interactively config-file))
      (config-file
-      (let* ((maybe-append-store-stuff
+      (let* ((maybe-append-db-stuff
               (lambda (current-kwargs)
-                (match (option-ref options 'store-type #f)
+                (match (option-ref options 'db-type #f)
                   ("memory"
-                   (append (list #:extra-imports '((pubstrate webapp store))
-                                 #:store-setup '(list make-memory-store))
+                   (append (list #:extra-imports '((pubstrate webapp db))
+                                 #:db-setup '(list make-memory-db))
                            current-kwargs))
                   ("gdbm"
-                   (append (list #:extra-imports '((pubstrate webapp store-gdbm)
+                   (append (list #:extra-imports '((pubstrate webapp db-gdbm)
                                                    (pubstrate paths))
-                                 #:store-setup
-                                 '(list make-gdbm-store
+                                 #:db-setup
+                                 '(list make-gdbm-db
                                         #:path
-                                        (path-join %state-dir "gdbm-store")))
+                                        (path-join %state-dir "gdbm-db")))
                            current-kwargs))
                   (#f current-kwargs)
                   (anything-else
-                   (format #t "Unknown store type ~s!\n"
+                   (format #t "Unknown db type ~s!\n"
                            anything-else)
                    (exit 1)))))
              (kwargs
@@ -158,7 +158,7 @@ application.
                              (option-ref options 'base-uri #f))
                 (maybe-kwarg #:state-dir
                              (option-ref options 'state-dir #f))
-                maybe-append-store-stuff)
+                maybe-append-db-stuff)
                '())))
         (apply build-config config-file kwargs)
         (format #t "Wrote file to: ~a\n"

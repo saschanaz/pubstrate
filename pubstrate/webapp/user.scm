@@ -25,12 +25,12 @@
   #:use-module (pubstrate generics)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp ctx)
-  #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp db)
   #:use-module (pubstrate webapp utils)
   #:export (make-user
             user-id-from-username
-            store-add-new-user! store-user-ref
-            store-user-change-password!
+            db-add-new-user! db-user-ref
+            db-user-change-password!
 
             user-inbox-container-key user-outbox-container-key
             user-inbox-followers-key user-outbox-following-key
@@ -38,7 +38,7 @@
             user-add-to-inbox! user-add-to-outbox!
             user-add-to-followers! user-add-to-following!
 
-            store-user-collection-member?
+            db-user-collection-member?
             user-inbox-member? user-outbox-member?
             user-followers-member? user-following-member?
 
@@ -93,9 +93,9 @@
     (values user
             (list inbox outbox followers following))))
 
-(define* (store-add-new-user! store username password
-                              #:key (asenv (%default-env)))
-  "Add user with USERNAME to and PASSWORD to STORE
+(define* (db-add-new-user! db username password
+                           #:key (asenv (%default-env)))
+  "Add user with USERNAME to and PASSWORD to DB
 
 Optionally pass in ASENV, otherwise %default-env is used.
 
@@ -104,7 +104,7 @@ user object produced, and a list of any other asobj objects added
 to the database (in this case, the collections!)"
   ;; Ensure a user with this username doesn't already exist in the
   ;; database
-  (if (store-user-ref store username)
+  (if (db-user-ref db username)
       (throw 'user-already-exists
              "Tried adding a user with an already existing username."
              #:username username))
@@ -115,103 +115,103 @@ to the database (in this case, the collections!)"
           (new-collections
            (map
             (lambda (col)
-              (let* ((container-key (store-container-new! store))
+              (let* ((container-key (db-container-new! db))
                      ;; Update with the private information set
                      ;; to the container key
                      (col (asobj-set-private*
                            col #:container container-key)))
-                ;; Store in the database
-                (store-asobj-set! store col)
+                ;; Db in the database
+                (db-asobj-set! db col)
                 col))
             collections)))
-      ;; Add the user to the store
-      (store-asobj-set! store user)
+      ;; Add the user to the db
+      (db-asobj-set! db user)
 
       ;; Return both the user object and the list of collections
       ;; created
       (values user new-collections))))
 
-(define* (store-user-ref store username)
-  (store-asobj-ref store (user-id-from-username username)))
+(define* (db-user-ref db username)
+  (db-asobj-ref db (user-id-from-username username)))
 
-(define (store-user-change-password! store username new-password)
+(define (db-user-change-password! db username new-password)
   (let* ((password-sjson
           (salted-hash->sjson
            (salt-and-hash-password new-password)))
-         (user (asobj-private-set (store-user-ref store username)
+         (user (asobj-private-set (db-user-ref db username)
                                   "password"
                                   password-sjson)))
-    (store-asobj-set! store user)))
+    (db-asobj-set! db user)))
 
-(define (store-user-container-key store user collection-name)
+(define (db-user-container-key db user collection-name)
   "Get the container key for USER's COLLECTION-NAME"
   (let ((collection
-         (store-asobj-ref store (asobj-ref user collection-name))))
+         (db-asobj-ref db (asobj-ref user collection-name))))
     (asobj-private-ref collection "container")))
 
-(define (user-inbox-container-key store user)
-  (store-user-container-key store user "inbox"))
-(define (user-outbox-container-key store user)
-  (store-user-container-key store user "outbox"))
-(define (user-followers-container-key store user)
-  (store-user-container-key store user "followers"))
-(define (user-following-container-key store user)
-  (store-user-container-key store user "following"))
+(define (user-inbox-container-key db user)
+  (db-user-container-key db user "inbox"))
+(define (user-outbox-container-key db user)
+  (db-user-container-key db user "outbox"))
+(define (user-followers-container-key db user)
+  (db-user-container-key db user "followers"))
+(define (user-following-container-key db user)
+  (db-user-container-key db user "following"))
 
 
-(define (store-user-add-to-collection! store user id-to-store
-                                       collection-name)
-  "Append item of ID-TO-STORE to USER's ourbox in STORE"
-  (store-container-append!
-   store (store-user-container-key store user collection-name)
-   id-to-store))
-
-(define (user-add-to-inbox! store user id-to-store)
-  (store-user-add-to-collection! store user id-to-store "inbox"))
-(define (user-add-to-outbox! store user id-to-store)
-  (store-user-add-to-collection! store user id-to-store "outbox"))
-(define (user-add-to-followers! store user id-to-store)
-  (store-user-add-to-collection! store user id-to-store "followers"))
-(define (user-add-to-following! store user id-to-store)
-  (store-user-add-to-collection! store user id-to-store "following"))
-
-(define (store-user-collection-member? store user id
-                                       collection-name)
-  (store-container-member?
-   store (store-user-container-key store user collection-name)
+(define (db-user-add-to-collection! db user id
+                                    collection-name)
+  "Append item of ID to USER's ourbox in DB"
+  (db-container-append!
+   db (db-user-container-key db user collection-name)
    id))
 
-(define (user-inbox-member? store user id)
-  (store-user-collection-member? store user id "inbox"))
-(define (user-outbox-member? store user id)
-  (store-user-collection-member? store user id "outbox"))
-(define (user-followers-member? store user id)
-  (store-user-collection-member? store user id "followers"))
-(define (user-following-member? store user id)
-  (store-user-collection-member? store user id "following"))
+(define (user-add-to-inbox! db user id)
+  (db-user-add-to-collection! db user id "inbox"))
+(define (user-add-to-outbox! db user id)
+  (db-user-add-to-collection! db user id "outbox"))
+(define (user-add-to-followers! db user id)
+  (db-user-add-to-collection! db user id "followers"))
+(define (user-add-to-following! db user id)
+  (db-user-add-to-collection! db user id "following"))
 
-(define (user-collection-page store user collection-name
+(define (db-user-collection-member? db user id
+                                    collection-name)
+  (db-container-member?
+   db (db-user-container-key db user collection-name)
+   id))
+
+(define (user-inbox-member? db user id)
+  (db-user-collection-member? db user id "inbox"))
+(define (user-outbox-member? db user id)
+  (db-user-collection-member? db user id "outbox"))
+(define (user-followers-member? db user id)
+  (db-user-collection-member? db user id "followers"))
+(define (user-following-member? db user id)
+  (db-user-collection-member? db user id "following"))
+
+(define (user-collection-page db user collection-name
                               member how-many)
   (let*-values (((container-key)
-                 (store-user-container-key store user collection-name))
+                 (db-user-container-key db user collection-name))
                 ((page prev next)
-                 (store-container-page store container-key
+                 (db-container-page db container-key
                                          member how-many)))
     (values (map
              (lambda (id)
-               (store-asobj-ref store id))
+               (db-asobj-ref db id))
              page)
             prev next)))
 
-(define (user-collection-first-page store user collection-name
+(define (user-collection-first-page db user collection-name
                                     how-many)
   (let*-values (((container-key)
-                 (store-user-container-key store user collection-name))
+                 (db-user-container-key db user collection-name))
                 ((page prev next)
-                 (store-container-first-page store container-key how-many)))
+                 (db-container-first-page db container-key how-many)))
     (values (map
              (lambda (id)
-               (store-asobj-ref store id))
+               (db-asobj-ref db id))
              page)
             prev next)))
 

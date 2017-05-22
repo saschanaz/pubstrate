@@ -17,52 +17,52 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 
-;;; Store stuff
-;;; ===========
+;;; Db stuff
+;;; ========
 
-(define-module (pubstrate webapp store)
+(define-module (pubstrate webapp db)
   #:use-module (ice-9 receive)
   #:use-module (oop goops)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp list-pagination)
-  #:export (<store>
-            store-close
+  #:export (<db>
+            db-close
 
-            <docustore>
-            docustore-set! docustore-ref docustore-remove!
+            <docu-db>
+            docu-db-set! docu-db-ref docu-db-remove!
 
-            <memory-store>
-            make-memory-store
-            store-asobj-ref store-asobj-set!
+            <memory-db>
+            make-memory-db
+            db-asobj-ref db-asobj-set!
 
-            store-container-new! store-container-append!
-            store-container-first-page store-container-page
-            store-container-fetch-all store-container-member?
-            store-container-remove!
+            db-container-new! db-container-append!
+            db-container-first-page db-container-page
+            db-container-fetch-all db-container-member?
+            db-container-remove!
 
             <bearer-entry>
             bearer-entry-token bearer-entry-user-id bearer-entry-expires
             bearer-entry->alist alist->bearer-entry
 
-            store-bearer-token-new! store-bearer-token-valid?
-            store-bearer-entry-ref store-bearer-token-delete!))
+            db-bearer-token-new! db-bearer-token-valid?
+            db-bearer-entry-ref db-bearer-token-delete!))
 
-(define-class <store> ())
+(define-class <db> ())
 
-(define-method (store-close (store <store>))
-  "Shut down and clean up the store."
+(define-method (db-close (db <db>))
+  "Shut down and clean up the db."
   #f)  ; no-op by default
 
-(define-class <docustore> (<store>)
+(define-class <docu-db> (<db>)
   (asobjs)
   (containers)
   (bearer-entries)
   (serializers #:allocation #:each-subclass)
   (deserializers #:allocation #:each-subclass))
 
-;;; Simple in-memory store
-(define-class <memory-store> (<docustore>)
+;;; Simple in-memory db
+(define-class <memory-db> (<docu-db>)
   (asobjs #:init-thunk make-hash-table)
   (containers #:init-thunk make-hash-table)
   (bearer-entries #:init-thunk make-hash-table)
@@ -81,117 +81,117 @@
        ((asobjs containers bearer-entries)
         identity)))))
 
-(define (make-memory-store)
-  (make <memory-store>))
+(define (make-memory-db)
+  (make <memory-db>))
 
 ;;; @@: Is it even helpful to have define-generic for these?
-;; (define-generic store-asobj-set!)
-;; (define-generic store-asobj-ref)
+;; (define-generic db-asobj-set!)
+;; (define-generic db-asobj-ref)
 
-(define-method (docustore-set! (store <memory-store>)
-                               slot key val)
-  "Store and serialize VAL for KEY in STORE's SLOT"
-  (let ((serialize ((slot-ref store 'serializers) slot)))
-    (hash-set! (slot-ref store slot) key
+(define-method (docu-db-set! (db <memory-db>)
+                             slot key val)
+  "Db and serialize VAL for KEY in DB's SLOT"
+  (let ((serialize ((slot-ref db 'serializers) slot)))
+    (hash-set! (slot-ref db slot) key
                (serialize val))))
 
-(define-method (docustore-ref (store <memory-store>)
-                              slot key)
-  "Retrieve and deserialize value for KEY in STORE's SLOT"
-  (let ((deserialize ((slot-ref store 'deserializers) slot)))
-    (and=> (hash-ref (slot-ref store slot) key)
+(define-method (docu-db-ref (db <memory-db>)
+                            slot key)
+  "Retrieve and deserialize value for KEY in DB's SLOT"
+  (let ((deserialize ((slot-ref db 'deserializers) slot)))
+    (and=> (hash-ref (slot-ref db slot) key)
            deserialize)))
 
-(define-method (docustore-remove! (store <memory-store>)
-                                   slot key)
-  "Retrieve a (serialized) value for KEY in STORE's SLOT"
-  (hash-remove! (slot-ref store slot) key))
+(define-method (docu-db-remove! (db <memory-db>)
+                                slot key)
+  "Retrieve a (serialized) value for KEY in DB's SLOT"
+  (hash-remove! (slot-ref db slot) key))
 
 
-;;; Note that the default store method assumes that this is a
-;;; simple docustore
-(define-method (store-asobj-set! (store <docustore>) asobj)
+;;; Note that the default db method assumes that this is a
+;;; simple docu-db
+(define-method (db-asobj-set! (db <docu-db>) asobj)
   (let ((id (asobj-id asobj)))
     (if (not id)
-        (throw 'asobj-store-failure
+        (throw 'asobj-db-failure
                "Can't save an asobj if no id set"))
-    (docustore-set! store 'asobjs id asobj)))
+    (docu-db-set! db 'asobjs id asobj)))
 
-(define-method (store-asobj-ref (store <docustore>) id)
-  (docustore-ref store 'asobjs id))
+(define-method (db-asobj-ref (db <docu-db>) id)
+  (docu-db-ref db 'asobjs id))
 
-(define (store-asobj-ref-fat store id)
+(define (db-asobj-ref-fat db id)
   'TODO)
-(define (store-asobj-set-lean! store asobj)
+(define (db-asobj-set-lean! db asobj)
   'TODO)
 
 
 ;;; Containers
 ;;; ==========
 
-;; (define-generic store-container-new!)
-;; (define-generic store-container-append!)
+;; (define-generic db-container-new!)
+;; (define-generic db-container-append!)
 
-;; @@: The serialize/deserialize docustore stuff seems to only work for our
+;; @@: The serialize/deserialize docu-db stuff seems to only work for our
 ;;   stupid lists method.  Which means all users of this are using a crappy
-;;   O(n) store for containers!  Not good!
+;;   O(n) db for containers!  Not good!
 
 ;; @@: Probabalistic method, but if this doesn't succeed, something is
 ;;   wrong with the universe, or your RNG...
 ;;   Collisions are so unlikely, hopefully this procedure's check is
 ;;   unnecessary anyway...!
-(define-method (store-container-new! (store <docustore>))
+(define-method (db-container-new! (db <docu-db>))
   "Add a new container and return its key"
   (define (keep-trying)
     (let* ((token (gen-bearer-token))
            (existing-container
-            (docustore-ref store 'containers token)))
+            (docu-db-ref db 'containers token)))
       (if existing-container
           (keep-trying)
           (begin
-            (docustore-set! store 'containers token '())
+            (docu-db-set! db 'containers token '())
             token))))
   (keep-trying))
 
-(define (get-container-or-error store key)
+(define (get-container-or-error db key)
   (cond
-   ((docustore-ref store 'containers key) => identity)
+   ((docu-db-ref db 'containers key) => identity)
    (else (throw 'no-container-for-key
                 #:key key))))
 
-(define-method (store-container-append! (store <docustore>)
-                                        container-key val)
+(define-method (db-container-append! (db <docu-db>)
+                                     container-key val)
   (define current-members
-    (get-container-or-error store container-key))
-  (docustore-set! store 'containers container-key
-                  (cons val current-members)))
+    (get-container-or-error db container-key))
+  (docu-db-set! db 'containers container-key
+                (cons val current-members)))
 
-(define-method (store-container-remove! (store <docustore>)
-                                        container-key val)
+(define-method (db-container-remove! (db <docu-db>)
+                                     container-key val)
   (define current-members
-    (get-container-or-error store container-key))
-  (docustore-set! store 'containers container-key
-                  (delete val current-members)))
+    (get-container-or-error db container-key))
+  (docu-db-set! db 'containers container-key
+                (delete val current-members)))
 
-(define-method (store-container-fetch-all (store <docustore>)
-                                            container-key)
-  (docustore-ref store 'containers container-key))
+(define-method (db-container-fetch-all (db <docu-db>)
+                                       container-key)
+  (docu-db-ref db 'containers container-key))
 
-(define-method (store-container-page (store <docustore>) container-key
-                                       member how-many)
-  "Search for MEMBER in STORE's container KEY with a page of HOW-MANY
+(define-method (db-container-page (db <docu-db>) container-key
+                                  member how-many)
+  "Search for MEMBER in DB's container KEY with a page of HOW-MANY
 items, as well as returning information on previous and next pages.
 
 Returns three values to its continuation: a list of items (or #f if
 not found) in the range of MEMBER and HOW-MANY, as well as the key for
 the prior page (or #f), and the key for the next page (or #f)."
   (list-paginate
-   (get-container-or-error store container-key)
+   (get-container-or-error db container-key)
    member how-many))
 
-(define-method (store-container-first-page (store <docustore>)
-                                             container-key how-many)
-  "Retrieve the first page of in STORE's container KEY with HOW-MANY items.
+(define-method (db-container-first-page (db <docu-db>)
+                                        container-key how-many)
+  "Retrieve the first page of in DB's container KEY with HOW-MANY items.
 
 Returns three values to its continuation: a list of items from the
 first item to HOW-MANY, the key for the previous page (which will, in
@@ -199,14 +199,14 @@ this case, not exist so will always be #f), and the key for the next
 page (or #f)"
   (receive (page prev next)
       (list-paginate-first
-            (get-container-or-error store container-key)
-            how-many)
+       (get-container-or-error db container-key)
+       how-many)
     (values (or page '()) prev next)))
 
-(define-method (store-container-member? (store <docustore>)
-                                          container-key item)
+(define-method (db-container-member? (db <docu-db>)
+                                     container-key item)
   (if (member item (get-container-or-error
-                    store container-key))
+                    db container-key))
       #t #f))
 
 
@@ -237,28 +237,28 @@ page (or #f)"
     #:user-id (assoc-ref alist "user-id")
     #:expires (assoc-ref alist "expires")))
 
-(define-method (store-bearer-token-new! (store <docustore>) user)
-  "Define a new bearer token for USER and place its entry in STORE.
+(define-method (db-bearer-token-new! (db <docu-db>) user)
+  "Define a new bearer token for USER and place its entry in DB.
 The bearer token key is returned, but the full bearer entry is not."
   (let ((bearer-entry (make <bearer-entry>
                         #:user-id (asobj-id user))))
-    (docustore-set! store 'bearer-entries
-                    (slot-ref bearer-entry 'token)
-                    bearer-entry)
+    (docu-db-set! db 'bearer-entries
+                  (slot-ref bearer-entry 'token)
+                  bearer-entry)
     (slot-ref bearer-entry 'token)))
 
-(define-method (store-bearer-entry-ref (store <docustore>) token-key)
-  (docustore-ref store 'bearer-entries token-key))
+(define-method (db-bearer-entry-ref (db <docu-db>) token-key)
+  (docu-db-ref db 'bearer-entries token-key))
 
-;;; This one should work, docustore or not, because it relies on the heavy
+;;; This one should work, docu-db or not, because it relies on the heavy
 ;;; lifting of the other methods
-(define-method (store-bearer-token-valid? (store <store>)
-                                          token-key user)
+(define-method (db-bearer-token-valid? (db <db>)
+                                       token-key user)
   "See if the bearer token with TOKEN-KEY is valid in the context of USER"
-  (let ((bearer-entry (store-bearer-entry-ref store token-key)))
+  (let ((bearer-entry (db-bearer-entry-ref db token-key)))
     (and (is-a? bearer-entry <bearer-entry>)
          ;; TODO: Check expires field
          (equal? (asobj-id user) (slot-ref bearer-entry 'user-id)))))
 
-(define-method (store-bearer-token-delete! (store <docustore>) token-key)
-  (docustore-remove! store 'bearer-entries token-key))
+(define-method (db-bearer-token-delete! (db <docu-db>) token-key)
+  (docu-db-remove! db 'bearer-entries token-key))

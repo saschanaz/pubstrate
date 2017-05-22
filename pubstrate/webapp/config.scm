@@ -24,17 +24,17 @@
   #:use-module (pubstrate config)
   #:use-module (ice-9 match)
   #:use-module (web uri)
-  #:use-module (pubstrate webapp store)
-  #:use-module (pubstrate webapp store-gdbm)
+  #:use-module (pubstrate webapp db)
+  #:use-module (pubstrate webapp db-gdbm)
   #:export (pubstrate-config-spec))
 
-;; TODO: Not used (and neither is the plain store import, then)
+;; TODO: Not used (and neither is the plain db import, then)
 ;;   Remove if we decide to keep it that way.
-(define (make-memory-store-but-warn)
+(define (make-memory-db-but-warn)
   (display
-   "WARNING: db-path not provided, so using memory store only\n"
+   "WARNING: db-path not provided, so using memory db only\n"
    (current-error-port))
-  (make-memory-store))
+  (make-memory-db))
 
 (define pubstrate-config-spec
   (make-config-spec*
@@ -50,21 +50,21 @@ Instead, several other variables (such as signing-key-path) use it as
 a basis to infer a default location to put their own data."
     #:validate string?)
 
-   (store "Storage subsystem.
+   (db "Storage subsystem.
 This should be a procedure to produce a storage system, or a list
 of (storage-system args ...) where storage-system is a procedure
 to initialize a storage system and args are arguments to that
 procedure."
-          #:validate (match-lambda
-                       ((? procedure? _) #t)
-                       (((? procedure? _) rest ...) #t)
-                       (_ #f))
+       #:validate (match-lambda
+                    ((? procedure? _) #t)
+                    (((? procedure? _) rest ...) #t)
+                    (_ #f))
           ;;;; If nothing is provided, the application will
-          ;;;; initialize a memory store but will throw a warning.
-          ;; #:default (const make-memory-store-but-warn)
-          #:default (lambda (cfg)
-                      (list make-gdbm-store
-                            (path-join (assoc-ref cfg 'state-dir)
+          ;;;; initialize a memory db but will throw a warning.
+       ;; #:default (const make-memory-db-but-warn)
+       #:default (lambda (cfg)
+                   (list make-gdbm-db
+                         (path-join (assoc-ref cfg 'state-dir)
                                        "gdbm-db"))))
    (signing-key-path
     "Filename to keep the private key at.

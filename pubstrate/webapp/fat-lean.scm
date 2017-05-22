@@ -27,7 +27,7 @@
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp ctx)
-  #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp db)
   #:export (make-retriever
             asobj-fatten fatten-asobjs
 
@@ -60,15 +60,15 @@
    ((zero? (retriever-max-depth retriever))
     ;; return the id as-is
     id)
-   ;; If we have a memoized copy of this in the store
+   ;; If we have a memoized copy of this in the db
    ;; retrieve that
    ((hash-ref (retriever-cache retriever) id) =>
     identity)
-   ;; Otherwise else, look up what's in the store
+   ;; Otherwise else, look up what's in the db
    (else
-    ;; TODO: Also support when there's nothing in the store
+    ;; TODO: Also support when there's nothing in the db
     ;;   by looking things up
-    (let ((result (or (and=> (store-asobj-ref (ctx-ref 'store) id)
+    (let ((result (or (and=> (db-asobj-ref (ctx-ref 'db) id)
                              recur-retrieve)
                       ;; if we don't have anything in the db,
                       ;; just memoize and return the id.  This is stupid,
@@ -106,7 +106,7 @@
 (define-syntax-rule (a-list (key val) ...)
   (list (cons key val) ...))
 
-(define astype-store-uri-fields
+(define astype-db-uri-fields
   (alist->hashq-table
    (a-list (^Object '("attachment" "attributedTo" "audience"
                       "context" "generator" "icon" "image"
@@ -139,7 +139,7 @@
 (define* (asobj-fatten asobj #:optional (retriever (make-retriever 5)))
   (fold
    (lambda (astype asobj)
-     (let ((fields (hashq-ref astype-store-uri-fields
+     (let ((fields (hashq-ref astype-db-uri-fields
                               astype
                               '())))
        (retriever-fatten-fields retriever asobj fields)))

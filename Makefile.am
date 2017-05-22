@@ -60,8 +60,8 @@ SOURCES =  \
 	pubstrate/webapp/cli/configure.scm		\
 	pubstrate/webapp/cli/runserver.scm		\
 	pubstrate/webapp/form-widgets.scm		\
-	pubstrate/webapp/store.scm			\
-	pubstrate/webapp/store-gdbm.scm			\
+	pubstrate/webapp/db.scm			\
+	pubstrate/webapp/db-gdbm.scm			\
 	pubstrate/webapp/http-status.scm		\
 	pubstrate/webapp/config.scm			\
 	pubstrate/webapp/ctx.scm			\
@@ -88,7 +88,7 @@ TESTS =							\
 	tests/test-asobj.scm				\
 	tests/test-auth.scm				\
 	tests/test-list-pagination.scm			\
-	tests/test-store.scm				\
+	tests/test-db.scm				\
 	tests/test-snoop.scm				\
 	tests/test-web-ctx.scm				\
 	tests/test-web-utils.scm			\

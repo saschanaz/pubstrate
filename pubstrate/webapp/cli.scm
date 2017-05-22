@@ -34,7 +34,7 @@
   `(("run" . (,run-cli "Run the web server"))
     ;; ("demo" . ,demo-cli)
     ("configure" . (,configure-cli "Write out initial configuration file"))
-    ("adduser" . (,adduser-cli "Add a new user to the store"))))
+    ("adduser" . (,adduser-cli "Add a new user to the db"))))
 
 (define (show-main-help)
   (display "Usage: pubstrate-web [--help | --version] [command [command-options]]\n")

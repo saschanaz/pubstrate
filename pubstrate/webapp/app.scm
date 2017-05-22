@@ -26,7 +26,7 @@
   #:use-module (webutils sessions)
   #:use-module (pubstrate config)
   #:use-module (pubstrate webapp routes)
-  #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp db)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp config)
   #:use-module (pubstrate webapp ctx)
@@ -46,7 +46,7 @@
   (define user
     (and=> (assoc-ref session 'user)
            (lambda (username)
-             (store-user-ref (ctx-ref 'store)
+             (db-user-ref (ctx-ref 'db)
                              username))))
   `((user . ,user)))
 
@@ -72,11 +72,11 @@
   (%ctx %debug-ctx))
 
 (define (app-ctx-from-config config)
-  (define store
-    (match (config-ref config 'store)
-      ((store-proc . store-args)
-       (apply store-proc store-args))))
-  `((store . ,store)
+  (define db
+    (match (config-ref config 'db)
+      ((db-proc . db-args)
+       (apply db-proc db-args))))
+  `((db . ,db)
     (base-uri . ,(config-ref config 'base-uri))
     ;; TODO: signing-key-path
     (session-manager . ,(make-session-manager (gen-signing-key))))  )
@@ -95,7 +95,7 @@ Only for debugging / REPL hacking!  Use with-app-ctx-from-config for real code."
                                          pubstrate-config-spec)))
 
 (define (app-ctx-clean-up!)
-  (store-close (ctx-ref 'store)))
+  (db-close (ctx-ref 'db)))
 
 (define (with-app-ctx-from-config config thunk)
   "Evaluate THUNK in application context built from CONFIG"

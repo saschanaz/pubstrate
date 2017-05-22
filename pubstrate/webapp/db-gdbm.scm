@@ -16,9 +16,9 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-;;; GDBM based store
+;;; GDBM based db
 
-(define-module (pubstrate webapp store-gdbm)
+(define-module (pubstrate webapp db-gdbm)
   #:use-module (gdbm)
   #:use-module (ice-9 receive)
   #:use-module (oop goops)
@@ -27,10 +27,10 @@
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp list-pagination)
-  #:use-module (pubstrate webapp store)
-  #:export (<gdbm-store>
-            make-gdbm-store
-            gdbm-store-close))
+  #:use-module (pubstrate webapp db)
+  #:export (<gdbm-db>
+            make-gdbm-db
+            gdbm-db-close))
 
 (define (write-to-string obj)
   (with-output-to-string
@@ -42,7 +42,7 @@
     (lambda ()
       (read (current-input-port)))))
 
-(define-class <gdbm-store> (<docustore>)
+(define-class <gdbm-db> (<docu-db>)
   (asobjs #:init-keyword #:asobjs)
   (containers #:init-keyword #:containers)
   (bearer-entries #:init-keyword #:bearer-entries)
@@ -73,24 +73,24 @@
           (alist->bearer-entry
            (read-from-string serialized))))))))
 
-(define-method (docustore-set! (store <gdbm-store>)
-                               slot key val)
-  "Store and serialize VAL for KEY in STORE's SLOT"
-  (let ((serialize ((slot-ref store 'serializers) slot)))
-    (gdbm-set! (slot-ref store slot) key
+(define-method (docu-db-set! (db <gdbm-db>)
+                             slot key val)
+  "Db and serialize VAL for KEY in DB's SLOT"
+  (let ((serialize ((slot-ref db 'serializers) slot)))
+    (gdbm-set! (slot-ref db slot) key
                (serialize val))))
 
-(define-method (docustore-ref (store <gdbm-store>)
-                              slot key)
-  "Retrieve and deserialize value for KEY in STORE's SLOT"
-  (let ((deserialize ((slot-ref store 'deserializers) slot)))
-    (and=> (gdbm-ref (slot-ref store slot) key)
+(define-method (docu-db-ref (db <gdbm-db>)
+                            slot key)
+  "Retrieve and deserialize value for KEY in DB's SLOT"
+  (let ((deserialize ((slot-ref db 'deserializers) slot)))
+    (and=> (gdbm-ref (slot-ref db slot) key)
            deserialize)))
 
-(define-method (docustore-remove! (store <gdbm-store>)
-                                   slot key)
-  "Retrieve a (serialized) value for KEY in STORE's SLOT"
-  (gdbm-delete! (slot-ref store slot) key))
+(define-method (docu-db-remove! (db <gdbm-db>)
+                                slot key)
+  "Retrieve a (serialized) value for KEY in DB's SLOT"
+  (gdbm-delete! (slot-ref db slot) key))
 
 (define (directory-exists? dir)
   "Check to see if DIR exists."
@@ -98,12 +98,12 @@
        (eq? (stat:type (stat dir))
             'directory)))
 
-(define (make-gdbm-store db-dir)
+(define (make-gdbm-db db-dir)
   (define (db-file filename)
     (path-join db-dir filename))
   (if (not (directory-exists? db-dir))
       (mkdir-recursive db-dir))
-  (make <gdbm-store>
+  (make <gdbm-db>
     #:asobjs
     (gdbm-open (db-file "asobj.db") GDBM_WRCREAT)
     #:containers
@@ -111,7 +111,7 @@
     #:bearer-entries
     (gdbm-open (db-file "bearer-entries.db") GDBM_WRCREAT)))
 
-(define-method (store-close (store <gdbm-store>))
-  (gdbm-close (slot-ref store 'asobjs))
-  (gdbm-close (slot-ref store 'containers))
-  (gdbm-close (slot-ref store 'bearer-entries)))
+(define-method (db-close (db <gdbm-db>))
+  (gdbm-close (slot-ref db 'asobjs))
+  (gdbm-close (slot-ref db 'containers))
+  (gdbm-close (slot-ref db 'bearer-entries)))

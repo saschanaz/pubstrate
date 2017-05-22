@@ -37,7 +37,7 @@
   #:use-module (pubstrate webapp inbox-outbox)
   #:use-module (pubstrate webapp fat-lean)
   #:use-module (pubstrate webapp form-widgets)
-  #:use-module (pubstrate webapp store)
+  #:use-module (pubstrate webapp db)
   #:use-module (pubstrate webapp templates)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
@@ -71,12 +71,12 @@
     (let ((activities
            (fatten-asobjs
             (user-collection-first-page
-             (ctx-ref 'store) user "outbox"
+             (ctx-ref 'db) user "outbox"
              %items-per-page))))
       (respond-html
        (user-homepage-tmpl user activities
                            #f #f))))
-  (define user (store-user-ref (ctx-ref 'store) username))
+  (define user (db-user-ref (ctx-ref 'db) username))
   (define (user-with-extra-endpoints)
     (asobj-set user "endpoints"
                `(@ ("getAuthToken" ,(abs-local-uri "api" "get-auth-token"))
@@ -94,16 +94,16 @@
    (else (render-user-page))))
 
 (define (user-inbox request body username)
-  (define store (ctx-ref 'store))
+  (define db (ctx-ref 'db))
   ;; Obviously needs to be changed
   (define inbox-user
-    (store-user-ref (ctx-ref 'store) username))
+    (db-user-ref (ctx-ref 'db) username))
   ;; TODO: This is basically the same as in user-outbox.  DRY!
   (define (api-user-can-read?)
     (match (assoc-ref (request-headers request) 'authorization)
       (('bearer . (? string? token))
-       (store-bearer-token-valid?
-        store token inbox-user))
+       (db-bearer-token-valid?
+        db token inbox-user))
       (_ #f)))
   (define (logged-in-user-can-read?)
     (and=> (ctx-ref 'user)
@@ -179,10 +179,10 @@
                 ((col-url) (abs-col-url-str))
                 ((page-items prev next)
                  (if is-first
-                     (user-collection-first-page (ctx-ref 'store)
+                     (user-collection-first-page (ctx-ref 'db)
                                                  user collection
                                                  %items-per-page)
-                     (user-collection-page (ctx-ref 'store)
+                     (user-collection-page (ctx-ref 'db)
                                            user collection
                                            page-id %items-per-page)))
                 ((ordered-collection-page)
@@ -214,9 +214,9 @@
                 ,(toplevel-activity-tmpl return-asobj)))))))
 
 (define (user-outbox request body username)
-  (define store (ctx-ref 'store))
+  (define db (ctx-ref 'db))
   (define outbox-user
-    (store-user-ref (ctx-ref 'store) username))
+    (db-user-ref (ctx-ref 'db) username))
   (define (post-to-outbox)
     ;; TODO: Handle side effects appropriately.
     ;;   Currently doing a "dumb" version of things where we just dump it
@@ -239,8 +239,8 @@
                   ;; fields.
                   ((recipients asobj)
                    (collect-recipients asobj)))
-      (store-asobj-set! store asobj)                           ; save asobj
-      (user-add-to-outbox! store outbox-user (asobj-id asobj)) ; add to inbox
+      (db-asobj-set! db asobj)                           ; save asobj
+      (user-add-to-outbox! db outbox-user (asobj-id asobj)) ; add to inbox
       (deliver-asobj asobj recipients)                         ; deliver it
       (respond (asobj->string asobj)
                #:status status:created
@@ -261,8 +261,8 @@
   (define (api-user-can-post?)
     (match (assoc-ref (request-headers request) 'authorization)
       (('bearer . (? string? token))
-       (store-bearer-token-valid?
-        store token outbox-user))
+       (db-bearer-token-valid?
+        db token outbox-user))
       (_ #f)))
   (match (request-method request)
     ('GET
@@ -282,9 +282,9 @@
                                             (format #f "~a's ~a" user-name-str collection)))
                                          (on-nothing "There's nothing here."))
   (lambda (request body username)
-    (define store (ctx-ref 'store))
+    (define db (ctx-ref 'db))
     (define view-user
-      (store-user-ref (ctx-ref 'store) username))
+      (db-user-ref (ctx-ref 'db) username))
 
     (match (request-method request)
       ('GET
@@ -312,7 +312,7 @@
      #:label "Password")))
 
 (define (login request body)
-  (define store (ctx-ref 'store))
+  (define db (ctx-ref 'db))
   (define session-manager
     (ctx-ref 'session-manager))
   (match (request-method request)
@@ -326,7 +326,7 @@
             (username (assoc-ref form "username"))
             (password (assoc-ref form "password"))
             (user (if username
-                      (store-user-ref store username)
+                      (db-user-ref db username)
                       #f))
             (next (assoc-ref form "next"))
             (redirect-to (or next (local-uri ""))))
@@ -350,7 +350,7 @@
 (define (display-post request body username post-id)
   ;; GET only.
   (let* ((post-url (abs-local-uri "u" username "p" post-id))
-         (asobj (and=> (store-asobj-ref (ctx-ref 'store) post-url)
+         (asobj (and=> (db-asobj-ref (ctx-ref 'db) post-url)
                        asobj-fatten)))
     (match (request-method request)
       ('GET
@@ -397,8 +397,8 @@
                              "access")
                   "granted")
           (respond-html
-           (let ((token (store-bearer-token-new!
-                         (ctx-ref 'store) (ctx-ref 'user))))
+           (let ((token (db-bearer-token-new!
+                         (ctx-ref 'db) (ctx-ref 'user))))
              (base-tmpl
               (centered-content-tmpl
                '(h1 "Authorization granted!")

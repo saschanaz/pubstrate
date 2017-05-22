@@ -29,8 +29,8 @@
   (with-app-ctx-from-config-file
    "/home/cwebber/sandbox/data/pubstrate/pubstrate-cfg.scm"
    (lambda ()
-     (store-add-new-user! (ctx-ref 'store)
-                          username password))))
+     (db-add-new-user! (ctx-ref 'db)
+                       username password))))
 
 (define option-spec
   '((help (single-char #\h) (value #f))

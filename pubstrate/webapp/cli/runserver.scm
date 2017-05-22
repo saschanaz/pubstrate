@@ -18,8 +18,8 @@
 
 (define-module (pubstrate webapp cli runserver)
   #:use-module (pubstrate webapp app)
-  #:use-module (pubstrate webapp store)
-  #:use-module (pubstrate webapp store-gdbm)
+  #:use-module (pubstrate webapp db)
+  #:use-module (pubstrate webapp db-gdbm)
   #:use-module (pubstrate config)
   #:use-module (pubstrate webapp config)
   #:use-module (ice-9 getopt-long)
@@ -32,7 +32,7 @@
 ;;; "run" subcommand
 
 ;; I guess for now we just want to be able to set a prefix
-;; and a store location.
+;; and a db location.
 
 (define run-option-spec
   '((help (single-char #\h) (value #f))
