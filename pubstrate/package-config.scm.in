@@ -20,6 +20,7 @@
 ;;;
 
 (define-module (pubstrate package-config)
+  #:use-module (pubstrate paths)
   #:export (%datadir
             scope-datadir web-static-filepath
 
@@ -31,7 +32,7 @@
       "@PUBSTRATE_DATADIR@/@PACKAGE_NAME@"))
 
 (define (scope-datadir filename)
-  (string-append %datadir filename))
+  (clean-path (string-append %datadir filename)))
 
 (define (web-static-filepath filename)
   (scope-datadir (string-append "/web-static" filename)))
