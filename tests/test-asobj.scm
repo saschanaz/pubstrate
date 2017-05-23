@@ -23,7 +23,7 @@
   #:use-module (tests utils)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate asobj)
-  #:use-module (pubstrate json-utils)
+  #:use-module (sjson utils)
   #:use-module ((pubstrate shorthand)
                 #:renamer (symbol-prefix-proc 'as:)))
 
@@ -158,8 +158,8 @@
   (test-assert (asobj? (asobj-ref invitation "object")))
   (test-equal (asobj-types (asobj-ref invitation "object"))
     (list ^Invite))
-  ;; but of course, it should still just be inserted as a jsmap...
-  (test-assert (jsmap? (cdr (asobj-sjson-assoc invitation "object")))))
+  ;; but of course, it should still just be inserted as a jsobj...
+  (test-assert (jsobj? (cdr (asobj-sjson-assoc invitation "object")))))
 
 ;; Create a version of the root-beer-note with private data attached
 ;; to it
@@ -183,7 +183,7 @@
 
 ;; Original note should just have the json-alist-nil though
 (test-equal (asobj-private root-beer-note)
-    json-alist-nil)
+    jsobj-nil)
 
 ;; Test serializing to and restoring from sjson
 (let ((restored-asobj

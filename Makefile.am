@@ -51,7 +51,6 @@ SOURCES =  \
 	pubstrate/config.scm				\
 	pubstrate/generics.scm				\
 	pubstrate/vocab.scm				\
-	pubstrate/json-utils.scm			\
 	pubstrate/json-ld.scm				\
 	pubstrate/shorthand.scm				\
 	pubstrate/paths.scm				\
@@ -81,8 +80,7 @@ SOURCES =  \
 	pubstrate/contrib/base32.scm			\
 	pubstrate/contrib/define-method-star.scm	\
 	pubstrate/contrib/html.scm			\
-	pubstrate/contrib/mime-types.scm		\
-	pubstrate/contrib/json.scm
+	pubstrate/contrib/mime-types.scm
 
 TESTS =							\
 	tests/test-asobj.scm				\
