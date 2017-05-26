@@ -37,7 +37,7 @@
 
             delete-file-recursively
             temporary-directory
-            with-temporary-directory))
+            call-with-temporary-directory))
 
 (define file-name-separator-char
   (string-ref file-name-separator-string 0))
@@ -124,7 +124,7 @@ errors."
 
 
 
-(define* (with-temporary-directory proc)
+(define* (call-with-temporary-directory proc)
   "Call PROC with path to a temporary directory which will be cleaned up after
 PROC's execution."
   (let ((dirname (temporary-directory)))
