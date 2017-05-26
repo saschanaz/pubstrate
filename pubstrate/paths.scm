@@ -121,3 +121,16 @@ errors."
     (mkdir name)
     (chmod name #o700)
     name))
+
+
+
+(define* (with-temporary-directory proc)
+  "Call PROC with path to a temporary directory which will be cleaned up after
+PROC's execution."
+  (let ((dirname (temporary-directory)))
+    (dynamic-wind
+      (const #f)
+      (lambda ()
+        (proc dirname))
+      (lambda ()
+        (delete-file-recursively dirname)))))
