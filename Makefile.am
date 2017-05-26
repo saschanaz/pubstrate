@@ -58,6 +58,7 @@ SOURCES =  \
 	pubstrate/webapp/cli.scm			\
 	pubstrate/webapp/cli/configure.scm		\
 	pubstrate/webapp/cli/runserver.scm		\
+	pubstrate/webapp/filestore.scm			\
 	pubstrate/webapp/form-widgets.scm		\
 	pubstrate/webapp/db.scm			\
 	pubstrate/webapp/db-gdbm.scm			\
@@ -91,6 +92,7 @@ TESTS =							\
 	tests/test-web-ctx.scm				\
 	tests/test-web-utils.scm			\
 	tests/test-web-user.scm				\
+	tests/test-filestore.scm			\
 	tests/test-generics.scm
 
 TEST_EXTENSIONS = .scm
