@@ -50,9 +50,9 @@ Instead, several other variables (such as signing-key-path) use it as
 a basis to infer a default location to put their own data."
     #:validate string?)
 
-   (db "Storage subsystem.
-This should be a procedure to produce a storage system, or a list
-of (storage-system args ...) where storage-system is a procedure
+   (db "Database.
+This should be a procedure to produce a database, or a list
+of (db-constructor args ...) where db-constructor is a procedure
 to initialize a storage system and args are arguments to that
 procedure."
        #:validate (match-lambda
@@ -75,6 +75,8 @@ time."
     #:default (lambda (cfg)
                 (path-join (assoc-ref cfg 'state-dir)
                            "crypto" "signing-key.txt")))
+
+   
    ;; (https-only
    ;;  "Whether Pubstrate should only communicate with other servers over HTTPS."
    ;;  #:default #f)
