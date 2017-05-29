@@ -112,10 +112,10 @@ libgcrypt to provide a variety of encryption tooling.")
        (method git-fetch)
        (uri (git-reference
              (url "https://notabug.org/cwebber/guile-webutils.git")
-             (commit "7ef45b5396373ff42e91a1ecad1d9be6389d6934")))
+             (commit "2b27ab0cf89f877086f14586b1a44889f7be4fb8")))
        (sha256
         (base32
-         "03hdz70l4ymbdvfm1xc3aycafps4x6al16qd4kzxxmyvkqxb7agh"))))
+         "1cxvly4cmgydpqk1dgq7962cxzp5vc64w3k7asn5cxrz60srkg6f"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases
