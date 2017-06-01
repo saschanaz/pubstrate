@@ -26,6 +26,7 @@
   #:use-module (web uri)
   #:use-module (pubstrate webapp db)
   #:use-module (pubstrate webapp db-gdbm)
+  #:use-module (pubstrate webapp filestore)
   #:export (pubstrate-config-spec))
 
 ;; TODO: Not used (and neither is the plain db import, then)
@@ -35,6 +36,12 @@
    "WARNING: db-path not provided, so using memory db only\n"
    (current-error-port))
   (make-memory-db))
+
+(define procedure-or-procedure-with-args?
+  (match-lambda
+    ((? procedure? _) #t)
+    (((? procedure? _) args ...) #t)
+    (_ #f)))
 
 (define pubstrate-config-spec
   (make-config-spec*
@@ -53,19 +60,15 @@ a basis to infer a default location to put their own data."
    (db "Database.
 This should be a procedure to produce a database, or a list
 of (db-constructor args ...) where db-constructor is a procedure
-to initialize a storage system and args are arguments to that
-procedure."
-       #:validate (match-lambda
-                    ((? procedure? _) #t)
-                    (((? procedure? _) rest ...) #t)
-                    (_ #f))
+to initialize a database and args are arguments to that procedure."
+       #:validate procedure-or-procedure-with-args?
           ;;;; If nothing is provided, the application will
           ;;;; initialize a memory db but will throw a warning.
        ;; #:default (const make-memory-db-but-warn)
        #:default (lambda (cfg)
                    (list make-gdbm-db
                          (path-join (assoc-ref cfg 'state-dir)
-                                       "gdbm-db"))))
+                                    "gdbm-db"))))
    (signing-key-path
     "Filename to keep the private key at.
 If not provided, will be constructed from state-dir.
@@ -76,6 +79,18 @@ time."
                 (path-join (assoc-ref cfg 'state-dir)
                            "crypto" "signing-key.txt")))
 
+
+   (filestore "Filestore.
+This should be a procedure to produce a filestore, or a list
+of (filestore args ...) where filestore is a procedure
+to initialize a filestore system and args are arguments to that
+procedure."
+              #:validate procedure-or-procedure-with-args?
+              #:default
+              (lambda (cfg)
+                (list make-simple-filestore
+                      (path-join (assoc-ref cfg 'state-dir)
+                                 "files"))))
    
    ;; (https-only
    ;;  "Whether Pubstrate should only communicate with other servers over HTTPS."

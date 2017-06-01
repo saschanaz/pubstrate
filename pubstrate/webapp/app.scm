@@ -20,6 +20,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (oop goops)
+  #:use-module (web request)
   #:use-module (web server)
   #:use-module (web uri)
   #:use-module (gcrypt hmac)
@@ -42,12 +43,23 @@
 (define (ctx-vars-from-request request)
   (define session
     (session-data (ctx-ref 'session-manager) request))
+  (define db
+    (ctx-ref 'db))
   ;; Get the user based on session data, if there
-  (define user
+  (define (session-user)
     (and=> (assoc-ref session 'user)
            (lambda (username)
-             (db-user-ref (ctx-ref 'db)
-                             username))))
+             (db-user-ref db username))))
+  (define (api-user)
+    (match (assoc-ref (request-headers request) 'authorization)
+      (('bearer . (? string? token))
+       (and=> (db-bearer-entry-ref db token)
+              (lambda (entry)
+                (db-asobj-ref db (bearer-entry-user-id entry)))))
+      (_ #f)))
+  (define user
+    (or (session-user)
+        (api-user)))
   `((user . ,user)))
 
 (define (webapp-server-handler request request-body)
@@ -72,11 +84,14 @@
   (%ctx %debug-ctx))
 
 (define (app-ctx-from-config config)
-  (define db
-    (match (config-ref config 'db)
+  (define (init-from-config key)
+    (match (config-ref config key)
       ((db-proc . db-args)
        (apply db-proc db-args))))
+  (define db (init-from-config 'db))
+  (define filestore (init-from-config 'filestore))
   `((db . ,db)
+    (filestore . ,filestore)
     (base-uri . ,(config-ref config 'base-uri))
     ;; TODO: signing-key-path
     (session-manager . ,(make-session-manager (gen-signing-key))))  )
