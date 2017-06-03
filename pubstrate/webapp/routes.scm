@@ -40,9 +40,12 @@
      (values user-following (list username)))
     (("static" static-path ...)
      ;; TODO: make this toggle'able
-     (values render-static
-             (list (string-append "/" (string-join
-                                       static-path "/")))))
+     (values render-static (list static-path)))
+
+    (("media" media-path ...)
+     ;; TODO: make this toggle'able
+     (values render-media (list media-path)))
+
     (("login")
      (values login '()))
     (("logout")
@@ -51,6 +54,9 @@
      (values mockup '()))
     (("api" "get-auth-token")
      (values oauth-authorize '()))
+
+    (("api" "upload-media")
+     (values upload-media '()))
 
     ;; Not found!
     (_ (values standard-four-oh-four '()))))

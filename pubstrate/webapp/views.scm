@@ -28,6 +28,7 @@
   #:use-module (web uri)
   #:use-module (webutils cookie)
   #:use-module (webutils sessions)
+  #:use-module (webutils multipart)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate package-config)
   #:use-module (pubstrate vocab)
@@ -36,6 +37,7 @@
   #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp inbox-outbox)
   #:use-module (pubstrate webapp fat-lean)
+  #:use-module (pubstrate webapp filestore)
   #:use-module (pubstrate webapp form-widgets)
   #:use-module (pubstrate webapp db)
   #:use-module (pubstrate webapp templates)
@@ -51,11 +53,10 @@
             login logout
             display-post asobj
             oauth-authorize
+            upload-media
 
-            ;; @@: Temporary!
-            bearer-token-test
-
-            standard-four-oh-four render-static))
+            standard-four-oh-four
+            render-static render-media))
 
 ;; Fixed, for now...
 (define %items-per-page 10)
@@ -93,26 +94,21 @@
    ;; Otherwise, give them the human-readable HTML!
    (else (render-user-page))))
 
+(define (%logged-in-as? this-user)
+  (define current-user
+    (ctx-ref 'user))
+  (and current-user
+       (equal? (asobj-id current-user)
+               (asobj-id this-user))))
+
 (define (user-inbox request body username)
   (define db (ctx-ref 'db))
   ;; Obviously needs to be changed
   (define inbox-user
     (db-user-ref (ctx-ref 'db) username))
   ;; TODO: This is basically the same as in user-outbox.  DRY!
-  (define (api-user-can-read?)
-    (match (assoc-ref (request-headers request) 'authorization)
-      (('bearer . (? string? token))
-       (db-bearer-token-valid?
-        db token inbox-user))
-      (_ #f)))
-  (define (logged-in-user-can-read?)
-    (and=> (ctx-ref 'user)
-           (lambda (u)
-             (equal? (asobj-id inbox-user)
-                     (asobj-id u)))))
   (define (user-can-read?)
-    (or (api-user-can-read?)
-        (logged-in-user-can-read?)))
+    (%logged-in-as? inbox-user))
   (define (post-to-inbox)
     ;; TODO: Add filtering hooks here
     ;; TODO: Validate content here
@@ -213,39 +209,41 @@
                          "== " ,title " =="))
                 ,(toplevel-activity-tmpl return-asobj)))))))
 
+(define (%post-to-outbox initial-asobj outbox-user)
+  (define db (ctx-ref 'db))
+  ;; TODO: Handle side effects appropriately.
+  ;;   Currently doing a "dumb" version of things where we just dump it
+  ;;   into the database.
+  (let*-values (;; Here we've first done some common "tweaks" on the asobj,
+                ;; then allowed our asobj to handle all its appropriate side
+                ;; effects.
+                ((asobj) (asobj-outbox-effects! initial-asobj
+                                                outbox-user))
+                ;; In determining the recipients of an activitystreams object,
+                ;; we very well may determine a new structure of the asobj,
+                ;; especially because we're likely to strip off the bcc/bto
+                ;; fields.
+                ((recipients asobj)
+                 (collect-recipients asobj)))
+    (db-asobj-set! db asobj)                           ; save asobj
+    (user-add-to-outbox! db outbox-user (asobj-id asobj)) ; add to inbox
+    (deliver-asobj asobj recipients)                         ; deliver it
+    (respond (asobj->string asobj)
+             #:status status:created
+             #:content-type 'application/activity+json
+             #:extra-headers `((location . ,(string->uri (asobj-id asobj)))))))
+
+(define (%body->asobj body)
+  (string->asobj
+   (if (bytevector? body)
+       (utf8->string body)
+       body)
+   (%default-env)))
+
 (define (user-outbox request body username)
   (define db (ctx-ref 'db))
   (define outbox-user
     (db-user-ref (ctx-ref 'db) username))
-  (define (post-to-outbox)
-    ;; TODO: Handle side effects appropriately.
-    ;;   Currently doing a "dumb" version of things where we just dump it
-    ;;   into the database.
-    (let*-values (;; This is the asobj as it first comes in from the body of the
-                  ;; request.
-                  ((initial-asobj) (string->asobj
-                                    (if (bytevector? body)
-                                        (utf8->string body)
-                                        body)
-                                    (%default-env)))
-                  ;; Here we've first done some common "tweaks" on the asobj,
-                  ;; then allowed our asobj to handle all its appropriate side
-                  ;; effects.
-                  ((asobj) (asobj-outbox-effects! initial-asobj
-                                                  outbox-user))
-                  ;; In determining the recipients of an activitystreams object,
-                  ;; we very well may determine a new structure of the asobj,
-                  ;; especially because we're likely to strip off the bcc/bto
-                  ;; fields.
-                  ((recipients asobj)
-                   (collect-recipients asobj)))
-      (db-asobj-set! db asobj)                           ; save asobj
-      (user-add-to-outbox! db outbox-user (asobj-id asobj)) ; add to inbox
-      (deliver-asobj asobj recipients)                         ; deliver it
-      (respond (asobj->string asobj)
-               #:status status:created
-               #:content-type 'application/activity+json
-               #:extra-headers `((location . ,(string->uri (asobj-id asobj)))))))
   (define* (abs-outbox-url-str #:optional page)
     (let ((url-str (abs-local-uri "u" username "outbox")))
       (if page
@@ -259,17 +257,13 @@
     ;;   anyway.
     (as2-paginated-user-collection request outbox-user username "outbox"))
   (define (api-user-can-post?)
-    (match (assoc-ref (request-headers request) 'authorization)
-      (('bearer . (? string? token))
-       (db-bearer-token-valid?
-        db token outbox-user))
-      (_ #f)))
+    (%logged-in-as? outbox-user))
   (match (request-method request)
     ('GET
      (read-from-outbox))
     ('POST
      (if (api-user-can-post?)
-         (post-to-outbox)
+         (%post-to-outbox (%body->asobj body) outbox-user)
          (respond "Sorry, you don't have permission to post that."
                   #:status status:unauthorized
                   #:content-type 'text/plain)))
@@ -412,11 +406,93 @@
   (respond-not-found))
 
 ;;; Static site rendering... only available on devel instances (hopefully!)
-(define (render-static request body static-path)
-  (let ((filepath
-         (web-static-filepath static-path)))
-    (if (file-exists? filepath)
-        (respond
-         (call-with-input-file (web-static-filepath static-path) get-bytevector-all)
-         #:content-type (mime-type static-path))
-        (respond-not-found))))
+;;; TODO: This should really stream output to a port, not read/write
+;;;   it as one big bytevector.  That requires transitioning from guile's
+;;;   builtlin server to a more stream-y fibers or 8sync server though.
+(define (static-renderer get-file-port)
+  (lambda (request body path-parts)
+    (let* ((file-port
+            (get-file-port path-parts))
+           (file-bv
+            (get-bytevector-all file-port)))
+      (if file-port
+          (begin
+            (close file-port)
+            (respond file-bv
+                     #:content-type (mime-type (last path-parts))))
+          (respond-not-found)))))
+
+(define render-static
+  (static-renderer
+   (lambda (path-parts)
+     (let* ((partial-path (string-append "/" (string-join
+                                              path-parts "/")))
+            (full-path (web-static-filepath partial-path)))
+       (and (file-exists? full-path)
+            (open-file full-path "r"))))))
+
+;;; Likewise with media serving...
+(define render-media
+  (static-renderer
+   (lambda (path-parts)
+     (let ((filestore (ctx-ref 'filestore)))
+       (and (filestore-file-exists? filestore path-parts)
+            (filestore-open-read filestore path-parts))))))
+
+(define (upload-media request body)
+  (cond
+   ((ctx-ref 'user) =>
+    (lambda (user)
+      (match (request-method request)
+        ('GET
+         (respond-html
+          (base-tmpl
+           (centered-content-tmpl
+            `(form (@ (action "")
+                      (method "POST")
+                      (enctype "multipart/form-data"))
+                   (table
+                    (tr (th "Object")
+                        (td (textarea (@ (name "object"))
+                                      "")))
+                    (tr (th "File")
+                        (td (input (@ (name "file")
+                                      (type "file")))))
+                    (tr (td)
+                        (td (button
+                             (@ (type "submit"))
+                             "Submit")))))))))
+        ('POST
+         (let* ((parts (parse-request-body request body))
+                (form-file-part (parts-ref parts "file"))
+                (form-file-body (part-body form-file-part))
+                (filename (assoc-ref (part-content-disposition-params
+                                      form-file-part)
+                                     'filename))
+                (username (asobj-ref user "preferredUsername"))
+                (full-filepath (list username (gen-bearer-token) filename))
+                (file-object (filestore-open-write (ctx-ref 'filestore) full-filepath))
+                (file-link (apply abs-local-uri "media" full-filepath))
+                ;; Add file path to the activitystreams object
+                (asobj (asobj-set (string->asobj
+                                   (get-string-all (part-body
+                                                    (parts-ref parts "object")))
+                                   (%default-env))
+                                  "url" (make-as ^Link (%default-env)
+                                                 #:href file-link))))
+           ;; stream data to file object
+           (let lp ()
+             (match (get-bytevector-n form-file-body 512) ;512 bytes at a time
+               ((? bytevector? bv)
+                (put-bytevector file-object bv)
+                (lp))
+               ((? eof-object? _)
+                ;; (close form-file-body) ; ???
+                (close file-object))))
+           ;; Now make final modifications and save in the db
+           (%post-to-outbox asobj user))))))
+   (else
+    (respond-html
+     (base-tmpl
+      `(p "Sorry, you don't seem to be logged in?"))
+     #:status status:unauthorized))))
