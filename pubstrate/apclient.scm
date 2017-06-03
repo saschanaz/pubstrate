@@ -17,6 +17,7 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate apclient)
+  #:use-module (ice-9 binary-ports)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (web request)
@@ -31,6 +32,8 @@
   #:use-module (pubstrate webapp utils) ;webapp?? well, for uri-set
   #:use-module (pubstrate webapp auth)  ; allow bearer tokens, etc
   #:use-module (sjson utils)
+  #:use-module (srfi srfi-11)  ; let-values
+  #:use-module (webutils multipart)
   #:export (<apclient>
             apclient-id apclient-auth-token
 
@@ -41,6 +44,7 @@
             apclient-post-local apclient-post-local-asobj
 
             apclient-submit
+            apclient-submit-media
 
             http-get-asobj http-post-asobj))
 
@@ -118,6 +122,11 @@
     (and=> (asobj-ref user "outbox")
            string->uri)))
 
+(define (apclient-media-uri apclient)
+  (let ((user (apclient-user apclient)))
+    (and=> (asobj-ref user '("endpoints" "uploadMedia"))
+           string->uri)))
+
 (define (apclient-inbox apclient)
   (receive (response inbox-asobj)
       (apclient-get-local-asobj apclient (apclient-inbox-uri apclient))
@@ -166,7 +175,8 @@
                                            #:key (headers '()))
   "Post ASOBJ to local URI using APCLIENT's credentials.
 
-(Warning!  If this is used to post to a remote "
+ (Warning!  If this is used to post to a remote object, it'll
+expose local credentials...)"
   (call-with-values
       (lambda ()
         (apclient-post-local apclient uri
@@ -184,6 +194,22 @@
       (lambda ()
         (http-get uri #:headers (cons as2-accept-header headers)))
     response-with-body-maybe-as-asobj))
+
+(define (apclient-submit-media apclient asobj media filename)
+  (let*-values (((file-headers)
+                 `((content-disposition . (form-data
+                                           (name . "file")
+                                           (filename . ,filename)))))
+                ((body boundary) (format-multipart-body
+                                  `(("object" . ,(asobj->string asobj))
+                                    ,(make-part file-headers media))))
+                ((headers)
+                 `((content-type . (multipart/form-data (boundary . ,boundary))))))
+    (call-with-values
+        (lambda ()
+          (apclient-post-local apclient (apclient-media-uri apclient)
+                               body #:headers headers))
+      response-with-body-maybe-as-asobj)))
 
 (define* (http-post-asobj uri #:key (headers '()))
   (call-with-values
