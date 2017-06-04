@@ -44,7 +44,7 @@
             apclient-post-local apclient-post-local-asobj
 
             apclient-submit
-            apclient-submit-media
+            apclient-submit-media apclient-submit-file
 
             http-get-asobj http-post-asobj))
 
@@ -196,6 +196,8 @@ expose local credentials...)"
     response-with-body-maybe-as-asobj))
 
 (define (apclient-submit-media apclient asobj media filename)
+  "Submit MEDIA (a port or bytevector) with shell ASOBJ to the user's
+media upload endpoint with filename listed as FILENAME."
   (let*-values (((file-headers)
                  `((content-disposition . (form-data
                                            (name . "file")
@@ -210,6 +212,19 @@ expose local credentials...)"
           (apclient-post-local apclient (apclient-media-uri apclient)
                                body #:headers headers))
       response-with-body-maybe-as-asobj)))
+
+(define (apclient-submit-file apclient asobj filepath)
+  "Like apclient-submit-media, but pulling a file from on disk at FILEPATH."
+  (let ((file (open-file filepath "r")))
+    (call-with-values
+        (lambda ()
+          (apclient-submit-media apclient asobj
+                                 file (basename filepath)))
+      (lambda result
+        ;; Clean up by closing the file
+        (close file)
+        ;; Return the values that would have been returned
+        (apply values result)))))
 
 (define* (http-post-asobj uri #:key (headers '()))
   (call-with-values
