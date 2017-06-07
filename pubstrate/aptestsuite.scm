@@ -34,6 +34,7 @@
              (pubstrate apclient)
              (pubstrate contrib html)
              (pubstrate vocab)
+             (pubstrate package-config)
              (pubstrate webapp utils)
              (pubstrate webapp ctx)
              (pubstrate webapp form-widgets)
@@ -120,9 +121,7 @@
     ;; static files 
     (("static" static-path ...)
      ;; TODO: make this toggle'able
-     (values ps-view:render-static
-             (list (string-append "/" (string-join
-                                       static-path "/")))))
+     (values ps-view:render-static (list static-path)))
 
     ;; Not found!
     (_ (values ps-view:standard-four-oh-four '()))))
@@ -311,7 +310,8 @@ message handling, and within `with-user-io-prompt'."
 
 (define* (report-ref case-worker key #:key dflt)
   (match (assoc key (.report case-worker))
-    ((key . val) val)))
+    ((key . val) val)
+    (_ dflt)))
 
 
 
@@ -365,6 +365,44 @@ message handling, and within `with-user-io-prompt'."
               (apply make response-type
                      #:sym sym
                      args)))
+
+(define-syntax-rule (report-protected items body ...)
+  (dynamic-wind
+    (const #f)
+    (lambda ()
+      (catch #t
+        (lambda ()
+          (catch 'report-bail-out
+            (lambda ()
+              body ...)
+            (lambda (key reason)
+              (for-each
+               (lambda (item)
+                 (when (not (report-ref (%current-actor) item))
+                   (report-on! item <fail>
+                               #:comment reason)))
+               items))))
+        (lambda _
+          (for-each
+           (lambda (item)
+             (when (not (report-ref (%current-actor) item))
+               (report-on! item <inconclusive>
+                           #:comment "Unexpected server error while running test!")))
+           items))
+        (let ((err (current-error-port)))
+          (lambda (key . args)
+            (false-if-exception
+             (let ((stack (make-stack #t 4)))
+               (display-backtrace stack err)
+               (print-exception err (stack-ref stack 0)
+                                key args)))))))
+    (lambda ()
+      (for-each
+       (lambda (item)
+         (when (not (report-ref (%current-actor) item))
+           (report-on! item <inconclusive>
+                       #:comment "Test case not reported on...")))
+       items))))
 
 (define (log-wrapper . content)
   `(div (@ (class "test-log"))
@@ -446,7 +484,10 @@ message handling, and within `with-user-io-prompt'."
                    "Response contains a Location header pointing to the to-be-created object's id.")
                   (outbox:upload-media:appends-id
                    MUST
-                   "Appends an id property to the new object")))
+                   "Appends an id property to the new object")
+                  (outbox:upload-media:url
+                   SHOULD
+                   "After receiving submission with uploaded media, the server should include the upload's new URL in the submitted object's url property")))
      (outbox:update
       MUST
       "Update"
@@ -460,10 +501,6 @@ message handling, and within `with-user-io-prompt'."
      (outbox:validate-content
       SHOULD
       "Validate the content they receive to avoid content spoofing attacks.")
-     ;; @@: Maybe should be under outbox:upload-media ?
-     (outbox:upload-media-url
-      SHOULD
-      "After receiving submission with uploaded media, the server should include the upload's new URL in the submitted object's url property")
      (outbox:do-not-overload
       SHOULD
       "Take care not to overload other servers with delivery submissions")
@@ -631,7 +668,8 @@ leave the tests in progress."
   (set-up-c2s-server-client-auth case-worker)
   (test-outbox-activity-posted case-worker)
   (test-outbox-non-activity case-worker)
-  (test-outbox-update case-worker))
+  (test-outbox-update case-worker)
+  (test-outbox-upload-media))
 
 (define (set-up-c2s-server-client-auth case-worker)
   (define (get-user-obj)
@@ -721,7 +759,7 @@ leave the tests in progress."
   (receive (response body)
       (apclient-submit apclient activity-to-submit)
     ;; [outbox:responds-201-created]
-    (match (response-code (pk 'body body 'response response))
+    (match (response-code response)
       (201
        (set! activity-submitted #t)
        (report-on! 'outbox:responds-201-created
@@ -822,9 +860,106 @@ leave the tests in progress."
   ;; [outbox:upload-media:201-or-202-status]
   ;; [outbox:upload-media:location-header]
   ;; [outbox:upload-media:appends-id]
-  ;; [outbox:upload-media-url]
-  'TODO
-  )
+  ;; [outbox:upload-media:url]
+
+  (define reporting-on
+    '(outbox:upload-media
+      outbox:upload-media:201-or-202-status
+      outbox:upload-media:location-header
+      outbox:upload-media:file-parameter
+      outbox:upload-media:object-parameter
+      outbox:upload-media:appends-id
+      outbox:upload-media:url))
+
+  (report-protected
+   reporting-on
+   (when (not (apclient-media-uri apclient))
+     (throw 'report-bail-out
+            "No media endpoint given"))
+   
+   (let ((submit-response
+          (apclient-submit-file apclient
+                                (as:image #:name "A red ghostie!"
+                                          #:content "Isn't it cute?")
+                                (web-static-filepath "/images/red-ghostie.png"))))
+     (report-on! 'outbox:upload-media
+                 <success>)
+     (report-on! 'outbox:upload-media:201-or-202-status
+                 (if (member (response-code submit-response)
+                             '(200 201))
+                     <success>
+                     <fail>))
+
+     (match (response-location submit-response)
+       ((? uri? location-uri)
+        (receive (loc-response loc-asobj)
+            (http-get-asobj location-uri)
+          (report-on! 'outbox:upload-media:location-header
+                      <success>)
+          ;; So either we got back the object, or its Create.
+          ;; Create would be The Right Thing but we aren't really testing
+          ;; that bit here.
+          (let ((image-asobj
+                 (cond
+                  ((asobj-is-a? loc-asobj ^Image)
+                   loc-asobj)
+                  ((and (asobj-is-a? loc-asobj ^Create)
+                        (asobj-ref loc-asobj "object"))
+                   (receive (_ image-asobj)
+                       (http-get-asobj (asobj-id (asobj-ref loc-asobj "object")))
+                     (when (or (not (asobj? image-asobj))
+                               (not (asobj-is-a? image-asobj ^Image)))
+                       (throw 'report-bail-out
+                              "Location points to a Create object, but no Image activitystreams object at that location."))
+                     image-asobj))
+                  (else
+                   (throw 'report-bail-out
+                          "Location points to something that isn't a Create or an Image.  Huh?")))))
+            ;; Was the object parameter really accepted?  If it is, the object
+            (if (and (equal? (asobj-ref image-asobj "name")
+                             "A red ghostie!")
+                     (equal? (asobj-ref image-asobj "content")
+                             "Isn't it cute?"))
+                (report-on! 'outbox:upload-media:object-parameter
+                            <success>)
+                (report-on! 'outbox:upload-media:object-parameter
+                            <fail>
+                            #:comment "Image object doesn't contain the values of the uploaded object's original `name' or `content' fields."))
+            ;; But what about the file parameter?
+            ;; We're going to have to check the url field.
+            ;; We can't determine exactly that the file is based off the url field,
+            ;; because it might not be the same contents... maybe the server resized it,
+            ;; or whatever.
+            ;; But we can at least check that a url field got added.
+            (cond ((asobj-ref image-asobj "url")
+                   (report-on! 'outbox:upload-media:file-parameter
+                               <success>)
+                   (report-on! 'outbox:upload-media:url
+                               <success>))
+                  (else
+                   (report-on! 'outbox:upload-media:file-parameter
+                               <inconclusive>
+                               #:comment
+                               "Unable to determine if file object was accepted, not where it was expected to be (in the `url' parameter).")
+                   (report-on! 'outbox:upload-media:url
+                               <fail>)))
+
+            ;; id should be appended to both the Image and (if it exists)
+            ;; the wrapping Create object
+            (if (and (asobj-ref image-asobj "id")
+                     (asobj-ref loc-asobj "id"))
+                (report-on! 'outbox:upload-media:appends-id
+                            <success>)
+                (report-on! 'outbox:upload-media:appends-id
+                            <fail>)))))
+       (#f
+        (report-on! 'outbox:upload-media:location-header
+                    <fail>)))))
+  
+  ;; @@: Maybe report-protected should also do show-response?
+  (for-each (lambda (item)
+              (show-response item))
+            reporting-on))
 
 (define (test-outbox-update case-worker)
   "Test the Update activity"
