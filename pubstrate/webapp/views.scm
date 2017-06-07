@@ -466,9 +466,10 @@
          (let* ((parts (parse-request-body request body))
                 (form-file-part (parts-ref parts "file"))
                 (form-file-body (part-body form-file-part))
-                (filename (assoc-ref (part-content-disposition-params
-                                      form-file-part)
-                                     'filename))
+                (filename (basename ;basename so nobody makes us make a bunch of subdirs
+                           (assoc-ref (part-content-disposition-params
+                                       form-file-part)
+                                      'filename)))
                 (username (asobj-ref user "preferredUsername"))
                 (full-filepath (list username (gen-bearer-token) filename))
                 (file-object (filestore-open-write (ctx-ref 'filestore) full-filepath))
