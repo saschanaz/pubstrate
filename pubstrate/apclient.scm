@@ -39,6 +39,7 @@
 
             make-apclient
             apclient-user apclient-inbox-uri apclient-outbox-uri
+            apclient-media-uri
             apclient-inbox apclient-outbox
             apclient-get-local apclient-get-local-asobj
             apclient-post-local apclient-post-local-asobj
