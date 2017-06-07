@@ -22,42 +22,11 @@
   #:use-module (web http)
   #:use-module (sjson utils)
   #:use-module (gcrypt hash)
+  #:use-module (gcrypt random)
   #:use-module (pubstrate contrib base32)
-  #:export (gen-bearer-token
-
-            salt-and-hash-password salted-hash-matches?
+  #:export (salt-and-hash-password salted-hash-matches?
             salted-hash->string string->salted-hash
             salted-hash->sjson sjson->salted-hash))
-
-
-
-;;; OAuth (currently OAuth 2.0) support
-;;; ===================================
-
-(define *random-state* (random-state-from-platform))
-
-(define %token-chars
-  #(#\a #\b #\c #\d #\e #\f #\g #\h #\i #\j #\k #\l #\m
-    #\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z
-    #\A #\B #\C #\D #\E #\F #\G #\H #\I #\J #\K #\L #\M
-    #\N #\O #\P #\Q #\R #\S #\T #\U #\V #\W #\X #\Y #\Z
-    #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
-
-(define %token-chars-length (vector-length %token-chars))
-
-(define (random-token-char)
-  (vector-ref %token-chars (random %token-chars-length)))
-
-;; TODO: Rename to plain ol' gen-token?  We seem to be using this for
-;;   a lot of things...
-(define* (gen-bearer-token #:optional (length 50))
-  "Bearer tokens can be... well, nearly anything that's a string.
-They're fairly opaque, by design.  In our case, a random string
-of a specified length is fine."
-  (list->string
-   (map (lambda _ (random-token-char))
-        (iota length))))
-
 
 
 ;;; (Salted) hash support
@@ -75,7 +44,7 @@ of a specified length is fine."
                                  ;; We can use a bearer token as a salt
                                  ;; because it's also just a random string of
                                  ;; characters...
-                                 #:optional (salt (gen-bearer-token)))
+                                 #:optional (salt (random-token)))
   "Salt and hash a new password"
   (let* ((salted-password (string-append
                            salt (list->string (list %salted-hash-delimiter))

@@ -23,8 +23,8 @@
 (define-module (pubstrate webapp db)
   #:use-module (ice-9 receive)
   #:use-module (oop goops)
+  #:use-module (gcrypt random)
   #:use-module (pubstrate asobj)
-  #:use-module (pubstrate webapp auth)
   #:use-module (pubstrate webapp list-pagination)
   #:export (<db>
             db-close
@@ -143,7 +143,7 @@
 (define-method (db-container-new! (db <docu-db>))
   "Add a new container and return its key"
   (define (keep-trying)
-    (let* ((token (gen-bearer-token))
+    (let* ((token (random-token))
            (existing-container
             (docu-db-ref db 'containers token)))
       (if existing-container
@@ -218,7 +218,7 @@ page (or #f)"
 
 (define-class <bearer-entry> ()
   (token #:init-keyword #:token
-         #:init-thunk gen-bearer-token
+         #:init-thunk random-token
          #:getter bearer-entry-token)
   (user-id #:init-keyword #:user-id
            #:getter bearer-entry-user-id)

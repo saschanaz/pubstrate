@@ -18,6 +18,7 @@
 
 (define-module (pubstrate webapp views)
   #:use-module (oop goops) ; for form-widgets
+  #:use-module (gcrypt random)
   #:use-module (ice-9 match)
   #:use-module (ice-9 control)
   #:use-module (srfi srfi-1)
@@ -471,7 +472,7 @@
                                        form-file-part)
                                       'filename)))
                 (username (asobj-ref user "preferredUsername"))
-                (full-filepath (list username (gen-bearer-token) filename))
+                (full-filepath (list username (random-token) filename))
                 (file-object (filestore-open-write (ctx-ref 'filestore) full-filepath))
                 (file-link (apply abs-local-uri "media" full-filepath))
                 ;; Add file path to the activitystreams object

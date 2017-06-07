@@ -17,6 +17,7 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp inbox-outbox)
+  #:use-module (gcrypt random)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:use-module (srfi srfi-26)
@@ -34,7 +35,6 @@
   #:use-module (pubstrate webapp db)
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
-  #:use-module (pubstrate webapp auth) ; for gen-bearer-token
   #:use-module (ice-9 receive)
   #:use-module (rnrs bytevectors)
   #:use-module (pubstrate vocab)
@@ -241,7 +241,7 @@ a field isn't found, we throw an exception."
 ;; @@: Hardly seems like this belongs here.  Where else to put it?
 (define (gen-asobj-id-for-username username)
   "Generate a fresh asobj id for this username"
-  (abs-local-uri "u" username "p" (gen-bearer-token 30)))
+  (abs-local-uri "u" username "p" (random-token)))
 
 (define (gen-asobj-id-for-user user)
   "Generate a fresh asobj id for this username"
