@@ -129,7 +129,7 @@
     "lisp" "scheme" "hy" "racket" "planner" "schemer" "conniver"
     "python" "js" "csharp" "mono" "jvm" "perl" "elisp"
     "vim" "emacs"
-    "kobodl" "wesnoth" "supertux" "neverball" "crawl"))
+    "xkobo" "wesnoth" "supertux" "neverball" "crawl"))
 
 (define (random-username-bit)
   (vector-ref username-bits
