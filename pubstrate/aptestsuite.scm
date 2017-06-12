@@ -16,7 +16,8 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
-(use-modules (ice-9 control)
+(use-modules (gcrypt random)
+             (ice-9 control)
              (ice-9 match)
              (ice-9 format)
              (ice-9 and-let-star)
@@ -66,57 +67,36 @@
               ", version 3 or later."))))
   (define (main-tmpl)
     `(html ;; (@ (xmlns "http://www.w3.org/1999/xhtml"))
-           (head (title "ActivityPub test suite")
-                 (meta (@ (charset "UTF-8")))
-                 (link (@ (rel "stylesheet")
-                        (href ,(local-uri "static" "aptestsuite" "aptestsuite.css"))))
-                 (script (@ (type "text/javascript")
-                            (src ,(local-uri "static" "aptestsuite" "testsuite.js")))
-                         ""))
-           (body ,@body-tmpl)))
+      (head (title "ActivityPub test suite")
+            (meta (@ (charset "UTF-8")))
+            (link (@ (rel "stylesheet")
+                     (href ,(local-uri "static" "aptestsuite" "aptestsuite.css"))))
+            (script (@ (type "text/javascript")
+                       (src ,(local-uri "static" "aptestsuite" "testsuite.js")))
+                    ""))
+      (body ,@body-tmpl)))
   (respond-html
    (main-tmpl)))
 
-(define (view:activitypub-faux-actor request body
-                                     client-id pseudoactor)
-  'TODO)
+(define (send-to-pseudoactor request body client-id pseudoactor rest-paths)
+  (define (return-mbody-vals message)
+    (apply values (message-body message)))
+  (define worker
+    (hash-ref (.workers (%current-actor))
+              (string->number client-id)))
 
-(define (view:activitypub-faux-actor-inbox request body
-                                           client-id pseudoactor)
-  'TODO)
-
-(define (view:activitypub-faux-actor-outbox request body
-                                            client-id pseudoactor)
-  'TODO)
-
-(define (view:activitypub-faux-actor-followers request body
-                                               client-id pseudoactor)
-  'TODO)
-
-(define (view:activitypub-faux-actor-following request body
-                                               client-id pseudoactor)
-  'TODO)
+  (return-mbody-vals
+   (<-wait worker 'pseudoactor-view
+           pseudoactor rest-paths
+           request body)))
 
 (define (route request)
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
     (() (values view:main-display '()))
 
     ;; emulating activitypub actors and endpoints
-    (("ap" "u" client-id pseudoactor)
-     (values view:activitypub-faux-actor
-             client-id pseudoactor))
-    (("ap" "u" client-id pseudoactor "inbox")
-     (values view:activitypub-faux-actor-inbox
-             client-id pseudoactor))
-    (("ap" "u" client-id pseudoactor "outbox")
-     (values view:activitypub-faux-actor-outbox
-             client-id pseudoactor))
-    (("ap" "u" client-id pseudoactor "followers")
-     (values view:activitypub-faux-actor-followers
-             client-id pseudoactor))
-    (("ap" "u" client-id pseudoactor "following")
-     (values view:activitypub-faux-actor-following
-             client-id pseudoactor))
+    (("ap" "u" client-id pseudoactor rest-paths ...)
+     (values send-to-pseudoactor (list client-id pseudoactor rest-paths)))
 
     ;; static files 
     (("static" static-path ...)
@@ -136,6 +116,97 @@
   (report-state #:getter .report-state
                 #:init-keyword #:report-state))
 
+;; Random username generator
+(define username-bits
+  #("apple" "banana" "orange" "grape" "pineapple" "mango" "coconut"
+    "blackberry" "strawberry" "cherry" "blueberry"
+    "robot" "robo" "cyber" "tron"
+    "kitten" "puppy"
+    "boom" "bonk" "boink"
+    "red" "orange" "yellow" "green" "blue" "purple"
+    "evan" "jessica" "chris" "karen" "mike" "nathan" "tim" "bonnie"
+    "eva" "alyssa" "ben" "lem" "cy"
+    "lisp" "scheme" "hy" "racket" "planner" "schemer" "conniver"
+    "python" "js" "csharp" "mono" "jvm" "perl" "elisp"
+    "vim" "emacs"
+    "kobodl" "wesnoth" "supertux" "neverball" "crawl"))
+
+(define (random-username-bit)
+  (vector-ref username-bits
+              (random (vector-length username-bits))))
+
+(define random-username
+  (let ((counter 0))
+    (lambda ()
+      (set! counter (1+ counter))
+      (string-append (string-capitalize (random-username-bit))
+                     (string-capitalize (random-username-bit))
+                     (number->string counter)))))
+
+;;; These are "actors" (and only pseudo-) in the ActivityPub sense.
+;;; Basically we need to collect some information 
+(define-class <pseudoactor> ()
+  (username #:init-thunk random-username
+            #:accessor .username)
+  ;; used for constructing the url
+  (client-id #:init-keyword #:client-id
+             #:accessor .client-id)
+  (inbox #:init-value '()
+         #:accessor .inbox)
+  ;; A mapping of id -> foo
+  (outbox #:init-thunk make-hash-table
+          #:accessor .outbox))
+
+(define-method (pseudoactor-url (pseudoactor <pseudoactor>) path)
+  "PATH is a list of additional path-parts"
+  (uri->string
+   (uri-set (ctx-ref 'base-uri)
+            #:path (string-append
+                    "/"
+                    (string-join (append (list "ap" "u"
+                                               (number->string (.client-id pseudoactor))
+                                               (.username pseudoactor))
+                                         path)
+                                 "/")))))
+
+
+(define-method (pseudoactor-id (pseudoactor <pseudoactor>))
+  (pseudoactor-url pseudoactor '()))
+
+(define-method (pseudoactor-asobj (pseudoactor <pseudoactor>))
+  (as:person #:id (pseudoactor-id pseudoactor)
+             #:name (.username pseudoactor)
+             #:preferredUsername (.username pseudoactor)
+             #:inbox (pseudoactor-url pseudoactor '("inbox"))
+             #:outbox (pseudoactor-url pseudoactor '("outbox"))))
+
+(define-method (pseudoactor-view-user-page (pseudoactor <pseudoactor>)
+                                           request body)
+  (values (build-response
+           #:code 200
+           #:headers '((content-type . (application/activity+json))))
+          (asobj->string (pseudoactor-asobj pseudoactor))))
+
+(define-method (pseudoactor-view-inbox (pseudoactor <pseudoactor>)
+                                       request body)
+
+  'TODO)
+
+(define-method (pseudoactor-view-outbox (pseudoactor <pseudoactor>)
+                                        request body)
+  'TODO)
+
+(define-method (pseudoactor-view-post (pseudoactor <pseudoactor>)
+                                      request body post-id)
+  'TODO)
+
+(define-method (pseudoactor-route (pseudoactor <pseudoactor>) path)
+  (match path
+    (() (values pseudoactor-view-user-page '()))
+    (("inbox") (values pseudoactor-view-inbox '()))
+    (("outbox") (values pseudoactor-view-outbox '()))
+    (("post" post-id) (values pseudoactor-view-post (list post-id)))))
+
 ;; This handles the logic for working with a single client.
 ;; The <case-manager> handles the actual IO with that user, but delegates
 ;; to this <case-worker> class to do all the actual state management
@@ -147,6 +218,7 @@
   ((receive-input case-worker-receive-input)
    (rewind case-worker-rewind)
    (shutdown case-worker-shutdown)
+   (pseudoactor-view case-worker-pseudoactor-view)
    (*init* case-worker-init-and-run))
   (client-id #:init-keyword #:client-id
              #:accessor .client-id)
@@ -169,7 +241,37 @@
 
   ;; ActivityPub client used to connect to the server
   (apclient #:init-value #f
-            #:accessor .apclient))
+            #:accessor .apclient)
+  ;; Pseudoactors represent actors in the activitypub sense,
+  ;; not in the 8sync sense.  They're used for testing addressing and
+  ;; etc.
+  (pseudoactors #:init-thunk make-hash-table
+                #:accessor .pseudoactors))
+
+(define (case-worker-pseudoactor-view case-worker m
+                                      pseudoactor-id path
+                                      request body)
+  (define pseudoactor
+    (case-worker-pseudoactor-ref case-worker pseudoactor-id))
+
+  (let-values (((view args)
+                (pseudoactor-route pseudoactor path)))
+    (call-with-values
+        (lambda ()
+          (apply view pseudoactor request body args))
+      (lambda vals
+        (apply <-reply m vals)))))
+
+(define (case-worker-pseudoactor-new! case-worker)
+  (define pseudoactor
+    (make <pseudoactor>
+      #:client-id (.client-id case-worker)))
+  (hash-set! (.pseudoactors case-worker)
+             (.username pseudoactor) pseudoactor)
+  pseudoactor)
+
+(define (case-worker-pseudoactor-ref case-worker key)
+  (hash-ref (.pseudoactors case-worker) key))
 
 (define (case-worker-receive-input case-worker m input)
   (with-user-io-prompt
@@ -300,7 +402,6 @@ message handling, and within `with-user-io-prompt'."
 (define (drop-top-checkpoint!)
   "Shortcut for case-worker-drop-top-checkpoint! using (%current-actor) parameter"
   (case-worker-drop-top-checkpoint! (%current-actor)))
-
 
 (define (case-worker-init-and-run case-worker m . args)
   (with-user-io-prompt case-worker (lambda () (run-main-script case-worker))))
@@ -636,10 +737,10 @@ leave the tests in progress."
               (test-client case-worker))
             (when testing-c2s-server
               (report-it! case-worker 'testing-c2s-server #t)
-              (test-c2s-server case-worker))
-            (when testing-s2s-server
-              (report-it! case-worker 'teseting-s2s-server #t)
-              (test-s2s-server case-worker)))
+              (test-c2s-server case-worker)
+              (when testing-s2s-server
+                (report-it! case-worker 'testing-s2s-server #t)
+                (test-s2s-server case-worker))))
           ;; We didn't get anything, so let's loop until we do
           (begin (show-user (warn
                              '("It looks like you didn't select anything. "
@@ -669,7 +770,8 @@ leave the tests in progress."
   (test-outbox-activity-posted case-worker)
   (test-outbox-non-activity case-worker)
   (test-outbox-update case-worker)
-  (test-outbox-upload-media))
+  (test-outbox-upload-media case-worker)
+  (test-outbox-pseudoactors-stub case-worker))
 
 (define (set-up-c2s-server-client-auth case-worker)
   (define (get-user-obj)
@@ -853,7 +955,7 @@ leave the tests in progress."
   'TODO
   )
 
-(define (test-outbox-upload-media)
+(define (test-outbox-upload-media case-worker)
   ;; [outbox:upload-media]
   ;; [outbox:upload-media:file-parameter]
   ;; [outbox:upload-media:object-parameter]
@@ -870,6 +972,8 @@ leave the tests in progress."
       outbox:upload-media:object-parameter
       outbox:upload-media:appends-id
       outbox:upload-media:url))
+
+  (define apclient (.apclient case-worker))
 
   (report-protected
    reporting-on
@@ -1084,7 +1188,8 @@ leave the tests in progress."
   'TODO
   )
 
-(define (test-outbox-activity-follow)
+;; TODO: Now we need to have a dummy activitypub server running...
+(define (test-outbox-activity-follow case-worker)
   ;; [outbox:follow]
   ;; [outbox:follow:adds-followed-object]
   'TODO
@@ -1113,6 +1218,16 @@ leave the tests in progress."
   ;; [outbox:block:prevent-interaction-with-actor]
   'TODO
   )
+
+(define (test-outbox-pseudoactors-stub case-worker)
+  (let* ((pseudoactor
+          (case-worker-pseudoactor-new! case-worker))
+         (ps-id
+          (pseudoactor-id pseudoactor)))
+    (show-user
+     `(p "Okay, check out "
+         (a (@ (href ,ps-id))
+            ,ps-id)))))
 
 
 ;;; server to server server tests
@@ -1183,7 +1298,7 @@ If ERROR-ON-NOTHING, error out if worker is not found."
       (route request)
     (apply view request body args)))
 
-(define (main . args)
+(define (main args)
   (define hive (make-hive))
   (with-extended-ctx
    ;; TODO: fixme...
