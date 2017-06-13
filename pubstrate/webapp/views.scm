@@ -187,7 +187,7 @@
                   (make-as ^OrderedCollectionPage (%default-env)
                            #:partOf col-url
                            #:orderedItems (fatten-asobjs page-items))
-                  prev next))
+                  next prev))
                 ((return-asobj)
                  (if is-first
                      ;; So, we want to return the toplevel of the paging
