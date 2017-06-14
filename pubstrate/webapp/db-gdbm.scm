@@ -29,8 +29,7 @@
   #:use-module (pubstrate webapp list-pagination)
   #:use-module (pubstrate webapp db)
   #:export (<gdbm-db>
-            make-gdbm-db
-            gdbm-db-close))
+            make-gdbm-db))
 
 (define (write-to-string obj)
   (with-output-to-string
