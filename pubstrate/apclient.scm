@@ -38,9 +38,12 @@
             apclient-id apclient-auth-token
 
             make-apclient
-            apclient-user apclient-inbox-uri apclient-outbox-uri
+            apclient-user
+            apclient-inbox-uri apclient-outbox-uri
+            apclient-followers-uri apclient-following-uri
             apclient-media-uri
             apclient-inbox apclient-outbox
+            apclient-followers apclient-following
             apclient-get-local apclient-get-local-asobj
             apclient-post-local apclient-post-local-asobj
 
@@ -113,27 +116,115 @@
     (user
      user)))
 
-(define (apclient-inbox-uri apclient)
-  (let ((user (apclient-user apclient)))
-    (and=> (asobj-ref user "inbox")
-           string->uri)))
+(define (%apclient-uri-property property)
+  (lambda (apclient)
+    (let ((user (apclient-user apclient)))
+      (and=> (asobj-ref user property)
+             string->uri))))
 
-(define (apclient-outbox-uri apclient)
-  (let ((user (apclient-user apclient)))
-    (and=> (asobj-ref user "outbox")
-           string->uri)))
+(define (%apclient-get-local-asobj uri-fetcher)
+  (lambda (apclient)
+    (receive (response body)
+        (apclient-get-local-asobj
+         apclient (uri-fetcher apclient))
+      (when (not (= (response-code response) 200))
+        (throw 'apclient-response-not-ok
+               "Got a response that wasn't 200 OK"
+               #:response response))
+      (when (not (asobj? body))
+        (throw 'apclient-response-not-as2
+               "No ActivityStreams object returned"))
+      body)))
 
-(define (apclient-media-uri apclient)
-  (let ((user (apclient-user apclient)))
-    (and=> (asobj-ref user '("endpoints" "uploadMedia"))
-           string->uri)))
+(define* (apclient-collection-page-stream apclient get-collection
+                                          #:key local?)
+  "Return a stream of pages from AS2 COLLECTION, traversed through APCLIENT"
+  (letrec* ((fetch-page
+             (lambda (page-id)
+               (if local?
+                   ;; @@: what happens if next is included
+                   ;;   recursively as an asobj?  yikes that would
+                   ;;   be bad tho
+                   (receive (response asobj)
+                       (apclient-get-local-asobj apclient page-id)
+                     asobj)
+                   ;; TODO: non-local fetch
+                   'TODO)))
+            (get-next-page
+             (lambda (this-page)
+               (cond
+                ((asobj-ref this-page "next") =>
+                 (lambda (next-page-id)
+                   (let ((page (fetch-page next-page-id)))
+                     (stream-cons page
+                                  (get-next-page page)))))
+                (else
+                 stream-null)))))
+    (match (asobj-ref collection "first")
+      ((? asobj? first-page)
+       (stream-cons first-page (get-next-page first-page)))
+      ((? string-uri? first-page-uri)
+       (let ((page (fetch-page first-page-uri)))
+         (stream-cons page
+                      (get-next-page page))))
+      (#f
+       (cond
+        ;; if the object itself has items, we consider it the
+        ;; first and only page
+        ((or (asobj-ref collection "orderedItems")
+             (asobj-ref collection "items"))
+         (stream-cons collection
+                      stream-null))
+        (else
+         stream-null))))))
 
-(define (apclient-inbox apclient)
-  (receive (response inbox-asobj)
-      (apclient-get-local-asobj apclient (apclient-inbox-uri apclient))
-    (values (and (asobj? inbox-asobj)
-                 inbox-asobj)
-            response)))
+(define* (apclient-collection-items-stream apclient collection
+                                           #:key local?)
+  "Return a stream of items from AS2 COLLECTION, traversed through APCLIENT"
+  (define pages-stream
+    (apclient-collection-page-stream apclient collection
+                                     #:local? local?))
+  (define (item-as-asobj item)
+    (match item
+      ((? asobj? item)
+       item)
+      ((? string-uri? item)
+       (receive (response asobj)
+           (apclient-get-local-asobj apclient item)
+         asobj))))
+  (let pages-loop ((pages pages-stream))
+    (if (stream-null? pages)
+        stream-null
+        (let ((page (stream-car pages)))
+          (let items-loop ((items 
+                            (or (asobj-ref page "orderedItems")
+                                (asobj-ref page "items"))))
+            (match items
+              ;; we've reached the end of this page...
+              (() (pages-loop (stream-cdr pages)))
+              ((item rest-items ...)
+               (stream-cons (item-as-asobj item)
+                            (items-loop rest-items)))))))))
+
+(define apclient-inbox-uri
+  (%apclient-uri-property "inbox"))
+(define apclient-outbox-uri
+  (%apclient-uri-property "outbox"))
+(define apclient-followers-uri
+  (%apclient-uri-property "followers"))
+(define apclient-following-uri
+  (%apclient-uri-property "following"))
+(define apclient-media-uri
+  (%apclient-uri-property '("endpoints" "uploadMedia")))
+
+(define apclient-inbox
+  (%apclient-get-local-asobj apclient-inbox-uri))
+(define apclient-outbox
+  (%apclient-get-local-asobj apclient-outbox-uri))
+(define apclient-followers
+  (%apclient-get-local-asobj apclient-followers-uri))
+(define apclient-following
+  (%apclient-get-local-asobj apclient-following-uri))
 
 (define-method (apclient-auth-headers apclient)
   "Return whatever headers are appropriate for authorization given apclient"
