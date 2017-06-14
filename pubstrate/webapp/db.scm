@@ -163,8 +163,9 @@
                                      container-key val)
   (define current-members
     (get-container-or-error db container-key))
-  (docu-db-set! db 'containers container-key
-                (cons val current-members)))
+  (when (not (member val current-members))
+    (docu-db-set! db 'containers container-key
+                  (cons val current-members))))
 
 (define-method (db-container-remove! (db <docu-db>)
                                      container-key val)
