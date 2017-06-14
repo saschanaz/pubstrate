@@ -145,7 +145,7 @@
       (if page
           (uri->string
            (uri-set (string->uri url-str)
-                    #:query '((page . page))))
+                    #:query `((page . ,page))))
           url-str)))
 
   ;; TODO: in the future, we'll want to filter this based upon
@@ -155,12 +155,12 @@
     ((compose (lambda (ocp)
                 (if next
                     (asobj-set ocp "next"
-                               next)
+                               (abs-col-url-str next))
                     ocp))
               (lambda (ocp)
                 (if prev
                     (asobj-set ocp "prev"
-                               prev)
+                               (abs-col-url-str prev))
                     ocp)))
      ocp))
 
