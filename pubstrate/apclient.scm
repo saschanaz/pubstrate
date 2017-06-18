@@ -33,6 +33,7 @@
   #:use-module (pubstrate webapp auth)  ; allow bearer tokens, etc
   #:use-module (sjson utils)
   #:use-module (srfi srfi-11)  ; let-values
+  #:use-module (srfi srfi-41)  ; streams
   #:use-module (webutils multipart)
   #:export (<apclient>
             apclient-id apclient-auth-token
@@ -44,8 +45,13 @@
             apclient-media-uri
             apclient-inbox apclient-outbox
             apclient-followers apclient-following
+            apclient-inbox-stream apclient-outbox-stream
+            apclient-followers-stream apclient-following-stream
             apclient-get-local apclient-get-local-asobj
             apclient-post-local apclient-post-local-asobj
+
+            apclient-collection-page-stream
+            apclient-collection-item-stream
 
             apclient-submit
             apclient-submit-media apclient-submit-file
@@ -136,7 +142,7 @@
                "No ActivityStreams object returned"))
       body)))
 
-(define* (apclient-collection-page-stream apclient get-collection
+(define* (apclient-collection-page-stream apclient collection
                                           #:key local?)
   "Return a stream of pages from AS2 COLLECTION, traversed through APCLIENT"
   (letrec* ((fetch-page
@@ -178,8 +184,8 @@
         (else
          stream-null))))))
 
-(define* (apclient-collection-items-stream apclient collection
-                                           #:key local?)
+(define* (apclient-collection-item-stream apclient collection
+                                          #:key local?)
   "Return a stream of items from AS2 COLLECTION, traversed through APCLIENT"
   (define pages-stream
     (apclient-collection-page-stream apclient collection
@@ -206,6 +212,12 @@
                (stream-cons (item-as-asobj item)
                             (items-loop rest-items)))))))))
 
+(define* (%apclient-get-item-stream get-collection)
+  (lambda (apclient)
+    (apclient-collection-item-stream
+     apclient (get-collection apclient)
+     #:local? #t)))
+
 (define apclient-inbox-uri
   (%apclient-uri-property "inbox"))
 (define apclient-outbox-uri
@@ -225,6 +237,15 @@
   (%apclient-get-local-asobj apclient-followers-uri))
 (define apclient-following
   (%apclient-get-local-asobj apclient-following-uri))
+
+(define apclient-inbox-stream
+  (%apclient-get-item-stream apclient-inbox))
+(define apclient-outbox-stream
+  (%apclient-get-item-stream apclient-outbox))
+(define apclient-followers-stream
+  (%apclient-get-item-stream apclient-followers))
+(define apclient-following-stream
+  (%apclient-get-item-stream apclient-following))
 
 (define-method (apclient-auth-headers apclient)
   "Return whatever headers are appropriate for authorization given apclient"
