@@ -367,10 +367,9 @@ Arguments: (asobj)")
       (asobj-id asobj)))
 
 (define-as-method (asobj-header-url (asobj ^Create))
-  (or (asobj-ref asobj '("object" "url"))
-      (asobj-ref asobj '("object" "id"))
-      (asobj-ref asobj "url")
-      (asobj-id asobj)))
+  (or (asobj-ref asobj '("object" "id"))
+      (asobj-id asobj)
+      (asobj-ref asobj "url")))
 
 (define-as-generic asobj-header-tmpl
   "Display a header in a toplevel asobj")
