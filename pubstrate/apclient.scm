@@ -265,8 +265,8 @@
 (define-method* (apclient-get-local apclient uri
                                     #:key (headers '()))
   "Get URI with BODY, using appropriate local authentication"
-  (http-get uri #:headers (append (apclient-auth-headers apclient)
-                                  headers)))
+  (http-get-async uri #:headers (append (apclient-auth-headers apclient)
+                                        headers)))
 
 (define-method* (apclient-get-local-asobj apclient uri
                                           #:key (headers '()))
@@ -279,10 +279,10 @@
 
 (define-method* (apclient-post-local apclient uri body
                                      #:key (headers '()))
-  (http-post uri
-             #:headers (append (apclient-auth-headers apclient)
-                               headers)
-             #:body body))
+  (http-post-async uri
+                   #:headers (append (apclient-auth-headers apclient)
+                                     headers)
+                   #:body body))
 
 (define-method* (apclient-post-local-asobj apclient uri asobj
                                            #:key (headers '()))
@@ -297,7 +297,7 @@ expose local credentials...)"
                              #:headers headers))
     response-with-body-maybe-as-asobj))
 
-(define (apclient-submit apclient asobj)
+(define* (apclient-submit apclient asobj)
   "Submit ASOBJ to APCLIENT's outbox."
   (apclient-post-local-asobj apclient (apclient-outbox-uri apclient)
                              asobj))
@@ -305,7 +305,8 @@ expose local credentials...)"
 (define* (http-get-asobj uri #:key (headers '()))
   (call-with-values
       (lambda ()
-        (http-get uri #:headers (cons as2-accept-header headers)))
+        (http-get-async uri
+                        #:headers (cons as2-accept-header headers)))
     response-with-body-maybe-as-asobj))
 
 (define (apclient-submit-media apclient asobj media filename)
@@ -342,5 +343,5 @@ media upload endpoint with filename listed as FILENAME."
 (define* (http-post-asobj uri #:key (headers '()))
   (call-with-values
       (lambda ()
-        (http-post uri #:headers (cons as2-accept-header headers)))
+        (http-post-async uri #:headers (cons as2-accept-header headers)))
     response-with-body-maybe-as-asobj))
