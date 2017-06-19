@@ -31,6 +31,7 @@
   #:use-module ((pubstrate webapp http-status)
                 #:renamer (symbol-prefix-proc 'status:))
   #:use-module (rnrs bytevectors)
+  #:use-module (web client)
   #:use-module (web response)
   #:use-module (web request)
   #:use-module (web uri)
@@ -45,7 +46,9 @@
             string-uri?
             asobj-local? uri-local?
             maybe-listify list-intersperse
-            basic-date-render))
+            basic-date-render
+
+            http-get-async http-post-async))
 
 ;; TODO: add local-uri* and abs-local-uri* which should allow
 ;;   optional GET parameters & fragments
@@ -281,3 +284,12 @@ FORM may be a utf8-encoded bytevector or a string."
 
 (define (basic-date-render date)
   (date->string date "~b ~d, ~Y @ ~r"))
+
+(define (%http-async http-proc)
+  (lambda (uri . args)
+    (let ((port (open-socket-for-uri uri)))
+      (fcntl port F_SETFL (logior O_NONBLOCK (fcntl port F_GETFL)))
+      (apply http-proc uri args))))
+
+(define http-get-async (%http-async http-get))
+(define http-post-async (%http-async http-post))
