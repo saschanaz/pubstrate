@@ -61,9 +61,9 @@
 (define* (http-get-asobj id #:key (extra-headers '()))
   ;; TODO: handle errors!
   (receive (response body)
-      (http-get id
-                #:headers `((accept . ((application/activity+json)))
-                            ,@extra-headers))
+      (http-get-async id
+                      #:headers `((accept . ((application/activity+json)))
+                                  ,@extra-headers))
     (make-asobj
      (read-json-from-string
       (if (bytevector? body)
@@ -193,9 +193,9 @@ Returns #t if the object is added to the inbox, #f otherwise."
     ;; TODO: retry if this fails
     (define inbox-uri (asobj-ref actor "inbox"))
     (if inbox-uri
-        (http-post inbox-uri
-                   #:body (asobj->string asobj)
-                   #:headers headers)))
+        (http-post-async inbox-uri
+                         #:body (asobj->string asobj)
+                         #:headers headers)))
   (define (post-locally)
     (actor-post-asobj-to-inbox! actor asobj))
   ;; TODO: Treat posting locally differently
