@@ -289,7 +289,7 @@ FORM may be a utf8-encoded bytevector or a string."
   (lambda (uri . args)
     (let ((port (open-socket-for-uri uri)))
       (fcntl port F_SETFL (logior O_NONBLOCK (fcntl port F_GETFL)))
-      (apply http-proc uri args))))
+      (apply http-proc uri #:port port args))))
 
 (define http-get-async (%http-async http-get))
 (define http-post-async (%http-async http-post))
