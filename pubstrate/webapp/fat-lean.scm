@@ -150,7 +150,12 @@
   ;; We use the same retriever to keep around the cache
   (let ((retriever (make-retriever)))
     (map (lambda (asobj)
-           (asobj-fatten asobj retriever))
+           (if (asobj? asobj)
+               (asobj-fatten asobj retriever)
+               ;; it's possible an object in this stream is actually
+               ;; a uri identifier... in which case, fattening makes
+               ;; no sense
+               asobj))
          asobjs)))
 
 
