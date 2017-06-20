@@ -211,7 +211,10 @@ to the database (in this case, the collections!)"
                  (db-container-first-page db container-key how-many)))
     (values (map
              (lambda (id)
-               (db-asobj-ref db id))
+               (or (db-asobj-ref db id)
+                   ;; if we can't find it in the db, just return the
+                   ;; id as a string... (though this can cause issues...?)
+                   id))
              page)
             prev next)))
 
