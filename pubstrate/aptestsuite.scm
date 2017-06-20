@@ -27,7 +27,9 @@
              (8sync)
              (8sync repl)
              (8sync systems websocket server)
+             (rnrs bytevectors)
              (srfi srfi-11)
+             (srfi srfi-41)  ; streams
              (web uri)
              (web request)
              (web response)
@@ -85,10 +87,12 @@
     (hash-ref (.workers (%current-actor))
               (string->number client-id)))
 
-  (return-mbody-vals
-   (<-wait worker 'pseudoactor-view
-           pseudoactor rest-paths
-           request body)))
+  (if worker
+      (return-mbody-vals
+       (<-wait worker 'pseudoactor-view
+               pseudoactor rest-paths
+               request body))
+      (respond-not-found)))
 
 (define (route request)
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
@@ -189,8 +193,18 @@
 
 (define-method (pseudoactor-view-inbox (pseudoactor <pseudoactor>)
                                        request body)
-
-  'TODO)
+  (match (request-method request)
+    ('GET
+     'TODO)
+    ('POST
+     (let ((asobj (string->asobj
+                   (if (bytevector? body)
+                       (utf8->string body)
+                       body)
+                   (%default-env))))
+       (hash-set! (.outbox pseudoactor)
+                  (asobj-id asobj) asobj)
+       (respond "")))))
 
 (define-method (pseudoactor-view-outbox (pseudoactor <pseudoactor>)
                                         request body)
@@ -198,7 +212,10 @@
 
 (define-method (pseudoactor-view-post (pseudoactor <pseudoactor>)
                                       request body post-id)
-  'TODO)
+  (let ((asobj (hash-ref (.outbox pseudoactor)
+                         post-id)))
+    (respond (asobj->string asobj)
+             #:content-type 'application/activity+json)))
 
 (define-method (pseudoactor-route (pseudoactor <pseudoactor>) path)
   (match path
@@ -258,7 +275,9 @@
                 (pseudoactor-route pseudoactor path)))
     (call-with-values
         (lambda ()
-          (apply view pseudoactor request body args))
+          (if pseudoactor
+              (apply view pseudoactor request body args)
+              (respond-not-found)))
       (lambda vals
         (apply <-reply m vals)))))
 
@@ -473,7 +492,7 @@ message handling, and within `with-user-io-prompt'."
     (lambda ()
       (catch #t
         (lambda ()
-          (catch 'report-bail-out
+          (catch 'report-abort
             (lambda ()
               body ...)
             (lambda (key reason)
@@ -504,6 +523,13 @@ message handling, and within `with-user-io-prompt'."
            (report-on! item <inconclusive>
                        #:comment "Test case not reported on...")))
        items))))
+
+(define-syntax-rule (with-report items body ...)
+  (begin
+    (report-protected items body ...)
+    (for-each (lambda (item)
+                (show-response item))
+              items)))
 
 (define (log-wrapper . content)
   `(div (@ (class "test-log"))
@@ -771,7 +797,8 @@ leave the tests in progress."
   (test-outbox-non-activity case-worker)
   (test-outbox-update case-worker)
   (test-outbox-upload-media case-worker)
-  (test-outbox-pseudoactors-stub case-worker))
+  (test-outbox-pseudoactors-stub case-worker)
+  (test-outbox-activity-follow case-worker))
 
 (define (set-up-c2s-server-client-auth case-worker)
   (define (get-user-obj)
@@ -925,29 +952,45 @@ leave the tests in progress."
     (show-response 'outbox:accepts-activities)))
 
 
+(define (%submit-asobj-and-retrieve apclient asobj)
+  "Helper procedure for submitting ASOBJ to APCLIENT's inbox.
+Retrieve the submitted object as an activitystreams object.
+Will abort if any of such steps fail."
+  (asobj-pprint asobj)
+  (receive (submit-response submit-body)
+      (apclient-submit apclient asobj)
+    (when (not (member (response-code submit-response)
+                       '(200 201)))
+      (throw 'report-abort
+             "Neither 200 nor 201 status code returned in submission response."))
+    (match (response-location submit-response)
+      ((? uri? location-uri)
+       (receive (loc-response loc-asobj)
+           (http-get-asobj location-uri)
+         (when (not (asobj? loc-asobj))
+           (throw 'report-abort
+                  "Submitted object, but no ActivityStreams object at response's Location"))
+         loc-asobj))
+      (#f
+       (throw 'report-abort
+              no-location-present-message)))))
+
 (define (test-outbox-non-activity case-worker)
   (define activity-to-submit
     (as:note #:content "Up for some root beer floats?"))
   (define apclient (.apclient case-worker))
 
   ;; [outbox:accepts-non-activity-objects]
-  (receive (response body)
-      (apclient-submit apclient activity-to-submit)
-    (match (response-location response)
-      ((? uri? location-uri)
-       (receive (loc-response loc-asobj)
-           (http-get-asobj location-uri)
-         (if (and (asobj? loc-asobj)
-                  (asobj-is-a? loc-asobj ^Create))
-             (report-on! 'outbox:accepts-non-activity-objects
-                         <success>)
-             (report-on! 'outbox:accepts-non-activity-objects
-                         <fail>))))
-      (#f
-       (report-on! 'outbox:accepts-non-activity-objects
-                   <inconclusive>
-                   #:comment no-location-present-message))))
-  (show-response 'outbox:accepts-non-activity-objects))
+  (with-report
+   '(outbox:accepts-non-activity-objects)
+   (let ((retrieved-asobj
+          (%submit-asobj-and-retrieve apclient activity-to-submit)))
+     (if (asobj-is-a? retrieved-asobj ^Create)
+         (report-on! 'outbox:accepts-non-activity-objects
+                     <success>)
+         (report-on! 'outbox:accepts-non-activity-objects
+                     <fail>
+                     #:comment "ActivityStreams object pointed to by response Location is not of type Create")))))
 
 (define (test-outbox-verification)
   ;; [outbox:not-trust-submitted]
@@ -963,22 +1006,18 @@ leave the tests in progress."
   ;; [outbox:upload-media:location-header]
   ;; [outbox:upload-media:appends-id]
   ;; [outbox:upload-media:url]
-
-  (define reporting-on
-    '(outbox:upload-media
-      outbox:upload-media:201-or-202-status
-      outbox:upload-media:location-header
-      outbox:upload-media:file-parameter
-      outbox:upload-media:object-parameter
-      outbox:upload-media:appends-id
-      outbox:upload-media:url))
-
   (define apclient (.apclient case-worker))
 
-  (report-protected
-   reporting-on
+  (with-report
+   '(outbox:upload-media
+     outbox:upload-media:201-or-202-status
+     outbox:upload-media:location-header
+     outbox:upload-media:file-parameter
+     outbox:upload-media:object-parameter
+     outbox:upload-media:appends-id
+     outbox:upload-media:url)
    (when (not (apclient-media-uri apclient))
-     (throw 'report-bail-out
+     (throw 'report-abort
             "No media endpoint given"))
    
    (let ((submit-response
@@ -1013,11 +1052,11 @@ leave the tests in progress."
                        (http-get-asobj (asobj-id (asobj-ref loc-asobj "object")))
                      (when (or (not (asobj? image-asobj))
                                (not (asobj-is-a? image-asobj ^Image)))
-                       (throw 'report-bail-out
+                       (throw 'report-abort
                               "Location points to a Create object, but no Image activitystreams object at that location."))
                      image-asobj))
                   (else
-                   (throw 'report-bail-out
+                   (throw 'report-abort
                           "Location points to something that isn't a Create or an Image.  Huh?")))))
             ;; Was the object parameter really accepted?  If it is, the object
             (if (and (equal? (asobj-ref image-asobj "name")
@@ -1058,12 +1097,7 @@ leave the tests in progress."
                             <fail>)))))
        (#f
         (report-on! 'outbox:upload-media:location-header
-                    <fail>)))))
-  
-  ;; @@: Maybe report-protected should also do show-response?
-  (for-each (lambda (item)
-              (show-response item))
-            reporting-on))
+                    <fail>))))))
 
 (define (test-outbox-update case-worker)
   "Test the Update activity"
@@ -1190,10 +1224,42 @@ leave the tests in progress."
 
 ;; TODO: Now we need to have a dummy activitypub server running...
 (define (test-outbox-activity-follow case-worker)
+  (define actor-to-follow
+    (case-worker-pseudoactor-new! case-worker))
+  (define follow-id (pseudoactor-id actor-to-follow))
+  (define activity-to-submit
+    (as:follow #:object follow-id))
+  (define apclient (.apclient case-worker))
+
   ;; [outbox:follow]
   ;; [outbox:follow:adds-followed-object]
-  'TODO
-  )
+  (with-report
+   '(outbox:follow
+     outbox:follow:adds-followed-object)
+   (let ((retrieved-asobj
+          (%submit-asobj-and-retrieve apclient activity-to-submit)))
+     (report-on! 'outbox:follow <success>)
+     ;; TODO: now to look through the following collection
+     (let* ((f-stream
+             ;; ;; We restrict it to 1000 items, which should be waaaay
+             ;; ;; more than enough, so that we don't accidentally end up
+             ;; ;; searching forever
+             (stream-take 1000
+                          (apclient-following-stream apclient)))
+            (item-in-stream?
+             (let lp ((stream f-stream))
+               (cond
+                ;; guess we didn't find it
+                ((stream-null? stream)
+                 #f)
+                ((equal? (asobj-id (stream-car stream))
+                         follow-id)
+                 #t)
+                (else (lp (stream-cdr stream)))))))
+       (if item-in-stream?
+           (report-on! 'outbox:follow:adds-followed-object <success>)
+           (report-on! 'outbox:follow:adds-followed-object <fail>))))))
+
 
 (define (test-outbox-activity-add)
   ;; [outbox:add]
