@@ -33,7 +33,7 @@
             db-user-change-password!
 
             user-inbox-container-key user-outbox-container-key
-            user-inbox-followers-key user-outbox-following-key
+            user-followers-container-key user-following-container-key
 
             user-add-to-inbox! user-add-to-outbox!
             user-add-to-followers! user-add-to-following!
