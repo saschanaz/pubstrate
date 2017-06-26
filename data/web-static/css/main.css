@@ -2,14 +2,16 @@
     font-family: 'Inconsolata';
     font-style: normal;
     font-weight: 400;
-    src: local('Inconsolata-Regular'), local('Inconsolata'), local('Inconsolata Regular'), url('../fonts/inconsolata/Inconsolata-Regular.ttf');
+    /* src: local('Inconsolata-Regular'), local('Inconsolata'), local('Inconsolata Regular'), url('../fonts/inconsolata/Inconsolata-Regular.ttf'); */
+    src: url('../fonts/inconsolata/Inconsolata-Regular.ttf');
 }
 
 @font-face {
     font-family: 'Inconsolata';
     font-style: normal;
     font-weight: 700;
-    src: local('Inconsolata-Bold'), local('Inconsolata Bold'), url('../fonts/inconsolata/Inconsolata-Bold.ttf');
+    /* src: local('Inconsolata-Bold'), local('Inconsolata Bold'), url('../fonts/inconsolata/Inconsolata-Bold.ttf'); */
+    src: url('../fonts/inconsolata/Inconsolata-Bold.ttf');
 }
 
 body {
