@@ -17,15 +17,20 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (define-module (pubstrate webapp app)
+  #:use-module (ice-9 format)
   #:use-module (ice-9 match)
   #:use-module (ice-9 receive)
   #:use-module (oop goops)
   #:use-module (web request)
+  #:use-module (web response)
   #:use-module (web server)
   #:use-module (web uri)
   #:use-module (gcrypt hmac)
   #:use-module (webutils sessions)
+  #:use-module (srfi srfi-34)
   #:use-module (pubstrate config)
+  #:use-module (pubstrate webapp conditions)
+  #:use-module (pubstrate webapp http-status)
   #:use-module (pubstrate webapp routes)
   #:use-module (pubstrate webapp db)
   #:use-module (pubstrate webapp user)
@@ -62,13 +67,58 @@
         (api-user)))
   `((user . ,user)))
 
+(define %server-error-text
+  "\
+****************
+* SERVER ERROR *
+****************")
+
+(define %user-error-text
+  "\
+**************
+* USER ERROR *
+**************")
+
 (define (webapp-server-handler request request-body)
+  (define (respond-error header message code)
+    (values (build-response
+             #:code code
+             #:headers '((content-type text/plain)))
+            (format #f "~a\n\n~a ~a\nReason: ~a"
+                    header code (or (status-ref code) "???")
+                    (or message "Not given."))))
+
   (receive (view args)
       (route request)
-    (with-extended-ctx
-     (ctx-vars-from-request request)
+    (catch
+     #t
      (lambda ()
-       (apply view request request-body args)))))
+       (with-extended-ctx
+        (ctx-vars-from-request request)
+        (lambda ()
+          (guard (condition
+                  ((server-error? condition)
+                   (respond-error %server-error-text
+                                  (error-message condition)
+                                  (error-code condition)))
+                  ((user-error? condition)
+                   (respond-error %user-error-text
+                                  (error-message condition)
+                                  (error-code condition))))
+            (apply view request request-body args)))))
+     ;; Default 500 error handler
+     (lambda _
+       (respond-error %server-error-text
+                      "An unexpected error occured."
+                      500))
+     ;; Print error to port
+     (let ((err (current-error-port)))
+       (lambda (key . args)
+         (false-if-exception
+          (let ((stack (make-stack #t 4)))
+            (display-backtrace stack err)
+            (print-exception err (stack-ref stack 0)
+                             key args))))))))
 
 (define (base-uri-from-other-params host port path)
   (build-uri 'http
