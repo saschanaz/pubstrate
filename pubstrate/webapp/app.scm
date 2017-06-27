@@ -99,7 +99,8 @@
           (guard (condition
                   ((server-error? condition)
                    (respond-error %server-error-text
-                                  (error-message condition)
+                                  ;; (error-message condition)
+                                  #f ; maybe we shouldn't leak server error reasons?
                                   (error-code condition)))
                   ((user-error? condition)
                    (respond-error %user-error-text
