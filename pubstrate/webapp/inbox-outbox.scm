@@ -31,8 +31,11 @@
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate generics)
   #:use-module (pubstrate vocab)
+  #:use-module (pubstrate webapp conditions)
   #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp db)
+  #:use-module ((pubstrate webapp http-status)
+                #:renamer (symbol-prefix-proc 'status:))
   #:use-module (pubstrate webapp user)
   #:use-module (pubstrate webapp utils)
   #:use-module (ice-9 receive)
@@ -71,7 +74,6 @@
           body))
      (%default-env))))
 
-;; @@: Maybe db-new should 
 ;; TODO: This needs *way* more async support
 (define* (get-asobj id #:key (db-new #t))
   "Retrieve an asobj, either from the current db or by fetching
@@ -333,6 +335,15 @@ save it and return it.")
          #:asobj create-asobj
          #:object object))
 
+(define-as-method (create-outbox-object! (object ^Collection) create-asobj
+                                         outbox-user)
+  (let* ((container-id
+          (db-container-new! (ctx-ref 'db)))
+         (object
+          (asobj-private-set object "container" container-id)))
+    (save-asobj! object)
+    object))
+
 ;; @@: Hacky, maybe we shouldn't be creating questions like this?
 (define-as-method (create-outbox-object! (object ^Question) create-asobj
                                          outbox-user)
@@ -346,7 +357,6 @@ save it and return it.")
   (throw 'effect-error "Don't know how to process activity with this activity type"
          #:asobj asobj
          #:astypes (asobj-types asobj)))
-
 
 ;;; If it's an object and not an activity, we wrap in a Create and run
 ;;; asobj-outbox-effects! on the wrapped object.
@@ -499,6 +509,39 @@ save it and return it.")
       ;; TODO: We want to leanify this structure...
       (save-asobj! new-object)
       new-create)))
+
+(define (maybe obj pred)
+  (and (pred obj) obj))
+
+(define-as-method (asobj-outbox-effects! (asobj ^Add) outbox-user)
+  (let* ((asobj (incoming-activity-common-tweaks asobj outbox-user))
+         (object-id (or (asobj-ref-id asobj "object")
+                        (raise-user-error "No \"object\" to add.")))
+         (object (or (maybe (asobj-ref asobj "object") asobj?)
+                     (get-asobj object-id)
+                     (raise-user-error "Couldn't find an \"object\" with that id.")))
+         (collection-id (asobj-ref-id asobj "target"))
+         (collection (db-asobj-ref (ctx-ref 'db) collection-id)))
+    ;; Now add that object-id to the collection
+    (when (not (and (asobj? collection)
+                    (asobj-is-a? collection ^Collection)))
+      (raise-user-error "Tried to add a non-Collection as \"target\""))
+    (when (not (asobj-local? collection))
+      (raise-user-error "Can't Add to a non-local collection."))
+    ;; TODO: we really need to fix our access control...
+    (when (not (equal? (asobj-ref collection "attributedTo")
+                       (asobj-id outbox-user)))
+      ;; TODO: we ought to have a permission-specific condition huh?
+      (raise-user-error "User doesn't have permission to edit this Collection."
+                        status:unauthorized))
+
+    (let ((container-key (asobj-private-ref collection "container")))
+      (when (not container-key)
+        (raise-server-error "Container key missing on target collection."))
+      (db-container-append! (ctx-ref 'db) container-key object-id))
+
+    (save-asobj! asobj)
+    asobj))
 
 
 ;;; Posting to inbox generics.  AKA server to server / federation interactions.
