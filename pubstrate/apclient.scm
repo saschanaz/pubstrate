@@ -206,7 +206,8 @@
         (let ((page (stream-car pages)))
           (let items-loop ((items 
                             (or (asobj-ref page "orderedItems")
-                                (asobj-ref page "items"))))
+                                (asobj-ref page "items")
+                                '())))
             (match items
               ;; we've reached the end of this page...
               (() (pages-loop (stream-cdr pages)))
