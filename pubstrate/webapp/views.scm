@@ -31,6 +31,7 @@
   #:use-module (webutils sessions)
   #:use-module (webutils multipart)
   #:use-module (pubstrate asobj)
+  #:use-module (pubstrate generics)
   #:use-module (pubstrate package-config)
   #:use-module (pubstrate vocab)
   #:use-module (pubstrate contrib mime-types)
@@ -134,71 +135,85 @@
     (_ (respond #:status status:method-not-allowed))))
 
 ;; Not an actual view, but used to build inbox/outbox views
-(define* (as2-paginated-user-collection request user username collection
-                                        #:key
-                                        (title
-                                         (format #f "~a's ~a"
-                                                 (user-name-str user)
-                                                 collection)))
-  (define* (abs-col-url-str #:optional page)
-    (let ((url-str (abs-local-uri "u" username collection)))
-      (if page
-          (uri->string
-           (uri-set (string->uri url-str)
-                    #:query `((page . ,page))))
-          url-str)))
+(define* (paginated-collection collection #:optional page-id
+                               (container-key (asobj-private-ref collection "container")))
+  "Generate a paginated collection, starting with stub COLLECTION
+asobj, and if PAGE-ID returning that specific page, or returning the
+toplevel COLLECTION with the \"first\" page property set."
+  (define col-id
+    (asobj-id collection))
+  (define col-id-uri
+    (string->uri col-id))
+  (define* (page-uri-str page)
+    (uri->string
+     (uri-set col-id-uri
+              #:query `((page . ,page)))))
 
   ;; TODO: in the future, we'll want to filter this based upon
   ;;   who's logged in / supplied auth.  For now, everything is public
   ;;   anyway.
   (define (maybe-add-next-prev ocp next prev)
+    ;; ocp is OrderedCollectionPage
     ((compose (lambda (ocp)
                 (if next
                     (asobj-set ocp "next"
-                               (abs-col-url-str next))
+                               (page-uri-str next))
                     ocp))
               (lambda (ocp)
                 (if prev
                     (asobj-set ocp "prev"
-                               (abs-col-url-str prev))
+                               (page-uri-str prev))
                     ocp)))
      ocp))
 
-  (define (request-wants-as2?)
-    (find (lambda (x)
-            (member (car x) '(application/activity+json
-                              application/ld+json)))
-          (request-accept request)))
+  (define db (ctx-ref 'db))
 
-  (let*-values (((form) (request-query-form request))
-                ((page-id) (assoc-ref form "page"))
-                ((is-first) (not page-id))
-                ((col-url) (abs-col-url-str))
-                ((page-items prev next)
-                 (if is-first
-                     (user-collection-first-page (ctx-ref 'db)
-                                                 user collection
-                                                 %items-per-page)
-                     (user-collection-page (ctx-ref 'db)
-                                           user collection
-                                           page-id %items-per-page)))
+  (let*-values (((page-items prev next)
+                 (if page-id
+                     (db-container-page db container-key
+                                        page-id %items-per-page)
+                     (db-container-first-page db container-key
+                                              %items-per-page)))
+                ;; retrieve the full objects of these, assuming we have them
+                ((page-items)
+                 (map (lambda (id)
+                        (or (db-asobj-ref db id)
+                            id))
+                      page-items))
                 ((ordered-collection-page)
                  (maybe-add-next-prev
                   (make-as ^OrderedCollectionPage (%default-env)
-                           #:partOf col-url
+                           #:partOf col-id
                            #:orderedItems (fatten-asobjs page-items))
-                  next prev))
-                ((return-asobj)
-                 (if is-first
-                     ;; So, we want to return the toplevel of the paging
-                     (make-as ^OrderedCollection (%default-env)
-                              #:name title
-                              #:id col-url
-                              #:first ordered-collection-page)
-                     ;; This is some page
-                     ordered-collection-page)))
+                  next prev)))
+    (if page-id
+        ;; This is a specific page
+        ordered-collection-page
+        ;; We want the toplevel, with the first page
+        (asobj-set collection
+                   "first" ordered-collection-page))))
 
-    (if (request-wants-as2?)
+(define* (as2-paginated-user-collection request user username collection-name
+                                        #:key
+                                        (title
+                                         (format #f "~a's ~a"
+                                                 (user-name-str user)
+                                                 collection-name)))
+  (let* ((db (ctx-ref 'db))
+         (collection-id (abs-local-uri "u" username collection-name))
+         (container-key (db-user-container-key db user collection-name))
+         (page-id (assoc-ref (request-query-form request) "page"))
+         (initial-collection
+          (make-as ^OrderedCollection (%default-env)
+                   #:id collection-id
+                   #:name title))
+         (return-asobj (paginated-collection initial-collection
+                                             page-id container-key))
+         (wants-as2? (find (lambda (x)
+                             (member (car x) '(application/activity+json
+                                               application/ld+json)))
+                           (request-accept request))))
+    (if wants-as2?
         (respond (asobj->string return-asobj)
                  #:content-type 'application/activity+json)
         (respond-html
@@ -209,6 +224,7 @@
                      (h2 (@ (style "text-align: center;"))
                          "== " ,title " =="))
                 ,(toplevel-activity-tmpl return-asobj)))))))
+
 
 (define (%post-to-outbox initial-asobj outbox-user)
   (define db (ctx-ref 'db))
@@ -342,11 +358,23 @@
                     #:extra-headers
                     (list (delete-session (ctx-ref 'session-manager)))))
 
+(define-as-generic %tweak-for-display
+  "Tweak an asobj for display in display-post.")
+
+;; TODO: This too should use access control.
+;; By default, we don't do any tweaks for objects.
+(define-as-method (%tweak-for-display (asobj ^Object) request)
+  asobj)
+
+;; But for collections we definitely do!
+(define-as-method (%tweak-for-display (asobj ^Collection) request)
+  (paginated-collection asobj (assoc-ref (request-query-form request) "page")))
+
 (define (display-post request body username post-id)
   ;; GET only.
   (let* ((post-url (abs-local-uri "u" username "p" post-id))
          (asobj (and=> (db-asobj-ref (ctx-ref 'db) post-url)
-                       asobj-fatten)))
+                       (compose asobj-fatten %tweak-for-display))))
     (match (request-method request)
       ('GET
        ;; TODO: authorization check?
