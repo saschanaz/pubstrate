@@ -286,9 +286,20 @@ FORM may be a utf8-encoded bytevector or a string."
   (date->string date "~b ~d, ~Y @ ~r"))
 
 (define (%http-async http-proc)
+  "Do an HTTP request asynchronously... if that's possible."
   (lambda (uri . args)
-    (let ((port (open-socket-for-uri uri)))
-      (fcntl port F_SETFL (logior O_NONBLOCK (fcntl port F_GETFL)))
+    (let* ((port (open-socket-for-uri uri))
+           ;; Try to get the flags from the port if we can.
+           ;; If suspendable ports aren't supported, fcntl won't
+           ;; work.
+           ;; (unfortunately no specific error type is returned, so
+           ;; we have to just catch broadly.)
+           (flags (catch #t
+                    (lambda ()
+                      (fcntl port F_GETFL))
+                    (const #f))))
+      (when flags
+        (fcntl port F_SETFL (logior O_NONBLOCK flags)))
       (apply http-proc uri #:port port args))))
 
 (define http-get-async (%http-async http-get))
