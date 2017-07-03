@@ -797,8 +797,15 @@ leave the tests in progress."
   (test-outbox-non-activity case-worker)
   (test-outbox-update case-worker)
   (test-outbox-upload-media case-worker)
-  (test-outbox-pseudoactors-stub case-worker)
-  (test-outbox-activity-follow case-worker))
+  (test-outbox-activity-follow case-worker)
+  ;; (test-outbox-verification case-worker)
+  ;; (test-outbox-subjective case-worker)
+  ;; (test-outbox-activity-create case-worker)
+  ;; (test-outbox-activity-add case-worker)
+  ;; (test-outbox-activity-remove case-worker)
+  ;; (test-outbox-activity-like case-worker)
+  ;; (test-outbox-activity-block case-worker)
+  )
 
 (define (set-up-c2s-server-client-auth case-worker)
   (define (get-user-obj)
@@ -992,7 +999,7 @@ Will abort if any of such steps fail."
                      <fail>
                      #:comment "ActivityStreams object pointed to by response Location is not of type Create")))))
 
-(define (test-outbox-verification)
+(define (test-outbox-verification case-worker)
   ;; [outbox:not-trust-submitted]
   ;; [outbox:validate-content]
   'TODO
@@ -1209,13 +1216,13 @@ Will abort if any of such steps fail."
 
   (show-response 'outbox:update))
 
-(define (test-outbox-subjective)
+(define (test-outbox-subjective case-worker)
   ;; [outbox:do-not-overload]
   ;; [outbox:not-trust-submitted]
   'TODO
   )
 
-(define (test-outbox-activity-create)
+(define (test-outbox-activity-create case-worker)
   ;; [outbox:create]
   ;; [outbox:create:merges-audience-properties]
   ;; [outbox:create:actor-to-attributed-to]
@@ -1261,25 +1268,25 @@ Will abort if any of such steps fail."
            (report-on! 'outbox:follow:adds-followed-object <fail>))))))
 
 
-(define (test-outbox-activity-add)
+(define (test-outbox-activity-add case-worker)
   ;; [outbox:add]
   ;; [outbox:add:adds-object-to-target]
   'TODO
   )
 
-(define (test-outbox-activity-remove)
+(define (test-outbox-activity-remove case-worker)
   ;; [outbox:remove]
   ;; [outbox:remove:removes-from-target]
   'TODO
   )
 
-(define (test-outbox-activity-like)
+(define (test-outbox-activity-like case-worker)
   ;; [outbox:like]
   ;; [outbox:like:adds-object-to-likes]
   'TODO
   )
 
-(define (test-outbox-activity-block)
+(define (test-outbox-activity-block case-worker)
   ;; [outbox:block]
   ;; [outbox:block:prevent-interaction-with-actor]
   'TODO
