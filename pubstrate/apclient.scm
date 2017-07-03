@@ -56,7 +56,9 @@
             apclient-submit
             apclient-submit-media apclient-submit-file
 
-            http-get-asobj http-post-asobj))
+            http-get-asobj http-post-asobj
+
+            stream-member))
 
 ;; TODO: Add authentication info, etc...
 (define-class <apclient> ()
@@ -345,3 +347,20 @@ media upload endpoint with filename listed as FILENAME."
       (lambda ()
         (http-post-async uri #:headers (cons as2-accept-header headers)))
     response-with-body-maybe-as-asobj))
+
+;;; Not really an apclient-specific thing, but...
+(define* (stream-member stream pred #:optional limit)
+  "Search for member matching PRED in STREAM. Optionally limit to
+LIMIT items (a non-negative integer).  Returns #f if no match or the
+stream at point where stream-car of the stream matches PRED."
+  (let lp ((stream stream)
+           (limit limit))
+    (cond ((and limit (= limit 0))    ; hit the traversal limit
+           #f)
+          ((stream-null? stream)      ; end of the stream
+           #f)
+          ((pred (stream-car stream)) ; yay, we got it
+           stream)
+          (else
+           (lp (stream-cdr stream)
+               (and limit (- limit 1)))))))
