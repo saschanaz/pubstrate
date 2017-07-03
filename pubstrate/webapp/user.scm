@@ -38,6 +38,7 @@
             user-add-to-inbox! user-add-to-outbox!
             user-add-to-followers! user-add-to-following!
 
+            db-user-container-key
             db-user-collection-member?
             user-inbox-member? user-outbox-member?
             user-followers-member? user-following-member?
