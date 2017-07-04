@@ -513,21 +513,20 @@ save it and return it.")
 (define (maybe obj pred)
   (and (pred obj) obj))
 
-(define-as-method (asobj-outbox-effects! (asobj ^Add) outbox-user)
+(define (%operate-on-container asobj outbox-user effect-proc!)
   (let* ((asobj (incoming-activity-common-tweaks asobj outbox-user))
          (object-id (or (asobj-ref-id asobj "object")
-                        (raise-user-error "No \"object\" to add.")))
+                        (raise-user-error "No \"object\" property.")))
          (object (or (maybe (asobj-ref asobj "object") asobj?)
                      (get-asobj object-id)
                      (raise-user-error "Couldn't find an \"object\" with that id.")))
          (collection-id (asobj-ref-id asobj "target"))
          (collection (db-asobj-ref (ctx-ref 'db) collection-id)))
-    ;; Now add that object-id to the collection
     (when (not (and (asobj? collection)
                     (asobj-is-a? collection ^Collection)))
-      (raise-user-error "Tried to add a non-Collection as \"target\""))
+      (raise-user-error "Non-Collection as \"target\""))
     (when (not (asobj-local? collection))
-      (raise-user-error "Can't Add to a non-local collection."))
+      (raise-user-error "Can't operate on a non-local collection."))
     ;; TODO: we really need to fix our access control...
     (when (not (equal? (asobj-ref collection "attributedTo")
                        (asobj-id outbox-user)))
@@ -538,10 +537,22 @@ save it and return it.")
     (let ((container-key (asobj-private-ref collection "container")))
       (when (not container-key)
         (raise-server-error "Container key missing on target collection."))
-      (db-container-append! (ctx-ref 'db) container-key object-id))
+      (effect-proc! container-key asobj object-id))
 
     (save-asobj! asobj)
     asobj))
+
+(define-as-method (asobj-outbox-effects! (asobj ^Add) outbox-user)
+  (define (append-to-container! container-key asobj object-id)
+    (db-container-append! (ctx-ref 'db) container-key object-id))
+  (%operate-on-container asobj outbox-user
+                         append-to-container!))
+
+(define-as-method (asobj-outbox-effects! (asobj ^Remove) outbox-user)
+  (define (remove-from-container! container-key asobj object-id)
+    (db-container-remove! (ctx-ref 'db) container-key object-id))
+  (%operate-on-container asobj outbox-user
+                         remove-from-container!))
 
 
 ;;; Posting to inbox generics.  AKA server to server / federation interactions.
