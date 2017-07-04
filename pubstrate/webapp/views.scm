@@ -374,7 +374,9 @@ toplevel COLLECTION with the \"first\" page property set."
   ;; GET only.
   (let* ((post-url (abs-local-uri "u" username "p" post-id))
          (asobj (and=> (db-asobj-ref (ctx-ref 'db) post-url)
-                       (compose asobj-fatten %tweak-for-display))))
+                       (compose asobj-fatten
+                                (lambda (asobj)
+                                  (%tweak-for-display asobj request))))))
     (match (request-method request)
       ('GET
        ;; TODO: authorization check?
