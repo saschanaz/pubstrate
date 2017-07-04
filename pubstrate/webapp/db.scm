@@ -36,10 +36,10 @@
             make-memory-db
             db-asobj-ref db-asobj-set!
 
-            db-container-new! db-container-append!
+            db-container-new!
             db-container-first-page db-container-page
             db-container-fetch-all db-container-member?
-            db-container-remove!
+            db-container-append! db-container-remove!
 
             <bearer-entry>
             bearer-entry-token bearer-entry-user-id bearer-entry-expires
