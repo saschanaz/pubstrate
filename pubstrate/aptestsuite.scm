@@ -487,42 +487,39 @@ message handling, and within `with-user-io-prompt'."
                      args)))
 
 (define-syntax-rule (report-protected items body ...)
-  (dynamic-wind
-    (const #f)
-    (lambda ()
-      (catch #t
-        (lambda ()
-          (catch 'report-abort
-            (lambda ()
-              body ...)
-            (lambda (key reason)
-              (for-each
-               (lambda (item)
-                 (when (not (report-ref (%current-actor) item))
-                   (report-on! item <fail>
-                               #:comment reason)))
-               items))))
-        (lambda _
-          (for-each
-           (lambda (item)
-             (when (not (report-ref (%current-actor) item))
-               (report-on! item <inconclusive>
-                           #:comment "Unexpected server error while running test!")))
-           items))
-        (let ((err (current-error-port)))
-          (lambda (key . args)
-            (false-if-exception
-             (let ((stack (make-stack #t 4)))
-               (display-backtrace stack err)
-               (print-exception err (stack-ref stack 0)
-                                key args)))))))
-    (lambda ()
-      (for-each
-       (lambda (item)
-         (when (not (report-ref (%current-actor) item))
-           (report-on! item <inconclusive>
-                       #:comment "Test case not reported on...")))
-       items))))
+  (begin
+   (catch #t
+     (lambda ()
+       (catch 'report-abort
+         (lambda ()
+           body ...)
+         (lambda (key reason)
+           (for-each
+            (lambda (item)
+              (when (not (report-ref (%current-actor) item))
+                (report-on! item <fail>
+                            #:comment reason)))
+            items))))
+     (lambda _
+       (for-each
+        (lambda (item)
+          (when (not (report-ref (%current-actor) item))
+            (report-on! item <inconclusive>
+                        #:comment "Unexpected server error while running test!")))
+        items))
+     (let ((err (current-error-port)))
+       (lambda (key . args)
+         (false-if-exception
+          (let ((stack (make-stack #t 4)))
+            (display-backtrace stack err)
+            (print-exception err (stack-ref stack 0)
+                             key args))))))
+   (for-each
+    (lambda (item)
+      (when (not (report-ref (%current-actor) item))
+        (report-on! item <inconclusive>
+                    #:comment "Test case not reported on...")))
+    items)))
 
 (define-syntax-rule (with-report items body ...)
   (begin
@@ -801,8 +798,7 @@ leave the tests in progress."
   ;; (test-outbox-verification case-worker)
   ;; (test-outbox-subjective case-worker)
   ;; (test-outbox-activity-create case-worker)
-  ;; (test-outbox-activity-add case-worker)
-  ;; (test-outbox-activity-remove case-worker)
+  (test-outbox-activity-add-remove case-worker)
   ;; (test-outbox-activity-like case-worker)
   ;; (test-outbox-activity-block case-worker)
   )
@@ -963,7 +959,6 @@ leave the tests in progress."
   "Helper procedure for submitting ASOBJ to APCLIENT's inbox.
 Retrieve the submitted object as an activitystreams object.
 Will abort if any of such steps fail."
-  (asobj-pprint asobj)
   (receive (submit-response submit-body)
       (apclient-submit apclient asobj)
     (when (not (member (response-code submit-response)
@@ -981,6 +976,30 @@ Will abort if any of such steps fail."
       (#f
        (throw 'report-abort
               no-location-present-message)))))
+
+(define* (%create-and-retrieve-object apclient asobj
+                                      #:key wrap-in-create?)
+  "Like %submit-asobj-and-retrieve but explicitly retrieve the
+object from a returned Create object."
+  (define to-submit
+    (if wrap-in-create?
+        (as:create #:object asobj)
+        asobj))
+
+  (let ((returned-asobj
+         (%submit-asobj-and-retrieve apclient to-submit)))
+    (cond
+     ((asobj-is-a? returned-asobj ^Create)
+      (match (asobj-ref returned-asobj "object")
+        ((? string-uri? object-id)
+         (apclient-get-local-asobj apclient object-id))
+        ((? asobj? object)
+         object)
+        (#f
+         (throw 'report-abort
+                                  "Create object returned with no object"))))
+     ;; Not wrapped in a Create?  Return as-is.
+     (else returned-asobj))))
 
 (define (test-outbox-non-activity case-worker)
   (define activity-to-submit
@@ -1268,17 +1287,76 @@ Will abort if any of such steps fail."
            (report-on! 'outbox:follow:adds-followed-object <fail>))))))
 
 
-(define (test-outbox-activity-add case-worker)
-  ;; [outbox:add]
-  ;; [outbox:add:adds-object-to-target]
-  'TODO
-  )
+(define (test-outbox-activity-add-remove case-worker)
+  (define apclient (.apclient case-worker))
+  (define collection-to-submit
+    (as:collection #:name "test collection"))
 
-(define (test-outbox-activity-remove case-worker)
-  ;; [outbox:remove]
-  ;; [outbox:remove:removes-from-target]
-  'TODO
-  )
+  (with-report
+   '(outbox:add
+     outbox:add:adds-object-to-target
+     outbox:remove
+     outbox:remove:removes-from-target)
+   ;; Make a new collection
+   (let* ((collection (%create-and-retrieve-object
+                       apclient collection-to-submit))
+          (simple-note (%create-and-retrieve-object
+                        apclient
+                        (as:note #:content "I'm a note!")))
+          (added-note (%submit-asobj-and-retrieve
+                       apclient
+                       (as:add #:object (asobj-id simple-note)
+                               #:target (asobj-id collection))))
+          (note-is-member?
+           (lambda ()
+             (define collection-refetched
+               (receive (_ asobj)
+                   (apclient-get-local-asobj apclient (asobj-id collection))
+                 asobj))
+             (define collection-stream
+               ;; Limit to 200 items so we don't search forever.
+               ;; That should be more than enough.
+               (stream-take 200
+                            (apclient-collection-item-stream
+                             apclient collection-refetched
+                             #:local? #t)))
+             (stream-member collection-stream
+                            (lambda (asobj)
+                              (equal? (asobj-id asobj)
+                                      (asobj-id simple-note)))))))
+     ;; If we got this far, we were able to add it ok
+     (report-on! 'outbox:add <success>)
+
+     ;; [outbox:add:adds-object-to-target]
+     ;; The object should now be in the collection
+     (if (note-is-member?)
+         (report-on! 'outbox:add:adds-object-to-target <success>)
+         (begin
+           (report-on! 'outbox:remove <inconclusive>
+                       #:comment "Couldn't test removing from collection because couldn't add initially.")
+           (report-on! 'outbox:remove:removes-from-target <inconclusive>
+                       #:comment "Couldn't test removing from collection because couldn't add initially.")
+           (throw 'report-abort
+                  "Object does not appear in collection after adding it.")))
+
+     ;; Now remove it
+     ;; @@: We're using this procedure instead of simply apclient-submit
+     ;;   because it does some extra sanity checks
+     (%submit-asobj-and-retrieve
+      apclient
+      (as:remove #:object (asobj-id simple-note)
+                 #:target (asobj-id collection)))
+     ;; Assuming we got this far, it must have submitted okay
+     ;; [outbox:remove]
+     (report-on! 'outbox:remove <success>)
+
+     ;; [outbox:remove:removes-from-target]
+     ;; The object shouldn't be in the collection any more
+     (if (not (note-is-member?))
+         (report-on! 'outbox:remove:removes-from-target
+                     <success>)
+         (report-on! 'outbox:remove:removes-from-target
+                     <fail>)))))
 
 (define (test-outbox-activity-like case-worker)
   ;; [outbox:like]
