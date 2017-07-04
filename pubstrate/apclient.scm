@@ -87,6 +87,10 @@
     (apclient-user apclient)
     apclient))
 
+(define as2-content-type-header
+  '(content-type . (application/ld+json
+                    (profile . "https://www.w3.org/ns/activitystreams"))))
+
 (define as2-accept-header
   '(accept . ((application/ld+json
                (profile . "https://www.w3.org/ns/activitystreams")))))
@@ -297,7 +301,8 @@ expose local credentials...)"
       (lambda ()
         (apclient-post-local apclient uri
                              (asobj->string asobj)
-                             #:headers headers))
+                             #:headers (cons as2-content-type-header
+                                             (cons as2-accept-header headers))))
     response-with-body-maybe-as-asobj))
 
 (define* (apclient-submit apclient asobj)
