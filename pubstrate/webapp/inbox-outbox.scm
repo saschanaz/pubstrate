@@ -513,15 +513,18 @@ save it and return it.")
 (define (maybe obj pred)
   (and (pred obj) obj))
 
-(define (%operate-on-container asobj outbox-user effect-proc!)
+(define* (%operate-on-container asobj outbox-user effect-proc!
+                                #:key (get-collection
+                                       (lambda (asobj outbox-user)
+                                         (db-asobj-ref (ctx-ref 'db)
+                                                       (asobj-ref-id asobj "target")))))
   (let* ((asobj (incoming-activity-common-tweaks asobj outbox-user))
          (object-id (or (asobj-ref-id asobj "object")
                         (raise-user-error "No \"object\" property.")))
          (object (or (maybe (asobj-ref asobj "object") asobj?)
                      (get-asobj object-id)
                      (raise-user-error "Couldn't find an \"object\" with that id.")))
-         (collection-id (asobj-ref-id asobj "target"))
-         (collection (db-asobj-ref (ctx-ref 'db) collection-id)))
+         (collection (get-collection asobj outbox-user)))
     (when (not (and (asobj? collection)
                     (asobj-is-a? collection ^Collection)))
       (raise-user-error "Non-Collection as \"target\""))
@@ -553,6 +556,15 @@ save it and return it.")
     (db-container-remove! (ctx-ref 'db) container-key object-id))
   (%operate-on-container asobj outbox-user
                          remove-from-container!))
+
+(define-as-method (asobj-outbox-effects! (asobj ^Like) outbox-user)
+  (define user-liked-collection
+    (db-asobj-ref (ctx-ref 'db)
+                  (asobj-ref-id outbox-user "liked")))
+  (define (like-it! container-key asobj object-id)
+    (db-container-append! (ctx-ref 'db) container-key object-id))
+  (%operate-on-container asobj outbox-user like-it!
+                         #:get-collection (const user-liked-collection)))
 
 
 ;;; Posting to inbox generics.  AKA server to server / federation interactions.
