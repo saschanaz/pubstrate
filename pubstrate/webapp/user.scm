@@ -80,6 +80,7 @@
          (outbox (make-collection "outbox"))
          (following (make-collection "following"))
          (followers (make-collection "followers"))
+         (liked (make-collection "liked"))
          (user
           (asobj-set-private
            (make-as ^Person asenv
@@ -89,7 +90,8 @@
                     #:inbox (asobj-id inbox)
                     #:outbox (asobj-id outbox)
                     #:following (asobj-id following)
-                    #:followers (asobj-id followers))
+                    #:followers (asobj-id followers)
+                    #:liked (asobj-id liked))
            `(@ ("password" ,password-sjson)))))
     (values user
             (list inbox outbox followers following))))
