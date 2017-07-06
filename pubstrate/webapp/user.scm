@@ -63,19 +63,19 @@
 (define* (make-user username password
                     #:key (asenv (%default-env))
                     name)
-  (define (make-collection col-name)
-    (make-as ^OrderedCollection asenv
-             #:id (abs-local-uri "u" username col-name)
-             #:name (format #f "~a for ~a"
-                            (string-capitalize col-name)
-                            username)))
-
   (require-base-uri)
   (assert-valid-username username)
   (let* ((id (user-id-from-username username))
          (password-sjson
           (salted-hash->sjson
            (salt-and-hash-password password)))
+         (make-collection (lambda (col-name)
+                            (make-as ^OrderedCollection asenv
+                                     #:id (abs-local-uri "u" username col-name)
+                                     #:name (format #f "~a for ~a"
+                                                    (string-capitalize col-name)
+                                                    username)
+                                     #:attributedTo id)))
          (inbox (make-collection "inbox"))
          (outbox (make-collection "outbox"))
          (following (make-collection "following"))
