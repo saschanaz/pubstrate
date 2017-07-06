@@ -51,7 +51,7 @@
   #:use-module (rnrs bytevectors)
   #:export (index mockup
             user-page user-inbox user-outbox
-            user-followers user-following
+            user-followers user-following user-liked
             login logout
             display-post asobj
             oauth-authorize
@@ -312,6 +312,12 @@ toplevel COLLECTION with the \"first\" page property set."
                                   #:gen-title
                                   (lambda (user-name-str collection)
                                     (format #f "following ~a" user-name-str))))
+
+(define user-liked
+  (make-read-user-collection-view "liked"
+                                  #:gen-title
+                                  (lambda (user-name-str collection)
+                                    (format #f "liked by ~a" user-name-str))))
 
 (define login-form
   (make-form

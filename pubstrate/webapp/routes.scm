@@ -38,6 +38,8 @@
      (values user-followers (list username)))
     (("u" username "following")
      (values user-following (list username)))
+    (("u" username "liked")
+     (values user-liked (list username)))
     (("static" static-path ...)
      ;; TODO: make this toggle'able
      (values render-static (list static-path)))
