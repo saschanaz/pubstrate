@@ -27,7 +27,7 @@
 
 (define (adduser-with-config config-filename username password)
   (with-app-ctx-from-config-file
-   "/home/cwebber/sandbox/data/pubstrate/pubstrate-cfg.scm"
+   config-filename
    (lambda ()
      (db-add-new-user! (ctx-ref 'db)
                        username password))))
