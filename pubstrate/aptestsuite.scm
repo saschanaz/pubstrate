@@ -658,9 +658,9 @@ message handling, and within `with-user-io-prompt'."
      (outbox:like
       SHOULD
       "Like"
-      #:subitems ((outbox:like:adds-object-to-likes
+      #:subitems ((outbox:like:adds-object-to-liked
                    SHOULD
-                   "Adds the object to the actor's Likes Collection.")))
+                   "Adds the object to the actor's Liked Collection.")))
      (outbox:block
       SHOULD
       "Block"
@@ -799,7 +799,7 @@ leave the tests in progress."
   ;; (test-outbox-subjective case-worker)
   ;; (test-outbox-activity-create case-worker)
   (test-outbox-activity-add-remove case-worker)
-  ;; (test-outbox-activity-like case-worker)
+  (test-outbox-activity-like case-worker)
   ;; (test-outbox-activity-block case-worker)
   )
 
@@ -1359,10 +1359,30 @@ object from a returned Create object."
                      <fail>)))))
 
 (define (test-outbox-activity-like case-worker)
-  ;; [outbox:like]
-  ;; [outbox:like:adds-object-to-likes]
-  'TODO
-  )
+  (define apclient (.apclient case-worker))
+  (with-report
+   '(outbox:like
+     outbox:like:adds-object-to-liked)
+   ;; @@: We could maybe switch this to being a post by a local
+   ;;   pseudoactor, which is maybe less weird than liking your own
+   ;;   post?
+   (let* ((a-note (%create-and-retrieve-object
+                   apclient
+                   (as:note #:content "A very likable post!")))
+          (like (%submit-asobj-and-retrieve
+                 apclient
+                 (as:like #:object (asobj-id a-note))))
+          (liked-stream
+           ;; Limit to 200 items so we don't search forever.
+           ;; That should be more than enough.
+           (stream-take 200 (apclient-liked-stream apclient))))
+     (report-on! 'outbox:like <success>)
+     (if (stream-member liked-stream
+                        (lambda (asobj)
+                          (equal? (asobj-id a-note)
+                                  (asobj-id asobj))))
+         (report-on! 'outbox:like:adds-object-to-liked <success>)
+         (report-on! 'outbox:like:adds-object-to-liked <fail>)))))
 
 (define (test-outbox-activity-block case-worker)
   ;; [outbox:block]
