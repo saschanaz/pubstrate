@@ -42,11 +42,14 @@
             apclient-user
             apclient-inbox-uri apclient-outbox-uri
             apclient-followers-uri apclient-following-uri
+            apclient-liked-uri
             apclient-media-uri
             apclient-inbox apclient-outbox
             apclient-followers apclient-following
+            apclient-liked
             apclient-inbox-stream apclient-outbox-stream
             apclient-followers-stream apclient-following-stream
+            apclient-liked-stream
             apclient-get-local apclient-get-local-asobj
             apclient-post-local apclient-post-local-asobj
 
@@ -233,6 +236,8 @@
   (%apclient-uri-property "followers"))
 (define apclient-following-uri
   (%apclient-uri-property "following"))
+(define apclient-liked-uri
+  (%apclient-uri-property "liked"))
 (define apclient-media-uri
   (%apclient-uri-property '("endpoints" "uploadMedia")))
 
@@ -244,6 +249,8 @@
   (%apclient-get-local-asobj apclient-followers-uri))
 (define apclient-following
   (%apclient-get-local-asobj apclient-following-uri))
+(define apclient-liked
+  (%apclient-get-local-asobj apclient-liked-uri))
 
 (define apclient-inbox-stream
   (%apclient-get-item-stream apclient-inbox))
@@ -253,6 +260,8 @@
   (%apclient-get-item-stream apclient-followers))
 (define apclient-following-stream
   (%apclient-get-item-stream apclient-following))
+(define apclient-liked-stream
+  (%apclient-get-item-stream apclient-liked))
 
 (define-method (apclient-auth-headers apclient)
   "Return whatever headers are appropriate for authorization given apclient"
