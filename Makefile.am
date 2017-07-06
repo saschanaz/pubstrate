@@ -57,6 +57,7 @@ SOURCES =  \
 	pubstrate/package-config.scm			\
 	pubstrate/webapp/conditions.scm			\
 	pubstrate/webapp/cli.scm			\
+	pubstrate/webapp/cli/adduser.scm		\
 	pubstrate/webapp/cli/configure.scm		\
 	pubstrate/webapp/cli/runserver.scm		\
 	pubstrate/webapp/filestore.scm			\
