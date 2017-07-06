@@ -94,7 +94,7 @@
                     #:liked (asobj-id liked))
            `(@ ("password" ,password-sjson)))))
     (values user
-            (list inbox outbox followers following))))
+            (list inbox outbox followers following liked))))
 
 (define* (db-add-new-user! db username password
                            #:key (asenv (%default-env)))
