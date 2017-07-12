@@ -184,6 +184,16 @@
              #:inbox (pseudoactor-url pseudoactor '("inbox"))
              #:outbox (pseudoactor-url pseudoactor '("outbox"))))
 
+(define-method (pseudoactor-asobj->outbox! (pseudoactor <pseudoactor>)
+                                           asobj)
+  "Save asobj to outbox and assign an id to it, returning asobj saved with id."
+  (define post-id (random-token))
+  (define id-uri (pseudoactor-url pseudoactor "post" post-id))
+  (define new-asobj
+    (asobj-set asobj "id" id-uri))
+  (hash-set! (.outbox psuedoactor) post-id new-asobj)
+  new-asobj)
+
 (define-method (pseudoactor-view-user-page (pseudoactor <pseudoactor>)
                                            request body)
   (values (build-response
@@ -800,8 +810,7 @@ leave the tests in progress."
   ;; (test-outbox-activity-create case-worker)
   (test-outbox-activity-add-remove case-worker)
   (test-outbox-activity-like case-worker)
-  ;; (test-outbox-activity-block case-worker)
-  )
+  (test-outbox-activity-block case-worker))
 
 (define (set-up-c2s-server-client-auth case-worker)
   (define (get-user-obj)
@@ -1385,10 +1394,53 @@ object from a returned Create object."
          (report-on! 'outbox:like:adds-object-to-liked <fail>)))))
 
 (define (test-outbox-activity-block case-worker)
-  ;; [outbox:block]
-  ;; [outbox:block:prevent-interaction-with-actor]
-  'TODO
-  )
+  (define apclient (.apclient case-worker))
+
+  (with-report
+   '(outbox:block
+     outbox:block:prevent-interaction-with-actor)
+   ;; First we need to create an actor
+   (let* ((obnoxious-pseudoactor
+           (case-worker-pseudoactor-new! case-worker))
+          (block-asobj
+           (%submit-asobj-and-retrieve
+            apclient
+            (as:block #:object (pseudoactor-id obnoxious-actor)))))
+     ;; [outbox:block]
+     (report-on! outbox:block <success>)
+
+     ;; [outbox:block:prevent-interaction-with-actor]
+     ;; Now we need to post a new post to the actor's inbox...
+     (let*-values (((obnoxious-post)
+                    (pseudoactor-asobj->outbox!
+                     (as:note #:content "Well, actually..."
+                              #:attributedTo (pseudoactor-id obnoxious-pseudoactor)
+                              #:to (apclient-id apclient))))
+                   ((obnoxious-post-in-create)
+                    (pseudoactor-asobj->outbox!
+                     (as:create #:object obnoxious-post
+                                #:author (pseudoactor-id obnoxious-pseudoactor)
+                                #:to (apclient-id apclient))))
+                   ((post-response _)
+                    (http-post-async (apclient-inbox apclient)
+                                     obnoxious-post-in-create)))
+       (match (response-code post-response)
+         (405 (report-on! 'outbox:block:prevent-interaction-with-actor
+                          <inconclusive>
+                          #:comment "Server does not appear to support federation (but might prevent local interactions appropriately)"))
+         ;; @@: I guess the spec doesn't say what codes are acceptable
+         ;;   for federated posts?
+         (_
+          ;; Now we have to see if it shows up in our inbox...
+          (if (stream-member (apclient-inbox-stream)
+                             (lambda (asobj)
+                               (member (asobj-id asobj)
+                                       (list (asobj-id obnoxious-post)
+                                             (asobj obnoxious-post-in-create)))))
+              (report-on! 'outbox:block:prevent-interaction-with-actor
+                          <fail>)
+              (report-on! 'outbox:block:prevent-interaction-with-actor
+                          <succeed>))))))))
 
 (define (test-outbox-pseudoactors-stub case-worker)
   (let* ((pseudoactor
