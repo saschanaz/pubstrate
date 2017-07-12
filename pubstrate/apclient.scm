@@ -357,10 +357,14 @@ media upload endpoint with filename listed as FILENAME."
         ;; Return the values that would have been returned
         (apply values result)))))
 
-(define* (http-post-asobj uri #:key (headers '()))
+(define* (http-post-asobj uri asobj #:key (headers '()))
   (call-with-values
       (lambda ()
-        (http-post-async uri #:headers (cons as2-accept-header headers)))
+        (http-post-async uri
+                         #:body (asobj->string asobj)
+                         #:headers
+                         (cons as2-accept-header
+                               (cons as2-content-type-header headers))))
     response-with-body-maybe-as-asobj))
 
 ;;; Not really an apclient-specific thing, but...
