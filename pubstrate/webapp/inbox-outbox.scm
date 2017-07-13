@@ -19,6 +19,7 @@
 (define-module (pubstrate webapp inbox-outbox)
   #:use-module (gcrypt random)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-19)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 format)
@@ -286,37 +287,72 @@ thrown.")
          (date->rfc3339-string (current-date 0))))
    asobj))
 
+(define (unify-addressing obj1 obj2)
+  (define (json-arrayify val)
+    (cond
+     ((json-array? val)
+      val)
+     (else
+      (list val))))
+  (define (unify-field field obj1 obj2)
+    (append (json-arrayify (asobj-ref obj1 field '()))
+            (json-arrayify (asobj-ref obj2 field '()))))
+  (let* ((new-to (unify-field "to" obj1 obj2))
+         (new-cc (unify-field "cc" obj1 obj2))
+         (new-bcc (unify-field "bcc" obj1 obj2))
+         (new-bto (unify-field "bto" obj1 obj2))
+         (tweak-field
+          (lambda (obj field val)
+            (match val
+              ;; empty list?  return as-is
+              (() obj)
+              (_ (asobj-set obj field val)))))
+         (tweak-obj
+          (lambda (obj)
+            (fold
+             (match-lambda*
+               (((field val) obj)
+                (tweak-field obj field val)))
+             obj
+             `(("to" ,new-to)
+               ("cc" ,new-cc)
+               ("bcc" ,new-bcc)
+               ("bto" ,new-bto))))))
+    (values (tweak-obj obj1) (tweak-obj obj2))))
+
 (define-as-method (asobj-outbox-effects! (asobj ^Create)
                                          outbox-user)
   (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
     (let-asobj-fields
      asobj ((object "object"))
-     (let* (;; Perform common tweaks: add an id, published date (copied from),
-            ;; etc.
-            (tweak-object
-             (compose
-              (lambda (object)
-                (incoming-activity-common-tweaks object outbox-user))
-              (lambda (object)
-                (asobj-set object "id"
-                           (gen-asobj-id-for-user outbox-user)))
-              ;; Copy the actor over to attributedTo
-              (lambda (object)
-                (asobj-set object "attributedTo"
-                           (asobj-ref asobj "actor")))
-              ;; Copy the published date
-              (lambda (object)
-                (asobj-set object "published"
-                           (asobj-ref asobj "published")))))
-            (object
-             ;; saving is also done here, as well as any final modifications
-             ;; by the object.
-             (create-outbox-object! (tweak-object object)
-                                    asobj outbox-user))
-            (asobj
-             ;; We replace the asobj's object reference with just the
-             ;; identifier for the object rather than the object itself
-             (asobj-set asobj "object" (asobj-id object))))
+     (let*-values (;; Perform common tweaks: add an id, published date (copied from),
+                   ;; etc.
+                   ((tweak-object)
+                    (compose
+                     (lambda (object)
+                       (incoming-activity-common-tweaks object outbox-user))
+                     (lambda (object)
+                       (asobj-set object "id"
+                                  (gen-asobj-id-for-user outbox-user)))
+                     ;; Copy the actor over to attributedTo
+                     (lambda (object)
+                       (asobj-set object "attributedTo"
+                                  (asobj-ref asobj "actor")))
+                     ;; Copy the published date
+                     (lambda (object)
+                       (asobj-set object "published"
+                                  (asobj-ref asobj "published")))))
+                   ((object asobj)
+                    (unify-addressing object asobj))
+                   ((object)
+                    ;; saving is also done here, as well as any final modifications
+                    ;; by the object.
+                    (create-outbox-object! (tweak-object object)
+                                           asobj outbox-user))
+                   ((asobj)
+                    ;; We replace the asobj's object reference with just the
+                    ;; identifier for the object rather than the object itself
+                    (asobj-set asobj "object" (asobj-id object))))
        asobj))))
 
 (define-as-generic create-outbox-object!
