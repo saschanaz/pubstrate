@@ -1001,12 +1001,17 @@ object from a returned Create object."
      ((asobj-is-a? returned-asobj ^Create)
       (match (asobj-ref returned-asobj "object")
         ((? string-uri? object-id)
-         (apclient-get-local-asobj apclient object-id))
+         (receive (response object)
+             (apclient-get-local-asobj apclient object-id)
+           (when (not (asobj? object))
+             (throw 'report-abort
+                    "Could not retrieve an ActivityStreams object from object uri."))
+           object))
         ((? asobj? object)
          object)
         (#f
          (throw 'report-abort
-                                  "Create object returned with no object"))))
+                "Create object returned with no object"))))
      ;; Not wrapped in a Create?  Return as-is.
      (else returned-asobj))))
 
@@ -1251,11 +1256,62 @@ object from a returned Create object."
   )
 
 (define (test-outbox-activity-create case-worker)
-  ;; [outbox:create]
-  ;; [outbox:create:merges-audience-properties]
-  ;; [outbox:create:actor-to-attributed-to]
-  'TODO
-  )
+  (with-report
+   '(outbox:create
+     outbox:create:merges-audience-properties
+     outbox:create:actor-to-attributed-to)
+
+   (let (;; Create some local pseudoactors for addressing.
+         (psa1 (case-worker-pseudoactor-new! case-worker))
+         (psa2 (case-worker-pseudoactor-new! case-worker))
+         (psa3 (case-worker-pseudoactor-new! case-worker))
+         (psa4 (case-worker-pseudoactor-new! case-worker))
+         (psa5 (case-worker-pseudoactor-new! case-worker))
+         (ids-of (lambda pseudoactors
+                   (map pseudoactor-id psuedoactors)))
+         (create-asobj
+          (%submit-asobj-and-retrieve
+           apclient
+           (as:create #:to (ids-of psa1 psa2)
+                      #:cc (pseudoactor-id psa3)
+                      #:actor (apclient-id apclient)
+                      #:object (as:note #:cc (ids-of psa4 psa5)
+                                        #:content "Hi there!"))))
+         (object-asobj
+          (cond
+           ((asobj-ref-id create-asobj "object") =>
+            (lambda (obj-id)
+              (receive (response object)
+                  (apclient-get-local-asobj apclient obj-id)
+                (when (not (asobj? object))
+                  (throw 'report-abort
+                         "Could not retrieve an ActivityStreams object from object uri."))
+                object)))
+           (else
+            (throw 'report-abort
+                   "No object id found.")))))
+     ;; [outbox:create]
+     (report-on! 'outbox:create <success>)
+     ;; [outbox:create:merges-audience-properties]
+     (if (and (equal? (asobj-ref create-asobj "to")
+                      (ids-of psa1 psa2))
+              (equal? (asobj-ref create-asobj "cc")
+                      (ids-of psa3 psa4 psa5))
+              (equal? (asobj-ref object-asobj "to")
+                      (ids-of psa1 psa2))
+              (equal? (asobj-ref object-asobj "cc")
+                      (ids-of psa3 psa4 psa5)))
+         (report-on! 'outbox:create:merges-audience-properties
+                     <success>)
+         (report-on! 'outbox:create:merges-audience-properties
+                     <fail>))
+     ;; [outbox:create:actor-to-attributed-to]
+     (if (equal? (apclient-id apclient)
+                 (asobj-ref object-asobj "attributedTo"))
+         (report-on! 'outbox:create:actor-to-attributed-to
+                     <success>)
+         (report-on! 'outbox:create:actor-to-attributed-to
+                     <fail>)))))
 
 ;; TODO: Now we need to have a dummy activitypub server running...
 (define (test-outbox-activity-follow case-worker)
@@ -1490,7 +1546,7 @@ object from a returned Create object."
 
 (define* (case-manager-worker-ref case-manager client-id
                                   #:key (error-on-nothing #t))
-  ")Fetch worker with CLIENT-ID.
+  "Fetch worker with CLIENT-ID.
 
 If ERROR-ON-NOTHING, error out if worker is not found."
   (let ((worker (hash-ref (.workers case-manager) client-id)))
