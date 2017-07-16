@@ -81,6 +81,7 @@
          (following (make-collection "following"))
          (followers (make-collection "followers"))
          (liked (make-collection "liked"))
+         (blocked (make-collection "blocked"))
          (user
           (asobj-set-private
            (make-as ^Person asenv
@@ -92,9 +93,11 @@
                     #:following (asobj-id following)
                     #:followers (asobj-id followers)
                     #:liked (asobj-id liked))
-           `(@ ("password" ,password-sjson)))))
+           `(@ ("password" ,password-sjson)
+               ;; Not exposed to the public
+               ("blocked" ,(asobj-id blocked))))))
     (values user
-            (list inbox outbox followers following liked))))
+            (list inbox outbox followers following liked blocked))))
 
 (define* (db-add-new-user! db username password
                            #:key (asenv (%default-env)))
