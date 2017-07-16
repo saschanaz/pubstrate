@@ -34,14 +34,17 @@
 
             user-inbox-container-key user-outbox-container-key
             user-followers-container-key user-following-container-key
+            user-blocked-container-key
 
             user-add-to-inbox! user-add-to-outbox!
             user-add-to-followers! user-add-to-following!
+            user-add-to-blocked!
 
             db-user-container-key
             db-user-collection-member?
             user-inbox-member? user-outbox-member?
             user-followers-member? user-following-member?
+            user-blocked-member?
 
             user-collection-page user-collection-first-page
 
@@ -163,6 +166,8 @@ to the database (in this case, the collections!)"
   (db-user-container-key db user "followers"))
 (define (user-following-container-key db user)
   (db-user-container-key db user "following"))
+(define (user-blocked-container-key db user)
+  (db-user-container-key db user "blocked"))
 
 
 (define (db-user-add-to-collection! db user id
@@ -180,6 +185,8 @@ to the database (in this case, the collections!)"
   (db-user-add-to-collection! db user id "followers"))
 (define (user-add-to-following! db user id)
   (db-user-add-to-collection! db user id "following"))
+(define (user-add-to-blocked! db user id)
+  (db-user-add-to-collection! db user id "blocked"))
 
 (define (db-user-collection-member? db user id
                                     collection-name)
@@ -195,6 +202,8 @@ to the database (in this case, the collections!)"
   (db-user-collection-member? db user id "followers"))
 (define (user-following-member? db user id)
   (db-user-collection-member? db user id "following"))
+(define (user-blocked-member? db user id)
+  (db-user-collection-member? db user id "blocked"))
 
 (define (user-collection-page db user collection-name
                               member how-many)
