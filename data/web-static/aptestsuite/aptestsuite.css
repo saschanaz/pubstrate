@@ -217,3 +217,14 @@ input[type='text'] {
     max-width: 100%;
 }
 
+.result-log-success {
+    color: #20671d;
+}
+
+.result-log-fail {
+    color: #a01616;
+}
+
+.result-log-inconclusive {
+    color: #817668;
+}
