@@ -191,7 +191,7 @@
   (define id-uri (pseudoactor-url pseudoactor "post" post-id))
   (define new-asobj
     (asobj-set asobj "id" id-uri))
-  (hash-set! (.outbox psuedoactor) post-id new-asobj)
+  (hash-set! (.outbox pseudoactor) post-id new-asobj)
   new-asobj)
 
 (define-method (pseudoactor-view-user-page (pseudoactor <pseudoactor>)
@@ -807,7 +807,7 @@ leave the tests in progress."
   (test-outbox-activity-follow case-worker)
   ;; (test-outbox-verification case-worker)
   ;; (test-outbox-subjective case-worker)
-  ;; (test-outbox-activity-create case-worker)
+  (test-outbox-activity-create case-worker)
   (test-outbox-activity-add-remove case-worker)
   (test-outbox-activity-like case-worker)
   (test-outbox-activity-block case-worker))
@@ -1256,40 +1256,41 @@ object from a returned Create object."
   )
 
 (define (test-outbox-activity-create case-worker)
+  (define apclient (.apclient case-worker))
   (with-report
    '(outbox:create
      outbox:create:merges-audience-properties
      outbox:create:actor-to-attributed-to)
 
-   (let (;; Create some local pseudoactors for addressing.
-         (psa1 (case-worker-pseudoactor-new! case-worker))
-         (psa2 (case-worker-pseudoactor-new! case-worker))
-         (psa3 (case-worker-pseudoactor-new! case-worker))
-         (psa4 (case-worker-pseudoactor-new! case-worker))
-         (psa5 (case-worker-pseudoactor-new! case-worker))
-         (ids-of (lambda pseudoactors
-                   (map pseudoactor-id psuedoactors)))
-         (create-asobj
-          (%submit-asobj-and-retrieve
-           apclient
-           (as:create #:to (ids-of psa1 psa2)
-                      #:cc (pseudoactor-id psa3)
-                      #:actor (apclient-id apclient)
-                      #:object (as:note #:cc (ids-of psa4 psa5)
-                                        #:content "Hi there!"))))
-         (object-asobj
-          (cond
-           ((asobj-ref-id create-asobj "object") =>
-            (lambda (obj-id)
-              (receive (response object)
-                  (apclient-get-local-asobj apclient obj-id)
-                (when (not (asobj? object))
-                  (throw 'report-abort
-                         "Could not retrieve an ActivityStreams object from object uri."))
-                object)))
-           (else
-            (throw 'report-abort
-                   "No object id found.")))))
+   (let* (;; Create some local pseudoactors for addressing.
+          (psa1 (case-worker-pseudoactor-new! case-worker))
+          (psa2 (case-worker-pseudoactor-new! case-worker))
+          (psa3 (case-worker-pseudoactor-new! case-worker))
+          (psa4 (case-worker-pseudoactor-new! case-worker))
+          (psa5 (case-worker-pseudoactor-new! case-worker))
+          (ids-of (lambda pseudoactors
+                    (map pseudoactor-id pseudoactors)))
+          (create-asobj
+           (%submit-asobj-and-retrieve
+            apclient
+            (as:create #:to (ids-of psa1 psa2)
+                       #:cc (pseudoactor-id psa3)
+                       #:actor (apclient-id apclient)
+                       #:object (as:note #:cc (ids-of psa4 psa5)
+                                         #:content "Hi there!"))))
+          (object-asobj
+           (cond
+            ((asobj-ref-id create-asobj "object") =>
+             (lambda (obj-id)
+               (receive (response object)
+                   (apclient-get-local-asobj apclient obj-id)
+                 (when (not (asobj? object))
+                   (throw 'report-abort
+                          "Could not retrieve an ActivityStreams object from object uri."))
+                 object)))
+            (else
+             (throw 'report-abort
+                    "No object id found.")))))
      ;; [outbox:create]
      (report-on! 'outbox:create <success>)
      ;; [outbox:create:merges-audience-properties]
@@ -1461,9 +1462,9 @@ object from a returned Create object."
           (block-asobj
            (%submit-asobj-and-retrieve
             apclient
-            (as:block #:object (pseudoactor-id obnoxious-actor)))))
+            (as:block #:object (pseudoactor-id obnoxious-pseudoactor)))))
      ;; [outbox:block]
-     (report-on! outbox:block <success>)
+     (report-on! 'outbox:block <success>)
 
      ;; [outbox:block:prevent-interaction-with-actor]
      ;; Now we need to post a new post to the actor's inbox...
@@ -1488,7 +1489,7 @@ object from a returned Create object."
          ;;   for federated posts?
          (_
           ;; Now we have to see if it shows up in our inbox...
-          (if (stream-member (apclient-inbox-stream)
+          (if (stream-member (apclient-inbox-stream apclient)
                              (lambda (asobj)
                                (member (asobj-id asobj)
                                        (list (asobj-id obnoxious-post)
@@ -1496,7 +1497,7 @@ object from a returned Create object."
               (report-on! 'outbox:block:prevent-interaction-with-actor
                           <fail>)
               (report-on! 'outbox:block:prevent-interaction-with-actor
-                          <succeed>))))))))
+                          <success>))))))))
 
 (define (test-outbox-pseudoactors-stub case-worker)
   (let* ((pseudoactor
