@@ -1321,8 +1321,10 @@ object from a returned Create object."
          (report-on! 'outbox:create:merges-audience-properties
                      <fail>))
      ;; [outbox:create:actor-to-attributed-to]
-     (if (equal? (apclient-id apclient)
-                 (asobj-ref object-asobj "attributedTo"))
+     (if (equal? (uri->string (apclient-id apclient))
+                 (match (asobj-ref object-asobj "attributedTo")
+                   ((? string-uri? str-uri) str-uri)
+                   ((? asobj? actor-asobj) (asobj-id actor-asobj))))
          (report-on! 'outbox:create:actor-to-attributed-to
                      <success>)
          (report-on! 'outbox:create:actor-to-attributed-to
