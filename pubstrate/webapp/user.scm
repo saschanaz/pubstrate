@@ -19,6 +19,7 @@
 (define-module (pubstrate webapp user)
   #:use-module (ice-9 format)
   #:use-module (ice-9 receive)
+  #:use-module (ice-9 match)
   #:use-module (srfi srfi-11)
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate vocab)
@@ -152,10 +153,17 @@ to the database (in this case, the collections!)"
                                   password-sjson)))
     (db-asobj-set! db user)))
 
-(define (db-user-container-key db user collection-name)
+(define* (db-user-container-key db user collection-name)
   "Get the container key for USER's COLLECTION-NAME"
+  ;; so hacky D:
+  ;; This is because blocked is stored on the private section
+  ;; rather than on the main object...
+  (define field-ref
+    (match collection-name
+      ("blocked" asobj-private-ref)
+      (_ asobj-ref)))
   (let ((collection
-         (db-asobj-ref db (asobj-ref user collection-name))))
+         (db-asobj-ref db (field-ref user collection-name))))
     (asobj-private-ref collection "container")))
 
 (define (user-inbox-container-key db user)
