@@ -182,7 +182,6 @@ Returns #t if the object is added to the inbox, #f otherwise."
          (db-asobj-set! db asobj))
      ;; Add to the actor's inbox
      (when (not (user-inbox-member? db actor id))
-       (asobj-inbox-effects! asobj actor)
        (user-add-to-inbox! db actor id)))
     (else
      'TODO)))
@@ -288,15 +287,33 @@ thrown.")
    asobj))
 
 (define (unify-addressing obj1 obj2)
+  ;; Get an array of all items as string uris
+  (define id-or-id-of
+    (match-lambda
+      ((? asobj? asobj)
+       (asobj-id asobj))
+      ((? string-uri? str-uri) str-uri)))
+
   (define (json-arrayify val)
     (cond
      ((json-array? val)
-      val)
+      (map id-or-id-of val))
      (else
-      (list val))))
+      (list (id-or-id-of val)))))
+  (define (merged-deduped lst1 lst2)
+    (define all (make-hash-table))
+    (define (snarf! lst)
+      (for-each 
+       (lambda (x) (hash-set! all x #t))
+       lst))
+    (snarf! lst1)
+    (snarf! lst2)
+    (hash-map->list (lambda (k _) k) all))
   (define (unify-field field obj1 obj2)
-    (append (json-arrayify (asobj-ref obj1 field '()))
-            (json-arrayify (asobj-ref obj2 field '()))))
+    (sort (merged-deduped (json-arrayify (asobj-ref obj1 field '()))
+                          (json-arrayify (asobj-ref obj2 field '())))
+          
+          string<))
   (let* ((new-to (unify-field "to" obj1 obj2))
          (new-cc (unify-field "cc" obj1 obj2))
          (new-bcc (unify-field "bcc" obj1 obj2))
@@ -414,6 +431,37 @@ save it and return it.")
                       '("actor" "published" "to" "cc" "bcc" "bto"))))
     (asobj-outbox-effects! wrapped-asobj outbox-user)))
 
+(define (user-collection-add! collection-adder! asobj outbox-user
+                              add-object-to-bcc?)
+  (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
+    (let-asobj-fields
+     asobj ((object "object"))
+     (let* ((object-uri (match object
+                          ((? string-uri? _)
+                           object)
+                          ((? asobj? _)
+                           (match (asobj-id object)
+                             ((? string-uri? uri)
+                              uri)
+                             (_ (throw 'effect-error
+                                       "Object has no id"
+                                       #:asobj asobj))))))
+            ;; (Possibly) add object-uri to the bcc list.  It doesn't matter
+            ;; if there's already a bcc item, since recipients should be
+            ;; de-duped.
+            (asobj (if add-object-to-bcc?
+                       (asobj-set asobj "bcc"
+                                  (cons object-uri
+                                        (asobj-ref asobj "bcc" '())))
+                       asobj)))
+       ;; Add to following list
+       ;; TODO: Do we need to check if we're already subscribed?
+       (collection-adder! (ctx-ref 'db) outbox-user
+                               object-uri)
+
+       ;; Return asobj
+       asobj))))
+
 ;;; Follow
 (define-as-method (asobj-outbox-effects! (asobj ^Follow)
                                          outbox-user)
@@ -428,7 +476,7 @@ save it and return it.")
                              ((? string-uri? uri)
                               uri)
                              (_ (throw 'effect-error
-                                       "Follow activity's object has no id"
+                                       "Object has no id"
                                        #:asobj asobj))))))
             ;; Add follow-uri to the bcc list.  It doesn't matter
             ;; if there's already a bcc item, since recipients should be
@@ -440,6 +488,30 @@ save it and return it.")
        ;; TODO: Do we need to check if we're already subscribed?
        (user-add-to-following! (ctx-ref 'db) outbox-user
                                follow-uri)
+
+       ;; Return asobj
+       asobj))))
+
+;;; Block
+(define-as-method (asobj-outbox-effects! (asobj ^Block)
+                                         outbox-user)
+  (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
+    (let-asobj-fields
+     asobj ((object "object"))
+     (let* ((block-uri (match object
+                          ((? string-uri? _)
+                           object)
+                          ((? asobj? _)
+                           (match (asobj-id object)
+                             ((? string-uri? uri)
+                              uri)
+                             (_ (throw 'effect-error
+                                       "Object has no id"
+                                       #:asobj asobj)))))))
+       ;; Add to following list
+       ;; TODO: Do we need to check if we're already subscribed?
+       (user-add-to-blocked! (ctx-ref 'db) outbox-user
+                             block-uri)
 
        ;; Return asobj
        asobj))))

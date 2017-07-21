@@ -781,6 +781,9 @@ leave the tests in progress."
                  (drop-top-checkpoint!)
                  (get-input-loop #t)))))
 
+  ;; @@: Temporary kludge
+  (get-user-input
+   `((h2 "Try again?")))
   ;;; TODO: And here's the final report
   )
 
@@ -1275,7 +1278,7 @@ object from a returned Create object."
             apclient
             (as:create #:to (ids-of psa1 psa2)
                        #:cc (pseudoactor-id psa3)
-                       #:actor (apclient-id apclient)
+                       #:actor (uri->string (apclient-id apclient))
                        #:object (as:note #:cc (ids-of psa4 psa5)
                                          #:content "Hi there!"))))
           (object-asobj
@@ -1290,18 +1293,29 @@ object from a returned Create object."
                  object)))
             (else
              (throw 'report-abort
-                    "No object id found.")))))
+                    "No object id found."))))
+          (same-addressing?
+           (lambda (object field compared-to)
+             (define addresses
+               (map (match-lambda
+                      ((? string-uri? obj)
+                       obj)
+                      ((? asobj? obj)
+                       (asobj-id obj))
+                      (_ 'wtf))
+                    (asobj-ref create-asobj field '())))
+             (equal? (sort addresses string<) (sort compared-to string<)))))
      ;; [outbox:create]
      (report-on! 'outbox:create <success>)
      ;; [outbox:create:merges-audience-properties]
-     (if (and (equal? (asobj-ref create-asobj "to")
-                      (ids-of psa1 psa2))
-              (equal? (asobj-ref create-asobj "cc")
-                      (ids-of psa3 psa4 psa5))
-              (equal? (asobj-ref object-asobj "to")
-                      (ids-of psa1 psa2))
-              (equal? (asobj-ref object-asobj "cc")
-                      (ids-of psa3 psa4 psa5)))
+     (if (and (same-addressing? create-asobj "to"
+                                (ids-of psa1 psa2))
+              (same-addressing? create-asobj "cc"
+                                (ids-of psa3 psa4 psa5))
+              (same-addressing? object-asobj "to"
+                                (ids-of psa1 psa2))
+              (same-addressing? object-asobj "cc"
+                                (ids-of psa3 psa4 psa5)))
          (report-on! 'outbox:create:merges-audience-properties
                      <success>)
          (report-on! 'outbox:create:merges-audience-properties
