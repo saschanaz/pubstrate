@@ -508,8 +508,6 @@ save it and return it.")
                              (_ (throw 'effect-error
                                        "Object has no id"
                                        #:asobj asobj)))))))
-       ;; Add to following list
-       ;; TODO: Do we need to check if we're already subscribed?
        (user-add-to-blocked! (ctx-ref 'db) outbox-user
                              block-uri)
 
