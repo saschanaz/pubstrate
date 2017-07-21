@@ -188,7 +188,7 @@
                                            asobj)
   "Save asobj to outbox and assign an id to it, returning asobj saved with id."
   (define post-id (random-token))
-  (define id-uri (pseudoactor-url pseudoactor "post" post-id))
+  (define id-uri (pseudoactor-url pseudoactor `("post" ,post-id)))
   (define new-asobj
     (asobj-set asobj "id" id-uri))
   (hash-set! (.outbox pseudoactor) post-id new-asobj)
@@ -1486,16 +1486,18 @@ object from a returned Create object."
      ;; Now we need to post a new post to the actor's inbox...
      (let*-values (((obnoxious-post)
                     (pseudoactor-asobj->outbox!
+                     obnoxious-pseudoactor
                      (as:note #:content "Well, actually..."
                               #:attributedTo (pseudoactor-id obnoxious-pseudoactor)
-                              #:to (apclient-id apclient))))
+                              #:to (uri->string (apclient-id apclient)))))
                    ((obnoxious-post-in-create)
                     (pseudoactor-asobj->outbox!
+                     obnoxious-pseudoactor
                      (as:create #:object obnoxious-post
                                 #:author (pseudoactor-id obnoxious-pseudoactor)
-                                #:to (apclient-id apclient))))
+                                #:to (uri->string (apclient-id apclient)))))
                    ((post-response _)
-                    (http-post-async (apclient-inbox apclient)
+                    (http-post-asobj (apclient-inbox-uri apclient)
                                      obnoxious-post-in-create)))
        (match (response-code post-response)
          (405 (report-on! 'outbox:block:prevent-interaction-with-actor
@@ -1509,7 +1511,7 @@ object from a returned Create object."
                              (lambda (asobj)
                                (member (asobj-id asobj)
                                        (list (asobj-id obnoxious-post)
-                                             (asobj obnoxious-post-in-create)))))
+                                             (asobj-id obnoxious-post-in-create)))))
               (report-on! 'outbox:block:prevent-interaction-with-actor
                           <fail>)
               (report-on! 'outbox:block:prevent-interaction-with-actor
