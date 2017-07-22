@@ -119,7 +119,19 @@
                        (utf8->string body)
                        body)
                    (%default-env)))
-    (actor-post-asobj-to-inbox! inbox-user asobj)
+    (define actor-id
+      (begin
+        (asobj-pprint asobj)
+        (match (asobj-ref asobj "actor")
+          ((? asobj? asobj)
+           (asobj-id asobj))
+          ((? string-uri? str-uri)
+           str-uri))))
+
+    ;; @@: Gosh, we're just trusting that this really is the actor
+    ;;   Gotta check for signatures or look up the object
+    (when (not (user-blocked-member? db inbox-user actor-id))
+      (actor-post-asobj-to-inbox! inbox-user asobj))
     (respond ""))
   (define (read-from-inbox)
     (as2-paginated-user-collection request inbox-user username "inbox"))
