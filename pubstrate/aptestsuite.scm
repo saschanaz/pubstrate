@@ -1494,7 +1494,7 @@ object from a returned Create object."
                     (pseudoactor-asobj->outbox!
                      obnoxious-pseudoactor
                      (as:create #:object obnoxious-post
-                                #:author (pseudoactor-id obnoxious-pseudoactor)
+                                #:actor (pseudoactor-id obnoxious-pseudoactor)
                                 #:to (uri->string (apclient-id apclient)))))
                    ((post-response _)
                     (http-post-asobj (apclient-inbox-uri apclient)
@@ -1507,7 +1507,7 @@ object from a returned Create object."
          ;;   for federated posts?
          (_
           ;; Now we have to see if it shows up in our inbox...
-          (if (stream-member (apclient-inbox-stream apclient)
+          (if (stream-member (stream-take 200 (apclient-inbox-stream apclient))
                              (lambda (asobj)
                                (member (asobj-id asobj)
                                        (list (asobj-id obnoxious-post)
