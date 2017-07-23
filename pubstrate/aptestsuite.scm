@@ -678,6 +678,93 @@ message handling, and within `with-user-io-prompt'."
                    SHOULD
                    "Prevent the blocked object from interacting with any object posted by the actor."))))))
 
+
+(define server-inbox-delivery
+  (build-test-items
+   `(;;; MUST
+     (inbox:delivery:performs-delivery
+      MUST
+      "Performs delivery on all Activities posted to the outbox")
+     (inbox:delivery:addressing
+      MUST
+      "Utilizes `to`, `bto`, `cc`, and `bcc` to determine delivery recipients.")
+     (inbox:delivery:adds-id
+      MUST
+      "Provides an `id` all Activities sent to other servers, unless the activity is intentionally transient.")
+     (inbox:delivery:submit-with-credentials
+      MUST
+      "Dereferences delivery targets with the submitting user's credentials")
+     (inbox:delivery:deliver-to-collection
+      MUST
+      "Delivers to all items in recipients that are Collections or OrderedCollections"
+      #:subitems ((inbox:delivery:deliver-to-collection:recursively
+                   MUST
+                   "Applies the above, recursively if the Collection contains Collections, and limits recursion depth >= 1")))
+     (inbox:delivery:delivers-with-object-for-certain-activities
+      MUST
+      "Delivers activity with 'object' property if the Activity type is one of Create, Update, Delete, Follow, Add, Remove, Like, Block, Undo")
+     (inbox:delivery:delivers-to-target-for-certain-activities
+      MUST
+      "Delivers activity with 'target' property if the Activity type is one of Add, Remove")
+     (inbox:delivery:deduplicates-final-recipient-list
+      MUST
+      "Deduplicates final recipient list")
+     (inbox:delivery:do-not-deliver-to-actor
+      MUST
+      "Does not deliver to recipients which are the same as the actor of the Activity being notified about")
+     (inbox:delivery:do-not-deliver-block
+      SHOULD
+      "SHOULD NOT deliver Block Activities to their object."))))
+
+(define server-inbox-accept
+  (build-test-items
+   `(;; MUST
+     (inbox:accept:deduplicate
+      MUST
+      "Deduplicates activities returned by the inbox by comparing activity `id`s")
+     (inbox:accept:special-forward
+      MUST
+      "Forwards incoming activities to the values of to, bto, cc, bcc, audience if and only if criteria in 8.1.2 are met.")
+     (inbox:accept:special-forward:recurses
+      SHOULD
+      "Recurse through to, bto, cc, bcc, audience object values to determine whether/where to forward according to criteria in 8.1.2")
+     (inbox:accept:special-forward:limits-recursion
+      SHOULD
+      "Limit recursion in this process")
+
+     ;; * Update
+     (inbox:accept:update:is-authorized
+      MUST
+      "Take care to be sure that the Update is authorized to modify its object")
+     (inbox:accept:update:completely-replace
+      SHOULD
+      "Completely replace its copy of the activity with the newly received value")
+
+     ;; SHOULD
+     (inbox:accept:dont-blindly-trust
+      SHOULD
+      "Don't trust content received from a server other than the content's origin without some form of verification.")
+     ;; * Follow
+     (inbox:accept:follow:add-actor-to-users-followers
+      SHOULD
+      "Add the actor to the object user's Followers Collection.")
+     ;; * Add
+     (inbox:accept:add:to-collection
+      SHOULD
+      "Add the object to the Collection specified in the target property, unless not allowed to per requirements in 8.6")
+     (inbox:accept:remove:from-collection
+      SHOULD
+      "Remove the object from the Collection specified in the target property, unless not allowed per requirements in 8.6")
+     ;; * Like
+     (inbox:accept:like:indicate-like-performed
+      SHOULD
+      "Perform appropriate indication of the like being performed (See 8.8 for examples)")
+     (inbox:accept:validate-content
+      SHOULD
+      "Validate the content they receive to avoid content spoofing attacks."))))
+
+;;; TODO: Continue at Inbox Retrieval
+
 (define all-test-items
   (append server-outbox-items))
 
