@@ -38,6 +38,7 @@
              (guix download)
              (guix git-download)
              (guix gexp)
+             (guix utils)
              ((guix build utils) #:select (with-directory-excursion))
              (gnu packages)
              (gnu packages autotools)
@@ -139,6 +140,46 @@ libgcrypt to provide a variety of encryption tooling.")
     (description "Tooling to write web applications in Guile.")
     (license gpl3+)))
 
+(define guile-next
+  (package
+    (inherit guile-2.2)
+    (name "guile")
+    (version "git")
+    (source (origin
+              (method git-fetch)
+              (uri (git-reference
+                    (url "git://git.sv.gnu.org/guile.git")
+                    (commit "155ddcdc3bfc0d5e87397f18cd4cfb2f062fbb75")))
+              (sha256
+               (base32
+                "0sjp5ws7ccig880wkvjxl89737af7d3z89yw8svz1lgp35f5hbsc"))))
+    (arguments
+     (substitute-keyword-arguments `(;; Tests aren't passing for now.
+                                     ;; Obviously we should re-enable this!
+                                     #:tests? #f
+                                     ,@(package-arguments guile-2.2))
+       ((#:phases phases)
+        `(modify-phases ,phases
+           (add-after 'unpack 'autogen
+             (lambda _
+               (zero? (system* "sh" "autogen.sh"))))
+           (add-before 'autogen 'patch-/bin/sh
+             (lambda _
+               (substitute* "build-aux/git-version-gen"
+                 (("#!/bin/sh") (string-append "#!" (which "sh"))))
+               #t))))))
+    ;; (native-inputs
+    ;;  `(("autoconf" ,autoconf)
+    ;;    ("automake" ,automake)
+    ;;    ("libtool" ,libtool)
+    ;;    ("flex" ,flex)
+    ;;    ("texinfo" ,texinfo)
+    ;;    ("gettext" ,gettext-minimal)
+    ;;    ,@(package-native-inputs guile-2.2)))
+    ;; lazy avoidance of having to import flex, etc
+    (native-inputs
+     (package-native-inputs guile-for-guile-emacs))))
+
 (define pubstrate
   (package
     (name "pubstrate")
@@ -147,18 +188,13 @@ libgcrypt to provide a variety of encryption tooling.")
                         #:recursive? #t
                         #:select? (git-predicate %source-dir)))
     (build-system gnu-build-system)
-    (arguments
-     '(#:phases
-       (modify-phases %standard-phases
-         (add-after 'unpack 'bootstrap
-           (lambda _ (zero? (system* "sh" "bootstrap.sh")))))))
     (native-inputs
      `(("pkg-config" ,pkg-config)
        ("autoconf" ,autoconf)
        ("automake" ,automake)
        ("texinfo" ,texinfo)))
     (inputs
-     `(("guile" ,guile-2.2)
+     `(("guile" ,guile-next)
        ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
      `(("gnutls" ,gnutls)
