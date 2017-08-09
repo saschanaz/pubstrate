@@ -84,7 +84,7 @@
   (define (return-mbody-vals message)
     (apply values (message-body message)))
   (define worker
-    (hash-ref (.workers (%current-actor))
+    (hash-ref (.workers (*current-actor*))
               (string->number client-id)))
 
   (if worker
@@ -402,7 +402,7 @@
 
 This must be done within the dynamic execution of both a case worker's
 message handling, and within `with-user-io-prompt'."
-  (define case-worker (%current-actor))
+  (define case-worker (*current-actor*))
   (<- (.manager case-worker) 'ws-send
       (.client-id case-worker)
       (gen-payload case-worker "notice" sxml)))
@@ -412,7 +412,7 @@ message handling, and within `with-user-io-prompt'."
 
 This must be done within the dynamic execution of both a case worker's
 message handling, and within `with-user-io-prompt'."
-  (define case-worker (%current-actor))
+  (define case-worker (*current-actor*))
   (if checkpoint
       (abort-to-prompt %user-io-prompt '*save-checkpoint*)
       (set! (.next-checkpoint case-worker) #f))
@@ -429,8 +429,8 @@ message handling, and within `with-user-io-prompt'."
     (() #f)))
 
 (define (drop-top-checkpoint!)
-  "Shortcut for case-worker-drop-top-checkpoint! using (%current-actor) parameter"
-  (case-worker-drop-top-checkpoint! (%current-actor)))
+  "Shortcut for case-worker-drop-top-checkpoint! using (*current-actor*) parameter"
+  (case-worker-drop-top-checkpoint! (*current-actor*)))
 
 (define (case-worker-init-and-run case-worker m . args)
   (with-user-io-prompt case-worker (lambda () (run-main-script case-worker))))
@@ -490,7 +490,7 @@ message handling, and within `with-user-io-prompt'."
 (define-class <inconclusive> (<response>))
 
 (define (report-on! sym response-type . args)
-  (define case-worker (%current-actor))
+  (define case-worker (*current-actor*))
   (report-it! case-worker sym
               (apply make response-type
                      #:sym sym
@@ -506,14 +506,14 @@ message handling, and within `with-user-io-prompt'."
          (lambda (key reason)
            (for-each
             (lambda (item)
-              (when (not (report-ref (%current-actor) item))
+              (when (not (report-ref (*current-actor*) item))
                 (report-on! item <fail>
                             #:comment reason)))
             items))))
      (lambda _
        (for-each
         (lambda (item)
-          (when (not (report-ref (%current-actor) item))
+          (when (not (report-ref (*current-actor*) item))
             (report-on! item <inconclusive>
                         #:comment "Unexpected server error while running test!")))
         items))
@@ -526,7 +526,7 @@ message handling, and within `with-user-io-prompt'."
                              key args))))))
    (for-each
     (lambda (item)
-      (when (not (report-ref (%current-actor) item))
+      (when (not (report-ref (*current-actor*) item))
         (report-on! item <inconclusive>
                     #:comment "Test case not reported on...")))
     items)))
@@ -564,7 +564,7 @@ message handling, and within `with-user-io-prompt'."
                    '())))
 
 (define (show-response sym)
-  (define case-worker (%current-actor))
+  (define case-worker (*current-actor*))
   (define response (assoc-ref (.report case-worker) sym))
   (if response
       (show-user (response-as-log response))
@@ -979,13 +979,15 @@ leave the tests in progress."
   ;; TODO: [outbox:removes-bto-and-bcc]
   ;;   Maybe?  This is a bit federation'y, requires that we have
   ;;   a server it can talk to
+  (define apclient (.apclient case-worker))
   (define activity-to-submit
     (as:create #:id "http://tsyesika.co.uk/act/foo-id-here/"  ; id should be removed
+               #:actor (uri->string (apclient-id apclient))
                #:object (as:note #:id "http://tsyesika.co.uk/chat/sup-yo/"  ; same with object id
+                                 #:attributedTo (uri->string (apclient-id apclient))
                                  #:content "Up for some root beer floats?")))
 
   (define activity-submitted #f)
-  (define apclient (.apclient case-worker))
 
   (receive (response body)
       (apclient-submit apclient activity-to-submit)
@@ -1685,9 +1687,12 @@ If ERROR-ON-NOTHING, error out if worker is not found."
 
 (define (main args)
   (define hive (make-hive))
+  (define base-uri-arg
+    (match args
+      ((_ uri) uri)
+      (_ "http://localhost:8989/")))
   (with-extended-ctx
-   ;; TODO: fixme...
-   `((base-uri . ,(string->uri "http://localhost:8989/")))
+   `((base-uri . ,(string->uri base-uri-arg)))
    (lambda ()
      (bootstrap-actor hive <case-manager>
                       #:http-handler (wrap-apply http-handler)
@@ -1696,5 +1701,5 @@ If ERROR-ON-NOTHING, error out if worker is not found."
                       #:on-ws-client-disconnect (wrap-apply case-manager-ws-client-disconnect)
                       #:on-ws-message (wrap-apply case-manager-ws-new-message))
      (bootstrap-actor hive <repl-manager>)
-     (display "Running on http://localhost:8989/\n")
+     (format #t "Running on ~a\n" base-uri-arg)
      (run-hive hive '()))))
