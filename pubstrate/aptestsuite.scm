@@ -27,6 +27,7 @@
              (8sync)
              (8sync repl)
              (8sync systems websocket server)
+             (fibers conditions)
              (rnrs bytevectors)
              (srfi srfi-11)
              (srfi srfi-41)  ; streams
@@ -81,17 +82,14 @@
    (main-tmpl)))
 
 (define (send-to-pseudoactor request body client-id pseudoactor rest-paths)
-  (define (return-mbody-vals message)
-    (apply values (message-body message)))
   (define worker
     (hash-ref (.workers (*current-actor*))
               (string->number client-id)))
 
   (if worker
-      (return-mbody-vals
-       (<-wait worker 'pseudoactor-view
-               pseudoactor rest-paths
-               request body))
+      (<-wait worker 'pseudoactor-view
+              pseudoactor rest-paths
+              request body)
       (respond-not-found)))
 
 (define (route request)
@@ -246,7 +244,7 @@
    (rewind case-worker-rewind)
    (shutdown case-worker-shutdown)
    (pseudoactor-view case-worker-pseudoactor-view)
-   (*init* case-worker-init-and-run))
+   (start-script case-worker-start-script))
   (client-id #:init-keyword #:client-id
              #:accessor .client-id)
   (manager #:init-keyword #:manager
@@ -283,13 +281,9 @@
 
   (let-values (((view args)
                 (pseudoactor-route pseudoactor path)))
-    (call-with-values
-        (lambda ()
-          (if pseudoactor
-              (apply view pseudoactor request body args)
-              (respond-not-found)))
-      (lambda vals
-        (apply <-reply m vals)))))
+    (if pseudoactor
+        (apply view pseudoactor request body args)
+        (respond-not-found))))
 
 (define (case-worker-pseudoactor-new! case-worker)
   (define pseudoactor
@@ -385,7 +379,8 @@
       ;; call tho...
       (('*call-again* kont)
        (lp kont))
-      (_ 'no-op))))
+      (_ 'no-op)))
+  'done)
 
 (define (gen-payload case-worker type sxml)
   (write-json-to-string
@@ -432,7 +427,10 @@ message handling, and within `with-user-io-prompt'."
   "Shortcut for case-worker-drop-top-checkpoint! using (*current-actor*) parameter"
   (case-worker-drop-top-checkpoint! (*current-actor*)))
 
-(define (case-worker-init-and-run case-worker m . args)
+(define-method (actor-init! (case-worker <case-worker>))
+  (<- case-worker 'start-script))
+
+(define (case-worker-start-script case-worker m . args)
   (with-user-io-prompt case-worker (lambda () (run-main-script case-worker))))
 
 (define (report-it! case-worker key val)
@@ -802,6 +800,8 @@ leave the tests in progress."
         ,body))
 
 (define (run-main-script case-worker)
+  (pk 'main-script)
+
   ;;; Find out which tests we're running
   (show-user
    `((p "Hello!  Welcome to the "
@@ -1646,7 +1646,7 @@ object from a returned Create object."
 
 (define (case-manager-ws-client-connect case-manager client-id)
   (pk 'connected!)
-  (let ((worker (create-actor case-manager <case-worker>
+  (let ((worker (create-actor <case-worker>
                               #:client-id client-id
                               #:manager (actor-id case-manager))))
     (hash-set! (.workers case-manager)
@@ -1686,20 +1686,21 @@ If ERROR-ON-NOTHING, error out if worker is not found."
     (apply view request body args)))
 
 (define (main args)
-  (define hive (make-hive))
-  (define base-uri-arg
-    (match args
-      ((_ uri) uri)
-      (_ "http://localhost:8989/")))
-  (with-extended-ctx
-   `((base-uri . ,(string->uri base-uri-arg)))
-   (lambda ()
-     (bootstrap-actor hive <case-manager>
-                      #:http-handler (wrap-apply http-handler)
+  (run-hive
+   (lambda (hive)
+     (define base-uri-arg
+       (match args
+         ((_ uri) uri)
+         (_ "http://localhost:8989/")))
+     (with-extended-ctx
+      `((base-uri . ,(string->uri base-uri-arg)))
+      (lambda ()
+        (create-actor <case-manager>
+                      #:http-handler (live-wrap http-handler)
                       #:port 8989
-                      #:on-ws-client-connect (wrap-apply case-manager-ws-client-connect)
-                      #:on-ws-client-disconnect (wrap-apply case-manager-ws-client-disconnect)
-                      #:on-ws-message (wrap-apply case-manager-ws-new-message))
-     (bootstrap-actor hive <repl-manager>)
-     (format #t "Running on ~a\n" base-uri-arg)
-     (run-hive hive '()))))
+                      #:on-ws-client-connect (live-wrap case-manager-ws-client-connect)
+                      #:on-ws-client-disconnect (live-wrap case-manager-ws-client-disconnect)
+                      #:on-ws-message (live-wrap case-manager-ws-new-message))
+        (create-actor <repl-manager>)
+        (format #t "Running on ~a\n" base-uri-arg)
+        (wait (make-condition)))))))
