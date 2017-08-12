@@ -111,6 +111,43 @@
 
 
 
+;;; Clearing out blocked ports
+;;;
+;;; Some context here... in 8sync/fibers/etc, ports normally shouldn't
+;;; block because we use ice-9 suspendable-ports.  Unfortunately
+;;; that's not the reality for anything that uses https / ssl; such
+;;; operations are wrapped in a gnutls custom-binary-i/o-port, which
+;;; doesn't (yet) support suspendable ports.
+;;;
+;;; The following "solution" works around things by taking advantage of
+;;; actor <-wait behavior, allowing another actor to do the one-off
+;;; operation and return the results, while the originating actor allows
+;;; itself to accept other messages in the meanwhile.
+;;;
+;;; If this looks like a terrible kludge, that's because it is.  The right
+;;; thing to do is to make custom-binary-i/o ports suspendable.  More on
+;;; work toward that here:
+;;;   https://lists.gnu.org/archive/html/guile-devel/2017-07/msg00014.html
+
+(define-actor <plunger> (<actor>)
+  ((plunge
+    (lambda (p m thunk)
+      (call-with-values
+          (lambda ()
+            (thunk))
+        (lambda vals
+          (self-destruct p)
+          (apply values vals)))))))
+
+(define (plunge-it thunk)
+  (<-wait (create-actor <plunger>) 'plunge thunk))
+
+(define-syntax-rule (plunge body ...)
+  (plunge-it
+   (lambda ()
+     body ...)))
+
+
 ;;; Web application launching stuff
 
 (define-class <checkpoint> ()
@@ -994,7 +1031,7 @@ leave the tests in progress."
   (define activity-submitted #f)
 
   (receive (response body)
-      (apclient-submit apclient activity-to-submit)
+      (plunge (apclient-submit apclient activity-to-submit))
     ;; [outbox:responds-201-created]
     (match (response-code response)
       (201
@@ -1065,7 +1102,7 @@ leave the tests in progress."
 Retrieve the submitted object as an activitystreams object.
 Will abort if any of such steps fail."
   (receive (submit-response submit-body)
-      (apclient-submit apclient asobj)
+      (plunge (apclient-submit apclient asobj))
     (when (not (member (response-code submit-response)
                        '(200 201)))
       (throw 'report-abort
@@ -1098,7 +1135,7 @@ object from a returned Create object."
       (match (asobj-ref returned-asobj "object")
         ((? string-uri? object-id)
          (receive (response object)
-             (apclient-get-local-asobj apclient object-id)
+             (plunge (apclient-get-local-asobj apclient object-id))
            (when (not (asobj? object))
              (throw 'report-abort
                     "Could not retrieve an ActivityStreams object from object uri."))
@@ -1157,10 +1194,11 @@ object from a returned Create object."
             "No media endpoint given"))
    
    (let ((submit-response
-          (apclient-submit-file apclient
-                                (as:image #:name "A red ghostie!"
-                                          #:content "Isn't it cute?")
-                                (web-static-filepath "/images/red-ghostie.png"))))
+          (plunge
+           (apclient-submit-file apclient
+                                 (as:image #:name "A red ghostie!"
+                                           #:content "Isn't it cute?")
+                                 (web-static-filepath "/images/red-ghostie.png")))))
      (report-on! 'outbox:upload-media
                  <success>)
      (report-on! 'outbox:upload-media:201-or-202-status
@@ -1265,7 +1303,7 @@ object from a returned Create object."
                          #:name "An indecisive note")))
     ;; Submit initial activity
     (receive (response body)
-        (apclient-submit apclient to-submit)
+        (plunge (apclient-submit apclient to-submit))
       (match (response-location response)
         ((? uri? location-uri)
          location-uri)
@@ -1274,7 +1312,7 @@ object from a returned Create object."
   (define (get-object-id-from-location abort location)
     (define asobj-at-location
       (receive (_ asobj)
-          (apclient-get-local-asobj apclient location)
+          (plunge (apclient-get-local-asobj apclient location))
         (unless (asobj? asobj)
           (abort-because-no-asobj abort location))
         asobj))
@@ -1287,14 +1325,15 @@ object from a returned Create object."
 
   (define (submit-update abort object-location)
     ;; Submit with name removed and content changed
-    (apclient-submit apclient
-                     (as:update
-                      #:object (as:note #:id object-location
-                                        #:content "I've changed my mind!"
-                                        #:name 'null)))
+    (plunge
+     (apclient-submit apclient
+                      (as:update
+                       #:object (as:note #:id object-location
+                                         #:content "I've changed my mind!"
+                                         #:name 'null))))
 
     (receive (_ updated-asobj)
-        (apclient-get-local-asobj apclient object-location)
+        (plunge (apclient-get-local-asobj apclient object-location))
       ;; content should be changed
       (unless (equal? (asobj-ref updated-asobj "content")
                       "I've changed my mind!")
@@ -1312,13 +1351,14 @@ object from a returned Create object."
 
     ;; Now let's try one more update, where we add back the name with
     ;; new content
-    (apclient-submit apclient
-                     (as:update
-                      #:object (as:note #:id object-location
-                                        #:name "new name, same flavor")))
+    (plunge
+     (apclient-submit apclient
+                      (as:update
+                       #:object (as:note #:id object-location
+                                         #:name "new name, same flavor"))))
 
     (receive (_ updated-asobj)
-        (apclient-get-local-asobj apclient object-location)
+        (plunge (apclient-get-local-asobj apclient object-location))
       ;; content should be the same as last time
       (unless (equal? (asobj-ref updated-asobj "content")
                       "I've changed my mind!")
@@ -1379,7 +1419,7 @@ object from a returned Create object."
             ((asobj-ref-id create-asobj "object") =>
              (lambda (obj-id)
                (receive (response object)
-                   (apclient-get-local-asobj apclient obj-id)
+                   (plunge (apclient-get-local-asobj apclient obj-id))
                  (when (not (asobj? object))
                    (throw 'report-abort
                           "Could not retrieve an ActivityStreams object from object uri."))
@@ -1486,15 +1526,16 @@ object from a returned Create object."
            (lambda ()
              (define collection-refetched
                (receive (_ asobj)
-                   (apclient-get-local-asobj apclient (asobj-id collection))
+                   (plunge (apclient-get-local-asobj apclient (asobj-id collection)))
                  asobj))
              (define collection-stream
                ;; Limit to 200 items so we don't search forever.
                ;; That should be more than enough.
                (stream-take 200
-                            (apclient-collection-item-stream
-                             apclient collection-refetched
-                             #:local? #t)))
+                            (plunge
+                             (apclient-collection-item-stream
+                              apclient collection-refetched
+                              #:local? #t))))
              (stream-member collection-stream
                             (lambda (asobj)
                               (equal? (asobj-id asobj)
