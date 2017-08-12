@@ -1705,6 +1705,6 @@ If ERROR-ON-NOTHING, error out if worker is not found."
                       #:on-ws-client-connect (live-wrap case-manager-ws-client-connect)
                       #:on-ws-client-disconnect (live-wrap case-manager-ws-client-disconnect)
                       #:on-ws-message (live-wrap case-manager-ws-new-message))
-        (create-actor <repl-manager>)
+        (spawn-repl)
         (format #t "Running on ~a\n" base-uri-arg)
         (wait (make-condition)))))))
