@@ -90,8 +90,7 @@
       (<-wait worker 'pseudoactor-view
               pseudoactor rest-paths
               request body)
-      (respond-not-found))
-  'done)
+      (respond-not-found)))
 
 (define (route request)
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
