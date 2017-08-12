@@ -90,7 +90,8 @@
       (<-wait worker 'pseudoactor-view
               pseudoactor rest-paths
               request body)
-      (respond-not-found)))
+      (respond-not-found))
+  'done)
 
 (define (route request)
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
@@ -358,29 +359,34 @@
   "Call script PROC with IO procedures that are case-worker driven."
   (let lp ((thunk thunk))
     (match (call-with-prompt %user-io-prompt
-             thunk
-             (match-lambda*
-               ((kont '*user-io* payload)
-                (set! (.input-kont case-worker)
-                      kont)
-                (<- (.manager case-worker) 'ws-send
-                    (.client-id case-worker)
-                    payload))
-               ((kont '*save-checkpoint*)
-                (set! (.next-checkpoint case-worker)
-                      (make <checkpoint>
-                        #:kont kont
-                        #:report-state (.report case-worker)))
-                ;; TODO save checkpoint here
-                (list '*call-again* kont))))
+             (lambda ()
+               (thunk)
+               'done)
+             (lambda args
+               (match args
+                 ((kont '*user-io* payload)
+                  (set! (.input-kont case-worker)
+                        kont)
+                  (<- (.manager case-worker) 'ws-send
+                      (.client-id case-worker)
+                      payload)
+                  ;; return 'done to match
+                  'done)
+                 ((kont '*save-checkpoint*)
+                  (set! (.next-checkpoint case-worker)
+                        (make <checkpoint>
+                          #:kont kont
+                          #:report-state (.report case-worker)))
+                  ;; TODO save checkpoint here
+                  (list '*call-again* kont)))))
       ;; Maybe we didn't need this loop and we cluld have just
       ;; called (with-user-io-prompt) inside the call-with-prompt.
       ;; I'm not positive about whether it would be a proper tail
       ;; call tho...
       (('*call-again* kont)
-       (lp kont))
-      (_ 'no-op)))
-  'done)
+       (lp (lambda ()
+             (kont #f))))
+      (_ 'no-op))))
 
 (define (gen-payload case-worker type sxml)
   (write-json-to-string
@@ -800,8 +806,6 @@ leave the tests in progress."
         ,body))
 
 (define (run-main-script case-worker)
-  (pk 'main-script)
-
   ;;; Find out which tests we're running
   (show-user
    `((p "Hello!  Welcome to the "
