@@ -62,10 +62,10 @@
               (method git-fetch)
               (uri (git-reference
                     (url "https://github.com/wingo/fibers.git")
-                    (commit "eb2fdb99713ed95422e21ef4c457e91e1d1b23df")))
+                    (commit "0fa1fd6adf9980229a46956503a6bf36e8154a78")))
               (sha256
                (base32
-                "08f6brg75g6mmhq3bjfghmz0f74jf6crakm7jbdyabzm4s0bdc0s"))))
+                "0a782aa0v2d115427h1h57jkxy04axklan60dzgnsry4axw9iq8r"))))
     (arguments
      `(#:phases (modify-phases %standard-phases
                   (add-before 'configure 'bootstrap
@@ -94,10 +94,10 @@
        (method git-fetch)
        (uri (git-reference
              (url "git://git.savannah.gnu.org/8sync.git")
-             (commit "61cc590c027a28d903164e85c36b90be1dbf6159")))
+             (commit "e1cc354c7073230398634b1638ea288ce3e27852")))
        (sha256
         (base32
-         "091x166ynpfjhq5gjix0jpd3w63i1by339mljmnl59adhdybgnav"))))
+         "0zn68013aji025pp6bsdf4kjgfvcmxp2mzhzc0yzp556lir53grg"))))
     (build-system gnu-build-system)
     (native-inputs `(("autoconf" ,autoconf)
                      ("automake" ,automake)
