@@ -946,7 +946,6 @@ leave the tests in progress."
 ;;; client-to-server server tests
 
 (define (test-c2s-server case-worker)
-  (show-user "Here's where we'd test the server's client-to-server support!")
   (set-up-c2s-server-client-auth case-worker)
   (test-outbox-activity-posted case-worker)
   (test-outbox-non-activity case-worker)
