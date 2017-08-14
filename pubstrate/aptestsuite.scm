@@ -138,8 +138,26 @@
           (self-destruct p)
           (apply values vals)))))))
 
+(use-modules (ice-9 threads)
+             (fibers channels))
+
 (define (plunge-it thunk)
-  (<-wait (create-actor <plunger>) 'plunge thunk))
+  (define stop? (make-condition))
+  (define retrieve-address-channel
+    (make-channel))
+  (call-with-new-thread
+   (lambda ()
+     (run-hive
+      (lambda (hive)
+        (put-message retrieve-address-channel
+                     (create-actor <plunger>))
+        (wait stop?)))))
+  (call-with-values
+      (lambda ()
+        (<-wait (get-message retrieve-address-channel) 'plunge thunk))
+    (lambda vals
+      (signal-condition! stop?)
+      (apply values vals))))
 
 (define-syntax-rule (plunge body ...)
   (plunge-it
