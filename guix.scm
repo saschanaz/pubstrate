@@ -48,6 +48,7 @@
              (gnu packages pkg-config)
              (gnu packages texinfo)
              (gnu packages tls)
+             (gnu packages gnunet)
              (gnu packages gnupg)
              (guix licenses))
 
@@ -105,6 +106,7 @@
                      ("pkg-config" ,pkg-config)
                      ("texinfo" ,texinfo)))
     (propagated-inputs `(("guile-fibers" ,guile-fibers-git)))
+    (inputs `(("gnunet" ,gnunet)))
     (arguments
      `(#:phases (modify-phases %standard-phases
                   (add-before 'configure 'bootstrap
