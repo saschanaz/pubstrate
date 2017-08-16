@@ -889,7 +889,7 @@ leave the tests in progress."
                                         (type "checkbox"))))
                           (td (b "ActivityPub client-to-server server")
                               (br)
-                              "I'm testing an ActivityPub client which follows the commands "
+                              "I'm testing an ActivityPub server which follows the commands "
                               "of clients through the "
                               ,(link "https://www.w3.org/TR/activitypub/#client-to-server-interactions"
                                      "ActivityPub client-to-server protocol")
