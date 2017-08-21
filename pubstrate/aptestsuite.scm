@@ -1046,71 +1046,72 @@ leave the tests in progress."
 
   (define activity-submitted #f)
 
-  (receive (response body)
-      (plunge (apclient-submit apclient activity-to-submit))
-    ;; [outbox:responds-201-created]
-    (match (response-code response)
-      (201
-       (set! activity-submitted #t)
-       (report-on! 'outbox:responds-201-created
-                   <success>))
-      (other-status-code
-       (report-on! 'outbox:responds-201-created
-                   <fail>
-                   #:comment (format #f "Responded with status code ~a"
-                                     other-status-code))))
-    (show-response 'outbox:responds-201-created)
+  (with-report
+   '(outbox:responds-201-created
+     outbox:location-header
+     outbox:ignores-id
+     outbox:accepts-activities)
+   (receive (response body)
+       (plunge (apclient-submit apclient activity-to-submit))
+     ;; [outbox:responds-201-created]
+     (match (response-code response)
+       (201
+        (set! activity-submitted #t)
+        (report-on! 'outbox:responds-201-created
+                    <success>))
+       (other-status-code
+        (report-on! 'outbox:responds-201-created
+                    <fail>
+                    #:comment (format #f "Responded with status code ~a"
+                                      other-status-code))))
 
-    ;; [outbox:location-header]
-    (match (response-location response)
-      ((? uri? location-uri)
-       (set! activity-submitted #t)
-       (report-on! 'outbox:location-header
-                   <success>)
+     ;; [outbox:location-header]
+     (match (response-location response)
+       ((? uri? location-uri)
+        (set! activity-submitted #t)
+        (report-on! 'outbox:location-header
+                    <success>)
 
-       ;; [outbox:ignores-id]
-       ;; Now we fetch the object at the location...
-       (receive (loc-response loc-asobj)
-           (http-get-asobj location-uri)
-         (or (and-let* ((is-200 (= (response-code loc-response) 200))
-                        (is-asobj (asobj? loc-asobj))
-                        (object 
-                         (match (asobj-ref loc-asobj "object")
-                           ;; nothing there
-                           (#f #f)
-                           ;; if it's itself an asobj, great
-                           ((? asobj? obj) obj)
-                           ;; If it looks like it's an identifier, retreive that
-                           ;; recursively
-                           ((? string? obj)
-                            (and=> (string->uri obj)
-                                   (lambda (obj-uri)
-                                     (receive (obj-response obj-asobj)
-                                         (http-get-asobj obj-uri)
-                                       (and (= (response-code obj-response) 200) ; ok!
-                                            obj-asobj)))))))
-                        ;; make sure the id was changed for the outer activity
-                        (changed-activity-id
-                         (not (equal? (asobj-id loc-asobj)
-                                      "http://tsyesika.co.uk/act/foo-id-here/")))
-                        ;; ... as well as for the created object
-                        (changed-object-id
-                         (not (equal? (asobj-id loc-asobj)
-                                      "http://tsyesika.co.uk/chat/sup-yo/"))))
-               (report-on! 'outbox:ignores-id <success>))
-             (report-on! 'outbox:ignores-id <fail>))))
-      (#f
-       (report-on! 'outbox:location-header <fail>)
-       (report-on! 'outbox:ignores-id <inconclusive>
-                   #:comment no-location-present-message)))
-    (show-response 'outbox:location-header)
-    (show-response 'outbox:ignores-id)
+        ;; [outbox:ignores-id]
+        ;; Now we fetch the object at the location...
+        (receive (loc-response loc-asobj)
+            (http-get-asobj location-uri)
+          (or (and-let* ((is-200 (= (response-code loc-response) 200))
+                         (is-asobj (asobj? loc-asobj))
+                         (object 
+                          (match (asobj-ref loc-asobj "object")
+                            ;; nothing there
+                            (#f #f)
+                            ;; if it's itself an asobj, great
+                            ((? asobj? obj) obj)
+                            ;; If it looks like it's an identifier, retreive that
+                            ;; recursively
+                            ((? string? obj)
+                             (and=> (string->uri obj)
+                                    (lambda (obj-uri)
+                                      (receive (obj-response obj-asobj)
+                                          (http-get-asobj obj-uri)
+                                        (and (= (response-code obj-response) 200) ; ok!
+                                             obj-asobj)))))))
+                         ;; make sure the id was changed for the outer activity
+                         (changed-activity-id
+                          (not (equal? (asobj-id loc-asobj)
+                                       "http://tsyesika.co.uk/act/foo-id-here/")))
+                         ;; ... as well as for the created object
+                         (changed-object-id
+                          (not (equal? (asobj-id loc-asobj)
+                                       "http://tsyesika.co.uk/chat/sup-yo/"))))
+                (report-on! 'outbox:ignores-id <success>))
+              (report-on! 'outbox:ignores-id <fail>))))
+       (#f
+        (report-on! 'outbox:location-header <fail>)
+        (report-on! 'outbox:ignores-id <inconclusive>
+                    #:comment no-location-present-message)))
 
-    (if activity-submitted
-        (report-on! 'outbox:accepts-activities <success>)
-        (report-on! 'outbox:accepts-activities <inconclusive>
-                    #:comment "Response code neither 200 nor 201, and no Location header present"))
-    (show-response 'outbox:accepts-activities)))
+     (if activity-submitted
+         (report-on! 'outbox:accepts-activities <success>)
+         (report-on! 'outbox:accepts-activities <inconclusive>
+                     #:comment "Response code neither 200 nor 201, and no Location header present")))))
 
 
 (define (%submit-asobj-and-retrieve apclient asobj)
@@ -1393,13 +1394,13 @@ object from a returned Create object."
     ;; Make it this far?  Looks like it passed!
     (report-on! 'outbox:update <success>))
   
-  (call/ec
-   (lambda (abort)
-     (define create-location (submit-create abort))
-     (define object-id (get-object-id-from-location abort create-location))
-     (submit-update abort object-id)))
-
-  (show-response 'outbox:update))
+  (with-report
+   '(outbox:update)
+   (call/ec
+    (lambda (abort)
+      (define create-location (submit-create abort))
+      (define object-id (get-object-id-from-location abort create-location))
+      (submit-update abort object-id)))))
 
 (define (test-outbox-subjective case-worker)
   ;; [outbox:do-not-overload]
