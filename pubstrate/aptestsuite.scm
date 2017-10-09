@@ -326,7 +326,13 @@
   ;; not in the 8sync sense.  They're used for testing addressing and
   ;; etc.
   (pseudoactors #:init-thunk make-hash-table
-                #:accessor .pseudoactors))
+                #:accessor .pseudoactors)
+  (testing-client? #:init-value #f
+                   #:accessor .testing-client?)
+  (testing-c2s-server? #:init-value #f
+                       #:accessor .testing-c2s-server?)
+  (testing-s2s-server? #:init-value #f
+                       #:accessor .testing-s2s-server?))
 
 (define (case-worker-pseudoactor-view case-worker m
                                       pseudoactor-id path
@@ -910,15 +916,22 @@ leave the tests in progress."
       (if (or testing-client testing-c2s-server testing-s2s-server)
           ;; We need at least one to continue
           (begin
+            (set! (.testing-client? case-worker) testing-client)
+            (set! (.testing-c2s-server? case-worker) testing-c2s-server)
+            (set! (.testing-s2s-server? case-worker) testing-s2s-server)
+            ;; Run all the client tests, since we can do those "immediately"
             (when testing-client
-              (report-it! case-worker 'testing-client #t)
               (test-client case-worker))
-            (when testing-c2s-server
-              (report-it! case-worker 'testing-c2s-server #t)
-              (test-c2s-server case-worker)
+            ;; Now, the "observed" tests
+            (when (or testing-c2s-server testing-s2s-server)
+              ;; Set up observables
+              (when testing-c2s-server
+                (setup-c2s-server-observables! case-worker))
               (when testing-s2s-server
-                (report-it! case-worker 'testing-s2s-server #t)
-                (test-s2s-server case-worker))))
+                (setup-s2s-server-observables! case-worker))
+              ;; Now we need to tell the user about the observables and
+              ;; probably wait
+              (run-or-ask-to-run-tests-and-wait! case-worker)))
           ;; We didn't get anything, so let's loop until we do
           (begin (show-user (warn
                              '("It looks like you didn't select anything. "
