@@ -644,7 +644,7 @@ message handling, and within `with-user-io-prompt'."
 ;; This is used to build the implementation report, and is also decent
 ;; documentation on "what needs to be done."
 
-(define server-outbox-items
+(define c2s-server-items
   (build-test-items
    `(;;; MUST
      (outbox:accepts-activities
@@ -830,7 +830,7 @@ message handling, and within `with-user-io-prompt'."
 ;;; TODO: Continue at Inbox Retrieval
 
 (define all-test-items
-  (append server-outbox-items))
+  (append c2s-server-items))
 
 (define all-test-items-hashed
   (let ((table (make-hash-table)))
@@ -919,19 +919,25 @@ leave the tests in progress."
             (set! (.testing-client? case-worker) testing-client)
             (set! (.testing-c2s-server? case-worker) testing-c2s-server)
             (set! (.testing-s2s-server? case-worker) testing-s2s-server)
-            ;; Run all the client tests, since we can do those "immediately"
+            ;; Run all the c2s server tests, since we can do those "immediately"
+            ;; without prompting the user
+            (when testing-c2s-server
+              (test-c2s-server case-worker))
+            ;; ;; Now, the "observed" tests
+            ;; (when (or testing-c2s-server testing-s2s-server)
+            ;;   ;; Set up observables
+            ;;   (when testing-c2s-server
+            ;;     (setup-c2s-server-observables! case-worker))
+            ;;   (when testing-s2s-server
+            ;;     (setup-s2s-server-observables! case-worker))
+            ;;   ;; Now we need to tell the user about the observables and
+            ;;   ;; probably wait
+            ;;   (run-or-ask-to-run-tests-and-wait! case-worker))
+            ;; Here are the "prompty" tests
             (when testing-client
               (test-client case-worker))
-            ;; Now, the "observed" tests
-            (when (or testing-c2s-server testing-s2s-server)
-              ;; Set up observables
-              (when testing-c2s-server
-                (setup-c2s-server-observables! case-worker))
-              (when testing-s2s-server
-                (setup-s2s-server-observables! case-worker))
-              ;; Now we need to tell the user about the observables and
-              ;; probably wait
-              (run-or-ask-to-run-tests-and-wait! case-worker)))
+            (when testing-s2s-server
+              (test-s2s-server case-worker)))
           ;; We didn't get anything, so let's loop until we do
           (begin (show-user (warn
                              '("It looks like you didn't select anything. "
@@ -1695,6 +1701,70 @@ object from a returned Create object."
 ;;; server to server server tests
 
 (define (test-s2s-server case-worker)
+  ;; questions are lists of ('symbol text-question)
+  (define (check-in title description questions)
+    (let ((user-input
+           (get-user-input
+            `((h2 ,title)
+              ,@(if description
+                    (list description)
+                    '())
+              (table (@ (class "input-table"))
+                     ,@(map
+                        (match-lambda
+                          ((sym text-question)
+                           `(tr (td (input (@ (name ,(symbol->string sym))
+                                              (type "checkbox"))))
+                                (td ,text-question))))
+                        questions))))))
+      (for-each
+       (match-lambda
+         ((sym text-question)
+          (report-on! sym
+                      (if (jsobj-ref user-input (symbol->string sym))
+                          <success> <fail>))))
+       questions)))
+
+  ;;; @@: These are only applicable if c2s is also enabled
+  (check-in "Federating from the outbox"
+            '(p "Construct and submit activitiesto your actor's outbox making "
+                "use of the " (code "to") ", " (code "cc") ", " (code "bcc")
+                ", and " (code "bto") " addressing fields. ")
+            '((inbox:delivery:performs-delivery
+               "Server performed delivery on all Activities posted to the outbox")
+              (inbox:delivery:addressing
+               ("Server utilized " (code "to") ", " (code "cc") ", " (code "bcc")
+                ", and " (code "bto") " to determine delivery recipients."))))
+  (check-in "Adding an id"
+            '("Submit an activity to your outbox without specifying an "
+              (code "id") ".  The server should add an " (code "id")
+              " to the object before delivering.")
+            '((inbox:delivery:adds-id
+               ("The server added an " (code "id") " to the activity."))))
+  ;; (inbox:delivery:submit-with-credentials
+  ;;  MUST
+  ;;  "Dereferences delivery targets with the submitting user's credentials")
+  ;; (inbox:delivery:deliver-to-collection
+  ;;  MUST
+  ;;  "Delivers to all items in recipients that are Collections or OrderedCollections"
+  ;;  #:subitems ((inbox:delivery:deliver-to-collection:recursively
+  ;;               MUST
+  ;;               "Applies the above, recursively if the Collection contains Collections, and limits recursion depth >= 1")))
+  ;; (inbox:delivery:delivers-with-object-for-certain-activities
+  ;;  MUST
+  ;;  "Delivers activity with 'object' property if the Activity type is one of Create, Update, Delete, Follow, Add, Remove, Like, Block, Undo")
+  ;; (inbox:delivery:delivers-to-target-for-certain-activities
+  ;;  MUST
+  ;;  "Delivers activity with 'target' property if the Activity type is one of Add, Remove")
+  ;; (inbox:delivery:deduplicates-final-recipient-list
+  ;;  MUST
+  ;;  "Deduplicates final recipient list")
+  ;; (inbox:delivery:do-not-deliver-to-actor
+  ;;  MUST
+  ;;  "Does not deliver to recipients which are the same as the actor of the Activity being notified about")
+  ;; (inbox:delivery:do-not-deliver-block
+  ;;  SHOULD
+  ;;  "SHOULD NOT deliver Block Activities to their object.")
   (show-user "Here's where we'd test the server's federation support!"))
 
 
