@@ -767,7 +767,7 @@ message handling, and within `with-user-io-prompt'."
      (inbox:delivery:delivers-with-object-for-certain-activities
       MUST
       "Delivers activity with 'object' property if the Activity type is one of Create, Update, Delete, Follow, Add, Remove, Like, Block, Undo")
-     (inbox:delivery:delivers-to-target-for-certain-activities
+     (inbox:delivery:delivers-with-target-for-certain-activities
       MUST
       "Delivers activity with 'target' property if the Activity type is one of Add, Remove")
      (inbox:delivery:deduplicates-final-recipient-list
@@ -1727,7 +1727,7 @@ object from a returned Create object."
 
   ;;; @@: These are only applicable if c2s is also enabled
   (check-in "Federating from the outbox"
-            '(p "Construct and submit activitiesto your actor's outbox making "
+            '(p "Construct and submit activities to your actor's outbox making "
                 "use of the " (code "to") ", " (code "cc") ", " (code "bcc")
                 ", and " (code "bto") " addressing fields. ")
             '((inbox:delivery:performs-delivery
@@ -1741,31 +1741,61 @@ object from a returned Create object."
               " to the object before delivering.")
             '((inbox:delivery:adds-id
                ("The server added an " (code "id") " to the activity."))))
-  ;; (inbox:delivery:submit-with-credentials
-  ;;  MUST
-  ;;  "Dereferences delivery targets with the submitting user's credentials")
-  ;; (inbox:delivery:deliver-to-collection
-  ;;  MUST
-  ;;  "Delivers to all items in recipients that are Collections or OrderedCollections"
-  ;;  #:subitems ((inbox:delivery:deliver-to-collection:recursively
-  ;;               MUST
-  ;;               "Applies the above, recursively if the Collection contains Collections, and limits recursion depth >= 1")))
-  ;; (inbox:delivery:delivers-with-object-for-certain-activities
-  ;;  MUST
-  ;;  "Delivers activity with 'object' property if the Activity type is one of Create, Update, Delete, Follow, Add, Remove, Like, Block, Undo")
-  ;; (inbox:delivery:delivers-to-target-for-certain-activities
-  ;;  MUST
-  ;;  "Delivers activity with 'target' property if the Activity type is one of Add, Remove")
-  ;; (inbox:delivery:deduplicates-final-recipient-list
-  ;;  MUST
-  ;;  "Deduplicates final recipient list")
-  ;; (inbox:delivery:do-not-deliver-to-actor
-  ;;  MUST
-  ;;  "Does not deliver to recipients which are the same as the actor of the Activity being notified about")
-  ;; (inbox:delivery:do-not-deliver-block
-  ;;  SHOULD
-  ;;  "SHOULD NOT deliver Block Activities to their object.")
-  (show-user "Here's where we'd test the server's federation support!"))
+
+  (check-in "Delivering with credentials"
+            '("Construct and deliver an activity with addressing pointing at "
+              "the id of a collection the activity's actor can access but "
+              "which is not on their server.")
+            `((inbox:delivery:submit-with-credentials
+               ("Did the server retrieve the members of the collection "
+                "by using the credentials of the actor? "
+                "(For example, if the actor has a public key on their profile, "
+                "the request may be signed with "
+                ,(link "https://tools.ietf.org/html/draft-cavage-http-signatures-08"
+                       "HTTP Signatures") ".)"))
+              (inbox:delivery:deliver-to-collection
+               ("Did the server traverse the collection to deliver to the "
+                "inboxes of all items in the collection?"))
+              ;; TODO: This should be nested
+              (inbox:delivery:deliver-to-collection:recursively
+               ("Does the implementation deliver recursively to collections "
+                "within a collection (with some limit on recursion >= 1)?"))))
+
+  (check-in "Activities requiring the object property"
+            '("The distribution of the following activities require that they contain the "
+              (code "object") " property: "
+              (code "Create") ", " (code "Update") ", " (code "Delete")
+              ", " (code "Follow") ", " (code "Add") ", " (code "Remove")
+              ", " (code "Like") ", " (code "Block") ", " (code "Undo") ".")
+            '((inbox:delivery:delivers-with-object-for-certain-activities
+               '("Implementation always includes " (code "object") " property "
+                 "for each of the above supported activities."))))
+  (check-in "Activities requiring the target property"
+            '("The distribution of the following activities require that they contain the "
+              (code "target") " property: "
+              (code "Add") ", " (code "Remove")".")
+            '((inbox:delivery:delivers-with-target-for-certain-activities
+               '("Implementation always includes " (code "target") " property "
+                 "for each of the above supported activities."))))
+  (check-in "Deduplication of recipient list"
+            '("Attempt to submit for delivery an activity that addresses the "
+              "same actor (ie an actor with the same " (code "id") ") twice. "
+              "(For example, the same actor could appear on both the "
+              (code "to") " and " (code "cc") " fields, or the actor could "
+              "be explicitly addressed in " (code "to") " but could also be "
+              "a member of the addressed " (code "followers") " collection "
+              "of the sending actor.)  The server should deduplicate the "
+              "list of inboxes to deliver to before delivering.")
+            '((inbox:delivery:deduplicates-final-recipient-list
+               '("The final recipient list is deduplicated before delivery."))))
+  (check-in "Do-not-deliver considerations"
+            #f
+            '((inbox:delivery:do-not-deliver-to-actor
+               ("Server does not deliver to recipients which are the same as the "
+                "actor of the Activity being notified about"))
+              (inbox:delivery:do-not-deliver-block
+               ("Server does not deliver " (code "Block") " activities to "
+                "their " (code "object") ".")))))
 
 
 ;;; case manager / case worker stuff
