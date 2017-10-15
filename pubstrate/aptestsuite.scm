@@ -788,10 +788,10 @@ message handling, and within `with-user-io-prompt'."
       "Deduplicates activities returned by the inbox by comparing activity `id`s")
      (inbox:accept:special-forward
       MUST
-      "Forwards incoming activities to the values of to, bto, cc, bcc, audience if and only if criteria in 8.1.2 are met.")
+      "Forwards incoming activities to the values of to, bto, cc, bcc, audience if and only if criteria in 7.1.2 are met.")
      (inbox:accept:special-forward:recurses
       SHOULD
-      "Recurse through to, bto, cc, bcc, audience object values to determine whether/where to forward according to criteria in 8.1.2")
+      "Recurse through to, bto, cc, bcc, audience object values to determine whether/where to forward according to criteria in 7.1.2")
      (inbox:accept:special-forward:limits-recursion
       SHOULD
       "Limit recursion in this process")
@@ -815,19 +815,22 @@ message handling, and within `with-user-io-prompt'."
      ;; * Add
      (inbox:accept:add:to-collection
       SHOULD
-      "Add the object to the Collection specified in the target property, unless not allowed to per requirements in 8.6")
+      "Add the object to the Collection specified in the target property, unless not allowed to per requirements in 7.8")
      (inbox:accept:remove:from-collection
       SHOULD
-      "Remove the object from the Collection specified in the target property, unless not allowed per requirements in 8.6")
+      "Remove the object from the Collection specified in the target property, unless not allowed per requirements in 7.9")
      ;; * Like
      (inbox:accept:like:indicate-like-performed
       SHOULD
-      "Perform appropriate indication of the like being performed (See 8.8 for examples)")
-     (inbox:accept:validate-content
-      SHOULD
-      "Validate the content they receive to avoid content spoofing attacks."))))
+      "Perform appropriate indication of the like being performed (See 7.10 for examples)")
+     ;; @@: The same as dont-blindly-trust...
+     ;; (inbox:accept:validate-content
+     ;;  SHOULD
+     ;;  "Validate the content they receive to avoid content spoofing attacks.")
+     )))
 
 ;;; TODO: Continue at Inbox Retrieval
+;;; @@: Do these apply to both c2s and s2s?
 
 (define all-test-items
   (append c2s-server-items))
@@ -1725,6 +1728,8 @@ object from a returned Create object."
                           <success> <fail>))))
        questions)))
 
+  ;; *DELIVERY TESTS*
+
   ;;; @@: These are only applicable if c2s is also enabled
   (check-in "Federating from the outbox"
             '(p "Construct and submit activities to your actor's outbox making "
@@ -1795,7 +1800,96 @@ object from a returned Create object."
                 "actor of the Activity being notified about"))
               (inbox:delivery:do-not-deliver-block
                ("Server does not deliver " (code "Block") " activities to "
-                "their " (code "object") ".")))))
+                "their " (code "object") "."))))
+
+  (show-user
+   '(h3 "Tests for receiving objects to inbox"))
+
+  ;; *RECEIVE TESTS*
+  (check-in "Deduplicating received activities"
+            #f
+            '((inbox:accept:deduplicate
+               ("Server deduplicates activities received in inbox by comparing "
+                "activity " (code "id") "s"))))
+
+  (check-in "Special forwarding mechanism"
+            `("ActivityPub contains a "
+              ,(link "https://www.w3.org/TR/activitypub/#inbox-delivery"
+                     "special mechanism for forwarding replies")
+              " to avoid \"ghost replies\".")
+
+            `((inbox:accept:special-forward
+               ("Forwards incoming activities to the values of "
+                (code "to") ", " (code "bto") ", " (code "cc") ", " (code "bcc")
+                ", " (code "audience")
+                " if and only if "
+                ,(link "https://www.w3.org/TR/activitypub/#inbox-delivery"
+                       "criteria")
+                " are met."))
+              (inbox:accept:special-forward:recurses
+               ("Recurse through "
+                (code "to") ", " (code "bto") ", " (code "cc") ", " (code "bcc")
+                ", " (code "audience")
+                " object values to determine whether/where to forward "
+                "according to criteria in 7.1.2"))))
+
+  (check-in "Verification of content authorship"
+            `("Before accepting activities delivered to an actor's inbox "
+              "some sort of verification should be performed.  "
+              "(For example, if the delivering actor has a public key on their profile, "
+              "the request delivering the activity may be signed with "
+              ,(link "https://tools.ietf.org/html/draft-cavage-http-signatures-08"
+                     "HTTP Signatures") ".)")
+            '((inbox:accept:dont-blindly-trust
+               ("Don't trust content received from a server other than the "
+                "content's origin without some form of verification."))))
+
+  ;; SHOULD
+  (check-in "Update activity"
+            '("On receiving an " (code "Update") " activity to an actor's inbox, "
+              "the server:")
+            '((inbox:accept:update:is-authorized
+               "Takes care to be sure that the Update is authorized to modify its object")
+              (inbox:accept:update:completely-replace
+               "Completely replaces its copy of the activity with the newly received value")))
+
+  ;; * Follow
+  (check-in "Activity acceptance side-effects"
+            "Test accepting the following activities to an actor's inbox and observe the side effects:"
+            `((inbox:accept:follow:add-actor-to-users-followers
+               ((code "Follow")
+                " should add the activity's actor to the receiving actor's "
+                "Followers Collection."))
+              ;; * Add
+              (inbox:accept:add:to-collection
+               ((code "Add")
+                " should add the activity's " (code "object")
+                " to the Collection specified in the "
+                (code "target")
+                " property, unless "
+                ,(link "https://www.w3.org/TR/activitypub/#add-activity-inbox"
+                       "not allowed per requirements")))
+              (inbox:accept:remove:from-collection
+               ((code "Remove")
+                " should remove the object from the Collection specified in the "
+                (code "target")
+                " property, unless "
+                ,(link "https://www.w3.org/TR/activitypub/#remove-activity-inbox"
+                       "not allowed per requirements")))
+              ;; * Like
+              (inbox:accept:like:indicate-like-performed
+               ((code "Like")
+                " increments the object's count of likes by adding the "
+                "received activity to the "
+                ,(link "https://www.w3.org/TR/activitypub/#likes"
+                       "likes")
+                " collection if this collection is present"))))
+  ;; (inbox:accept:validate-content
+  ;;  SHOULD
+  ;;  "Validate the content they receive to avoid content spoofing attacks.")
+
+
+  )
 
 
 ;;; case manager / case worker stuff
