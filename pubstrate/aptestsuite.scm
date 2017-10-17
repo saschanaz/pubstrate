@@ -829,6 +829,42 @@ message handling, and within `with-user-io-prompt'."
      ;;  "Validate the content they receive to avoid content spoofing attacks.")
      )))
 
+(define client-test-items
+  (build-test-items
+   `(;; MUST
+     (client:submission:discovers-url-from-profile
+      MUST
+      "Client discovers the URL of a user's outbox from their profile")
+     (client:submission:submit-post-with-content-type
+      MUST
+      "Client submits activity by sending an HTTP post request to the outbox URL with the Content-Type of application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"")
+     (client:submission:submit-objects
+      MUST
+      "Client submission request body is either a single Activity or a single non-Activity Object"
+      #:subitems ((client:submission:submit-objects:provide-object
+                   MUST
+                   "Clients provide the object property when submitting the following activity types to an outbox: Create, Update, Delete, Follow, Add, Remove, Like, Block, Undo.")
+                  (client:submission:submit-objects:provide-target
+                   MUST
+                   "Clients provide the target property when submitting the following activity types to an outbox: Add, Remove.")))
+     (client:submission:authenticated
+      MUST
+      "Client sumission request is authenticated with the credentials of the user to whom the outbox belongs")
+     ;; (client:submission:uploading-media
+     ;;  MUST
+     ;;  "Client supports [uploading media](https://www.w3.org/TR/activitypub/#uploading-media) by sending a multipart/form-data request body")
+
+     (client:submission:recursively-add-targets
+      SHOULD
+      "Before submitting a new activity or object, Client infers appropriate target audience by recursively looking at certain properties (e.g. `inReplyTo`, See Section 7), and adds these targets to the new submission's audience."
+      #:subitems ((client:submission:recursively-add-targets:limits-depth
+                   SHOULD
+                   "Client limits depth of this recursion.")))
+     (client:retrieval:accept-header
+      MUST
+      "When retrieving objects, Client specifies an Accept header with the `application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"` media type ([3.2](https://w3c.github.io/activitypub/#retrieving-objects))"))))
+
+
 ;;; TODO: Continue at Inbox Retrieval
 ;;; @@: Do these apply to both c2s and s2s?
 
@@ -958,11 +994,71 @@ leave the tests in progress."
 
 ;;; Client tests
 
+(define (%check-in case-worker title description questions)
+  (let ((user-input
+         (get-user-input
+          `((h2 ,title)
+            ,@(if description
+                  (list description)
+                  '())
+            (table (@ (class "input-table"))
+                   ,@(map
+                      (match-lambda
+                        ((sym text-question)
+                         `(tr (td (input (@ (name ,(symbol->string sym))
+                                            (type "checkbox"))))
+                              (td ,text-question))))
+                      questions))))))
+    (for-each
+     (match-lambda
+       ((sym text-question)
+        (report-on! sym
+                    (if (jsobj-ref user-input (symbol->string sym))
+                        <success> <fail>))))
+     questions)))
+
+
 (define (test-client case-worker)
-  (show-user "Here's where we'd test the client!")
-  (show-user '("We should issue an apology here that the "
-               "client testing code asks the most questions. "
-               "Server testing code won't have to be as interactive.")))
+  (define (check-in title description questions)
+    (%check-in case-worker title description questions))
+  
+  (check-in "Client: Basic submission"
+            "Construct a basic activity and submit it to the actor's outbox."
+            '((client:submission:discovers-url-from-profile
+               "Client discovers the URL of a user's outbox from their profile")
+              (client:submission:submit-post-with-content-type
+               ("Client submits activity by sending an HTTP post request to the outbox URL with the "
+                (code "Content-Type")
+                " of "
+                (code "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"")))
+              (client:submission:submit-objects
+               "Client submission request body is either a single Activity or a single non-Activity Object")
+              (client:submission:authenticated
+               "Client sumission request is authenticated with the credentials of the user to whom the outbox belongs (this could be using an OAuth 2.0 bearer token or something else)")))
+
+  (check-in "Client: Required properties"
+            #f
+            `((client:submission:submit-objects:provide-object
+               "Client provides the object property when submitting the following activity types to an outbox: Create, Update, Delete, Follow, Add, Remove, Like, Block, Undo.")
+              (client:submission:submit-objects:provide-target
+               "Client provides the target property when submitting the following activity types to an outbox: Add, Remove.")))
+   ;; (client:submission:uploading-media
+   ;;  MUST
+   ;;  "Client supports [uploading media](https://www.w3.org/TR/activitypub/#uploading-media) by sending a multipart/form-data request body")
+ 
+  (check-in "Client: Add targets"
+            "Reply to a post with multiple recipients."
+            '((client:submission:recursively-add-targets
+               "The client suggests audience targeting based on participants in the referenced thread")
+              (client:submission:recursively-add-targets:limits-depth
+               "The client also limits depth of recursion used to gather targeting.")))
+  (check-in "Client: Accept header on object retrieval"
+            "Trigger the client to retrieve some remote object."
+            '((client:retrieval:accept-header
+               ("When retrieving objects, Client specifies an "
+                (code "Accept")
+                " header with the "
+                (code "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"") " media type")))))
 
 
 ;;; client-to-server server tests
@@ -1706,27 +1802,7 @@ object from a returned Create object."
 (define (test-s2s-server case-worker)
   ;; questions are lists of ('symbol text-question)
   (define (check-in title description questions)
-    (let ((user-input
-           (get-user-input
-            `((h2 ,title)
-              ,@(if description
-                    (list description)
-                    '())
-              (table (@ (class "input-table"))
-                     ,@(map
-                        (match-lambda
-                          ((sym text-question)
-                           `(tr (td (input (@ (name ,(symbol->string sym))
-                                              (type "checkbox"))))
-                                (td ,text-question))))
-                        questions))))))
-      (for-each
-       (match-lambda
-         ((sym text-question)
-          (report-on! sym
-                      (if (jsobj-ref user-input (symbol->string sym))
-                          <success> <fail>))))
-       questions)))
+    (%check-in case-worker title description questions))
 
   ;; *DELIVERY TESTS*
 
@@ -1887,9 +1963,9 @@ object from a returned Create object."
   ;; (inbox:accept:validate-content
   ;;  SHOULD
   ;;  "Validate the content they receive to avoid content spoofing attacks.")
-
-
   )
+
+(define (test-client))
 
 
 ;;; case manager / case worker stuff
