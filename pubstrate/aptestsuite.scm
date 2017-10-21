@@ -2036,7 +2036,6 @@ object from a returned Create object."
               (server:inbox:is-orderedcollection
                "inbox is an OrderedCollection")
               (server:inbox:filtered-per-permissions
-               SHOULD
                "Server filters inbox content according to the requester's permission")))
 
   ;; @@: Does this one even make sense to test for?  It's implied by the others
@@ -2069,8 +2068,8 @@ object from a returned Create object."
 
   (check-in "Server: Forbidding retrieval of private objects"
             #f
-            '(server:object-retrieval:private-403-or-404
-              "Respond with a 403 Forbidden status code to all requests that access Objects considered Private (or 404 if the server does not want to disclose the existence of the object, or another HTTP status code if specified by the authorization method)"))
+            '((server:object-retrieval:private-403-or-404
+               "Respond with a 403 Forbidden status code to all requests that access Objects considered Private (or 404 if the server does not want to disclose the existence of the object, or another HTTP status code if specified by the authorization method)")))
 
   (check-in "Server security considerations"
             #f
