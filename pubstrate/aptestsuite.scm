@@ -829,6 +829,63 @@ message handling, and within `with-user-io-prompt'."
      ;;  "Validate the content they receive to avoid content spoofing attacks.")
      )))
 
+(define server-common-test-items
+  (build-test-items
+   `(;; Inbox Retrieval
+     (server:inbox:responds-to-get
+      NON-NORMATIVE
+      "Server responds to GET request at inbox URL")
+     (server:inbox:is-orderedcollection
+      MUST
+      "inbox is an OrderedCollection")
+     (server:inbox:filtered-per-permissions
+      SHOULD
+      "Server filters inbox content according to the requester's permission")
+
+     ;; @@: Does this one even make sense to test for?  It's implied by the others
+     ;; Object retrieval
+     (server:object-retrieval:get-id
+      MAY
+      "Allow dereferencing Object `id`s by responding to HTTP GET requests with a representation of the Object")
+     ;; "if the above is true, the server"
+     (server:object-retrieval:respond-with-as2-re-ld-json
+      MUST
+      "Respond with the ActivityStreams object representation in response to requests that primarily Accept the media type `application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"`")
+     (server:object-retrieval:respond-with-as2-re-activity-json
+      SHOULD
+      "Respond with the ActivityStreams object representation in response to requests that primarily Accept the media type `application/activity+json`")
+     (server:object-retrieval:deleted-object:tombstone
+      MAY
+      "Responds with response body that is an ActivityStreams Object of type `Tombstone` (if the server is choosing to disclose that the object has been removed)")
+     (server:object-retrieval:deleted-object:410-status
+      SHOULD
+      "Respond with 410 Gone status code if Tombstone is in response body, otherwise responds with 404 Not Found")
+     (server:object-retrieval:deleted-object:404-status
+      SHOULD
+      "Respond with 404 status code for Object URIs that have never existed")
+
+     (server:object-retrieval:private-403-or-404
+      SHOULD
+      "Respond with a 403 Forbidden status code to all requests that access Objects considered Private (or 404 if the server does not want to disclose the existence of the object, or another HTTP status code if specified by the authorization method)")
+
+     ;; Non-normative security considerations
+     (server:security-considerations:actually-posted-by-actor
+      NON-NORMATIVE
+      ;; [B.1](https://w3c.github.io/activitypub/#security-verification)
+      "Server verifies that the new content is really posted by the actor indicated in Objects received in inbox and outbox")
+     (server:security-considerations:do-not-post-to-localhost
+      NON-NORMATIVE
+      "By default, implementation does not make HTTP requests to localhost when delivering Activities")
+     (server:security-considerations:uri-scheme-whitelist
+      NON-NORMATIVE
+      "Implementation applies a whitelist of allowed URI protocols before issuing requests, e.g. for inbox delivery")
+     (server:security-considerations:filter-incoming-content
+      NON-NORMATIVE
+      "Server filters incoming content both by local untrusted users and any remote users through some sort of spam filter")
+     (server:security-considerations:sanitize-fields
+      NON-NORMATIVE
+      "Implementation takes care to santizie fields containing markup to prevent cross site scripting attacks"))))
+
 (define client-test-items
   (build-test-items
    `(;; MUST
@@ -976,7 +1033,9 @@ leave the tests in progress."
             (when testing-client
               (test-client case-worker))
             (when testing-s2s-server
-              (test-s2s-server case-worker)))
+              (test-s2s-server case-worker))
+            (when (or testing-c2s-server testing-s2s-server)
+              (test-server-common case-worker)))
           ;; We didn't get anything, so let's loop until we do
           (begin (show-user (warn
                              '("It looks like you didn't select anything. "
@@ -1965,7 +2024,66 @@ object from a returned Create object."
   ;;  "Validate the content they receive to avoid content spoofing attacks.")
   )
 
-(define (test-client))
+(define (test-server-common case-worker)
+  (define (check-in title description questions)
+    (%check-in case-worker title description questions))
+
+  ;; @@: Does this belong in c2s section?
+  (check-in "Fetching the inbox"
+            '("Try retrieving the actor's " (code "inbox") " of an actor.")
+            '((server:inbox:responds-to-get
+               "Server responds to GET request at inbox URL")
+              (server:inbox:is-orderedcollection
+               "inbox is an OrderedCollection")
+              (server:inbox:filtered-per-permissions
+               SHOULD
+               "Server filters inbox content according to the requester's permission")))
+
+  ;; @@: Does this one even make sense to test for?  It's implied by the others
+  ;; Object retrieval
+  (check-in "Server: Retrieving objects"
+            '("Retrieve an object from the server by its id by performing "
+              "a GET request, presumably using "
+              (code "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"")
+              " and possibly "
+              (code "application/activity+json")
+              " in the " (code "Accept") " header.")
+            '((server:object-retrieval:get-id
+               "Successfully retrieved the object by performing GET against its id.")
+              (server:object-retrieval:respond-with-as2-re-ld-json
+               ("Server responded with the ActivityStreams object representation in response to " (code "Accept") " header of " (code "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"")))
+              (server:object-retrieval:respond-with-as2-re-activity-json
+               ("Server responded with the ActivityStreams object representation in response to " (code "Accept") " header of " (code "application/activity+json")))))
+  (check-in "Server: Retrieving deleted objects"
+            '("Test deleting objects on the server and then retrieving "
+              "the object by its " (code "id") ".")
+            '((server:object-retrieval:deleted-object:tombstone
+               ("Server responds with response body that is an ActivityStreams Object of type "
+                (code "Tombstone")
+                " (if the server is choosing to disclose that the object has been removed)"))
+              (server:object-retrieval:deleted-object:410-status
+               ("Respond with 410 Gone status code if " (code "Tombstone")
+                " is in response body, otherwise responds with 404 Not Found"))
+              (server:object-retrieval:deleted-object:404-status
+               "Respond with 404 status code for Object URIs that have never existed")))
+
+  (check-in "Server: Forbidding retrieval of private objects"
+            #f
+            '(server:object-retrieval:private-403-or-404
+              "Respond with a 403 Forbidden status code to all requests that access Objects considered Private (or 404 if the server does not want to disclose the existence of the object, or another HTTP status code if specified by the authorization method)"))
+
+  (check-in "Server security considerations"
+            #f
+            '((server:security-considerations:actually-posted-by-actor
+               "Server verifies that the new content is really posted by the actor indicated in Objects received in inbox and outbox")
+              (server:security-considerations:do-not-post-to-localhost
+               "By default, implementation does not make HTTP requests to localhost when delivering Activities")
+              (server:security-considerations:uri-scheme-whitelist
+               "Implementation applies a whitelist of allowed URI protocols before issuing requests, e.g. for inbox delivery")
+              (server:security-considerations:filter-incoming-content
+               "Server filters incoming content both by local untrusted users and any remote users through some sort of spam filter")
+              (server:security-considerations:sanitize-fields
+               "Implementation takes care to santizie fields containing markup to prevent cross site scripting attacks"))))
 
 
 ;;; case manager / case worker stuff
