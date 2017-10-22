@@ -552,6 +552,7 @@ message handling, and within `with-user-io-prompt'."
 (define-class <success> (<response>))
 (define-class <fail> (<response>))
 (define-class <inconclusive> (<response>))
+(define-class <not-applicable> (<response>))
 
 (define (report-on! sym response-type . args)
   (define case-worker (*current-actor*))
@@ -608,15 +609,15 @@ message handling, and within `with-user-io-prompt'."
 
 (define-method (response-as-log-result-text (response <success>))
   `(span (@ (class "result-log-success"))
-         "OK!"))
+         "Yes"))
 
 (define-method (response-as-log-result-text (response <fail>))
   `(span (@ (class "result-log-fail"))
-         "Failed."))
+         "No"))
 
 (define-method (response-as-log-result-text (response <inconclusive>))
   `(span (@ (class "result-log-inconclusive"))
-         "???"))
+         "Inconclusive"))
 
 (define-method (response-as-log (response <response>))
   (log-wrapper (test-item-desc (response-test-item response))
@@ -926,7 +927,10 @@ message handling, and within `with-user-io-prompt'."
 ;;; @@: Do these apply to both c2s and s2s?
 
 (define all-test-items
-  (append c2s-server-items))
+  (append c2s-server-items server-inbox-delivery
+          server-inbox-accept
+          client-test-items
+          server-common-test-items))
 
 (define all-test-items-hashed
   (let ((table (make-hash-table)))
@@ -1043,12 +1047,31 @@ leave the tests in progress."
                  (drop-top-checkpoint!)
                  (get-input-loop #t)))))
 
+  (show-results-page case-worker))
+
+(define (show-results-page case-worker)
   ;; @@: Temporary kludge
   (get-user-input
-   `((h2 "Try again?")))
-  ;;; TODO: And here's the final report
-  )
-
+   `((h2 (@ (style "text-align: center;"))
+         "Results")
+     (table
+      (@ (cellpadding 2))
+      ,@(map (match-lambda
+               ((sym . response)
+                (let ((test-item
+                       (hashq-ref all-test-items-hashed
+                                  sym)))
+                  `(tr 
+                    (td ,(test-item-desc test-item))
+                    (td (@ (style "text-align: right;"))
+                        (b "["
+                           ,(response-as-log-result-text
+                             response)
+                           "]"))))))
+             (.report case-worker)))
+     (hr)
+     (h3 (@ (style "text-align: center;"))
+         "Try again?"))))
 
 
 ;;; Client tests
