@@ -1050,28 +1050,51 @@ leave the tests in progress."
   (show-results-page case-worker))
 
 (define (show-results-page case-worker)
-  ;; @@: Temporary kludge
-  (get-user-input
-   `((h2 (@ (style "text-align: center;"))
-         "Results")
-     (table
+  (define report (.report case-worker))
+  (define (item-table test-items)
+    `(table
       (@ (cellpadding 2))
-      ,@(map (match-lambda
-               ((sym . response)
-                (let ((test-item
-                       (hashq-ref all-test-items-hashed
-                                  sym)))
-                  `(tr 
-                    (td ,(test-item-desc test-item))
-                    (td (@ (style "text-align: right;"))
-                        (b "["
-                           ,(response-as-log-result-text
-                             response)
-                           "]"))))))
-             (.report case-worker)))
-     (hr)
-     (h3 (@ (style "text-align: center;"))
-         "Try again?"))))
+      ,@(map (lambda (test-item)
+               (let ((response
+                      (assoc-ref report (test-item-sym test-item))))
+                 `(tr 
+                   (td ,(test-item-desc test-item))
+                   (td (@ (style "text-align: right;"))
+                       (b "["
+                          ,(if response
+                               (response-as-log-result-text response)
+                               "missing???")
+                          "]")))))
+             test-items)))
+  (let-syntax ((inline-when
+                (syntax-rules ()
+                  ((inline-when test consequent ...)
+                   (if test
+                       (list consequent ...)
+                       '())))))
+    (get-user-input
+     `((h2 (@ (style "text-align: center;"))
+           "Results")
+       ,@(inline-when (.testing-client? case-worker)
+                      '(h3 "Client tests")
+                      (item-table client-test-items))
+
+       ,@(inline-when (.testing-c2s-server? case-worker)
+                      '(h3 "Server: Client-to-Server tests")
+                      (item-table c2s-server-items))
+
+       ,@(inline-when (.testing-s2s-server? case-worker)
+                      '(h3 "Server: Federation tests")
+                      (item-table (append server-inbox-delivery
+                                          server-inbox-accept)))
+
+       ,@(inline-when (or (.testing-c2s-server? case-worker)
+                          (.testing-s2s-server? case-worker))
+                      '(h3 "Server: Common tests")
+                      (item-table server-common-test-items))
+       (hr)
+       (h3 (@ (style "text-align: center;"))
+           "Try again?")))))
 
 
 ;;; Client tests
