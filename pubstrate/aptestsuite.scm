@@ -332,7 +332,9 @@
   (testing-c2s-server? #:init-value #f
                        #:accessor .testing-c2s-server?)
   (testing-s2s-server? #:init-value #f
-                       #:accessor .testing-s2s-server?))
+                       #:accessor .testing-s2s-server?)
+  (final-report #:init-value #f
+                #:accessor .final-report))
 
 (define (case-worker-pseudoactor-view case-worker m
                                       pseudoactor-id path
@@ -530,12 +532,14 @@ message handling, and within `with-user-io-prompt'."
 (define* (test-item sym req-level desc
                 #:key (subitems '()))
   (make <test-item>
-    #:sym sym #:req-levl req-level #:desc desc
+    #:sym sym #:req-level req-level #:desc desc
     #:subitems (build-test-items subitems)))
 (define (build-test-items lst)
   (map (lambda (args) (apply test-item args)) lst))
 
 (define-class <response> ()
+  (type-for-report #:allocation #:class
+                   #:getter .type-for-report)
   (sym #:init-keyword #:sym
        #:accessor .sym)
   (comment #:init-keyword #:comment
@@ -549,10 +553,16 @@ message handling, and within `with-user-io-prompt'."
 (define (response-test-item response)
   (get-test-item (.sym response)))
 
-(define-class <success> (<response>))
-(define-class <fail> (<response>))
-(define-class <inconclusive> (<response>))
-(define-class <not-applicable> (<response>))
+(define-syntax-rule (define-response-class cls report-type)
+  (define-class cls (<response>)
+    (type-for-report #:allocation #:class
+                     #:getter .type-for-report
+                     #:init-value report-type)))
+
+(define-response-class <success> "success")
+(define-response-class <fail> "fail")
+(define-response-class <inconclusive> "inconclusive")
+(define-response-class <not-applicable> "not applicable")
 
 (define (report-on! sym response-type . args)
   (define case-worker (*current-actor*))
@@ -927,9 +937,9 @@ message handling, and within `with-user-io-prompt'."
 ;;; @@: Do these apply to both c2s and s2s?
 
 (define all-test-items
-  (append c2s-server-items server-inbox-delivery
+  (append client-test-items
+          c2s-server-items server-inbox-delivery
           server-inbox-accept
-          client-test-items
           server-common-test-items))
 
 (define all-test-items-hashed
@@ -1049,6 +1059,7 @@ leave the tests in progress."
 
   (show-results-page case-worker))
 
+(define %test-report)
 (define (show-results-page case-worker)
   (define report (.report case-worker))
   (define (item-table test-items)
@@ -1058,7 +1069,9 @@ leave the tests in progress."
                (let ((response
                       (assoc-ref report (test-item-sym test-item))))
                  `(tr 
-                   (td ,(test-item-desc test-item))
+                   (td (b ,(symbol->string (test-item-req-level test-item))
+                          ": ")
+                       ,(test-item-desc test-item))
                    (td (@ (style "text-align: right;"))
                        (b "["
                           ,(if response
@@ -1072,29 +1085,50 @@ leave the tests in progress."
                    (if test
                        (list consequent ...)
                        '())))))
-    (get-user-input
-     `((h2 (@ (style "text-align: center;"))
-           "Results")
-       ,@(inline-when (.testing-client? case-worker)
-                      '(h3 "Client tests")
-                      (item-table client-test-items))
+    (let* ((user-input
+            (get-user-input
+             `((h2 (@ (style "text-align: center;"))
+                   "Results")
+               ,@(inline-when (.testing-client? case-worker)
+                              '(h3 "Client tests")
+                              (item-table client-test-items))
 
-       ,@(inline-when (.testing-c2s-server? case-worker)
-                      '(h3 "Server: Client-to-Server tests")
-                      (item-table c2s-server-items))
+               ,@(inline-when (.testing-c2s-server? case-worker)
+                              '(h3 "Server: Client-to-Server tests")
+                              (item-table c2s-server-items))
 
-       ,@(inline-when (.testing-s2s-server? case-worker)
-                      '(h3 "Server: Federation tests")
-                      (item-table (append server-inbox-delivery
-                                          server-inbox-accept)))
+               ,@(inline-when (.testing-s2s-server? case-worker)
+                              '(h3 "Server: Federation tests")
+                              (item-table (append server-inbox-delivery
+                                                  server-inbox-accept)))
 
-       ,@(inline-when (or (.testing-c2s-server? case-worker)
-                          (.testing-s2s-server? case-worker))
-                      '(h3 "Server: Common tests")
-                      (item-table server-common-test-items))
-       (hr)
-       (h3 (@ (style "text-align: center;"))
-           "Try again?")))))
+               ,@(inline-when (or (.testing-c2s-server? case-worker)
+                                  (.testing-s2s-server? case-worker))
+                              '(h3 "Server: Common tests")
+                              (item-table server-common-test-items))
+               (hr)
+               (h3 (@ (style "text-align: center;"))
+                   "Looks good?")
+               (p "If the above looks correct, enter a name for your project "
+                  "and then press submit to generate an implementation report:")
+               (p (b "Project name: ") (input (@ (name "project-name")))))))
+           (project-name (jsobj-ref user-input "project-name"))
+           (final-report
+            `(@ (project-name ,project-name)
+                (results
+                 (@ ,@(map
+                       (lambda (test-item)
+                         (let* ((sym (test-item-sym test-item))
+                                (response (assoc-ref %test-report sym)))
+                           (if response
+                               `(,sym
+                                 (@ (result ,(.type-for-report response))
+                                    ,@(if (.comment response)
+                                          `((comment ,(.comment response)))
+                                          '())))
+                               `(,sym (@ (result null))))))
+                       all-test-items))))))
+      (set! (.final-report case-worker) final-report))))
 
 
 ;;; Client tests
