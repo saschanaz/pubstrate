@@ -601,10 +601,10 @@ message handling, and within `with-user-io-prompt'."
                      #:getter .type-for-report
                      #:init-value report-type)))
 
-(define-response-class <success> "success")
-(define-response-class <fail> "fail")
+(define-response-class <success> "yes")
+(define-response-class <fail> "no")
 (define-response-class <inconclusive> "inconclusive")
-(define-response-class <not-applicable> "not applicable")
+(define-response-class <not-applicable> "not-applicable")
 
 (define (report-on! sym response-type . args)
   (define case-worker (*current-actor*))
@@ -1076,6 +1076,12 @@ leave the tests in progress."
            (testing-client (jsobj-ref user-input "testing-client"))
            (testing-c2s-server (jsobj-ref user-input "testing-c2s-server"))
            (testing-s2s-server (jsobj-ref user-input "testing-s2s-server")))
+      (define (mark-not-applicable! tests)
+        (for-each
+         (lambda (test)
+           (report-on! (test-item-sym test) <not-applicable>))
+         (flatten-test-items tests)))
+
       (if (or testing-client testing-c2s-server testing-s2s-server)
           ;; We need at least one to continue
           (begin
@@ -1084,8 +1090,9 @@ leave the tests in progress."
             (set! (.testing-s2s-server? case-worker) testing-s2s-server)
             ;; Run all the c2s server tests, since we can do those "immediately"
             ;; without prompting the user
-            (when testing-c2s-server
-              (test-c2s-server case-worker))
+            (if testing-c2s-server
+                (test-c2s-server case-worker)
+                (mark-not-applicable! c2s-server-items))
             ;; ;; Now, the "observed" tests
             ;; (when (or testing-c2s-server testing-s2s-server)
             ;;   ;; Set up observables
@@ -1097,12 +1104,15 @@ leave the tests in progress."
             ;;   ;; probably wait
             ;;   (run-or-ask-to-run-tests-and-wait! case-worker))
             ;; Here are the "prompty" tests
-            (when testing-client
-              (test-client case-worker))
-            (when testing-s2s-server
-              (test-s2s-server case-worker))
-            (when (or testing-c2s-server testing-s2s-server)
-              (test-server-common case-worker)))
+            (if testing-client
+                (test-client case-worker)
+                (mark-not-applicable! client-test-items))
+            (if testing-s2s-server
+                (test-s2s-server case-worker)
+                (mark-not-applicable! (append server-inbox-delivery server-inbox-accept)))
+            (if (or testing-c2s-server testing-s2s-server)
+                (test-server-common case-worker)
+                (mark-not-applicable! server-common-test-items)))
           ;; We didn't get anything, so let's loop until we do
           (begin (show-user (warn
                              '("It looks like you didn't select anything. "
@@ -1159,7 +1169,7 @@ leave the tests in progress."
                               '(h3 "Server: Common tests")
                               (item-table server-common-test-items))
                (hr)
-               (h3 (@ (style "text-align: center;"))
+               (h3 (@ (style "text-align: center; padding: 10px;"))
                    "Looks good?")
                (p "If the above looks correct, enter a name for your project "
                   "and then press submit to generate an implementation report:")
@@ -1185,16 +1195,31 @@ leave the tests in progress."
             (<-wait (.db-manager case-worker) 'store-document!
                     (with-output-to-string
                       (lambda ()
-                        (json-pprint final-report))))))
-      (get-user-input
-       `((h1 (@ (style "text-align: centered;"))
-             "You're all done!  (Almost!)")
-         (p "Nice job!  Now all that's left is to submit your implementation "
-            "report to the ActivityPub implementation reports page. "
-            "First:")
-         (p (@ (style "text-align: center;"))
-            ,(link (string-append "/download-report/" report-id)
-                   "Download Report!")))))))
+                        (json-pprint final-report)))))
+           (report-link
+            (string-append "/download-report/" report-id)))
+      (show-user
+       `(div (@ (style "padding-left: 10%; padding-right: 10%; padding-bottom: 15px;"))
+             (h1 (@ (style "text-align: center;"))
+                 "You're all done!  (Almost!)")
+             (p (@ (style "text-align: center; margin-bottom: 1.5em;"))
+                (span (@ (style "font-family: 'Inconsolata', monospace; font-weight: bold; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; border: 3px solid #d5d5d5; background: #dcdad5;"))
+                      ,(link report-link "Download Report!")))
+             (p "Nice job!  Now all that's left is to "
+                "submit your report to the "
+                ,(link "https://activitypub.rocks/implementations/"
+                       "implementation reports page")
+                "!  All you have to do is:")
+             (ol (li "Right click -> Copy Link Location on the "
+                     ,(link report-link "download report")
+                     " link.")
+                 (li ,(link "https://github.com/w3c/activitypub/issues/new"
+                            "File an issue")
+                     " on the ActivityPub tracker, listing your project's name "
+                     "and pasting in the link to your "
+                     "implementation report.")
+                 (li "That's it!  There is no step three!"))
+             (p "Horray!  Thank you for helping the ActivityPub network grow!"))))))
 
 
 ;;; Client tests
