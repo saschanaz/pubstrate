@@ -250,7 +250,7 @@ libgcrypt to provide a variety of encryption tooling.")
        ("automake" ,automake)
        ("texinfo" ,texinfo)))
     (inputs
-     `(("guile" ,guile-2.2)
+     `(("guile" ,guile-next)
        ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
      `(("gnutls" ,gnutls)
