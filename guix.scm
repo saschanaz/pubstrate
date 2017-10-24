@@ -95,10 +95,10 @@
        (method git-fetch)
        (uri (git-reference
              (url "git://git.savannah.gnu.org/8sync.git")
-             (commit "e1cc354c7073230398634b1638ea288ce3e27852")))
+             (commit "cd32bbe822f4e3acbb755993d3bd39358c176a26")))
        (sha256
         (base32
-         "0zn68013aji025pp6bsdf4kjgfvcmxp2mzhzc0yzp556lir53grg"))))
+         "0hxrwja46pydr1s2lasxz03xfanshmdna27h5gg8fpxz61icfw9l"))))
     (build-system gnu-build-system)
     (native-inputs `(("autoconf" ,autoconf)
                      ("automake" ,automake)
