@@ -17,6 +17,8 @@
 ;;; along with Pubstrate.  If not, see <http://www.gnu.org/licenses/>.
 
 (use-modules (gcrypt random)
+             (gcrypt hash)
+             (gdbm)
              (ice-9 control)
              (ice-9 match)
              (ice-9 format)
@@ -29,11 +31,15 @@
              (8sync systems websocket server)
              (fibers conditions)
              (rnrs bytevectors)
+             (srfi srfi-1)   ; list utils
+             (srfi srfi-19)  ; dates
              (srfi srfi-11)
              (srfi srfi-41)  ; streams
              (web uri)
              (web request)
              (web response)
+             (webutils date)
+             (pubstrate contrib base32)
              (pubstrate asobj)
              (pubstrate apclient)
              (pubstrate contrib html)
@@ -92,19 +98,12 @@
               request body)
       (respond-not-found)))
 
-(define (download-report request body client-id)
-  (define worker
-    (hash-ref (.workers (*current-actor*))
-              client-id))
-  (if worker
-      (let ((report (<-wait worker 'get-report)))
-        (if report
-            (respond (with-output-to-string
-                       (lambda ()
-                         (json-pprint report)))
-                     #:content-type 'text/json)
-            (respond-not-found)))
-      (respond-not-found)))
+(define (download-report request body db-key)
+  (let ((doc (<-wait (.db-manager (*current-actor*)) 'get-document
+                     db-key)))
+    (if doc
+        (respond doc #:content-type 'text/json)
+        (respond-not-found))))
 
 (define (route request)
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
@@ -114,8 +113,8 @@
     (("ap" "u" client-id pseudoactor rest-paths ...)
      (values send-to-pseudoactor (list client-id pseudoactor rest-paths)))
 
-    (("download-report" client-id)
-     (values download-report (list (string->number client-id))))
+    (("download-report" db-key)
+     (values download-report (list db-key)))
 
     ;; static files 
     (("static" static-path ...)
@@ -179,6 +178,33 @@
   (plunge-it
    (lambda ()
      body ...)))
+
+
+;;; Database manager
+(define-actor <db-manager> (<actor>)
+  ((store-document! db-manager-store-document!)
+   (get-document db-manager-get-document))
+  (db-path #:init-keyword #:db-path
+           #:getter .db-path)
+  (db #:init-keyword #:db
+      #:accessor .db))
+
+(define-method (actor-init! (db-manager <db-manager>))
+  (set! (.db db-manager)
+        (gdbm-open (.db-path db-manager) GDBM_WRCREAT)))
+
+(define-method (actor-cleanup! (db-manager <db-manager>))
+  (gdbm-close (.db db-manager)))
+
+(define (db-manager-store-document! db-manager m doc)
+  "Store DOC, a string, in db-manager's database"
+  (let ((key (bytevector->base32-string (sha256 (string->utf8 doc)))))
+    (gdbm-set! (.db db-manager) key doc)
+    key))
+
+(define (db-manager-get-document db-manager m key)
+  "Fetch document matching KEY from db-manager's gdbm database"
+  (gdbm-ref (.db db-manager) key))
 
 
 ;;; Web application launching stuff
@@ -315,8 +341,7 @@
    (rewind case-worker-rewind)
    (shutdown case-worker-shutdown)
    (pseudoactor-view case-worker-pseudoactor-view)
-   (start-script case-worker-start-script)
-   (get-report case-worker-get-report))
+   (start-script case-worker-start-script))
   (client-id #:init-keyword #:client-id
              #:accessor .client-id)
   (manager #:init-keyword #:manager
@@ -350,8 +375,8 @@
                        #:accessor .testing-c2s-server?)
   (testing-s2s-server? #:init-value #f
                        #:accessor .testing-s2s-server?)
-  (final-report #:init-value #f
-                #:accessor .final-report))
+  (db-manager #:init-keyword #:db-manager
+              #:getter .db-manager))
 
 (define (case-worker-pseudoactor-view case-worker m
                                       pseudoactor-id path
@@ -431,9 +456,6 @@
 
 (define (case-worker-shutdown case-worker m)
   (self-destruct case-worker))
-
-(define (case-worker-get-report case-worker m . args)
-  (.final-report case-worker))
 
 (define %user-io-prompt (make-prompt-tag))
 
@@ -956,11 +978,22 @@ message handling, and within `with-user-io-prompt'."
 ;;; TODO: Continue at Inbox Retrieval
 ;;; @@: Do these apply to both c2s and s2s?
 
+(define* (flatten-test-items test-items)
+  (define (flatten items onto)
+    (fold (lambda (test-item prev)
+            (flatten
+             (test-item-subitems test-item)
+             (cons test-item prev)))
+          onto
+          items))
+  (reverse (flatten test-items '())))
+
 (define all-test-items
-  (append client-test-items
-          c2s-server-items server-inbox-delivery
-          server-inbox-accept
-          server-common-test-items))
+  (flatten-test-items
+   (append client-test-items
+           c2s-server-items server-inbox-delivery
+           server-inbox-accept
+           server-common-test-items)))
 
 (define all-test-items-hashed
   (let ((table (make-hash-table)))
@@ -1097,7 +1130,7 @@ leave the tests in progress."
                                (response-as-log-result-text response)
                                "missing???")
                           "]")))))
-             test-items)))
+             (flatten-test-items test-items))))
   (let-syntax ((inline-when
                 (syntax-rules ()
                   ((inline-when test consequent ...)
@@ -1134,11 +1167,12 @@ leave the tests in progress."
            (project-name (jsobj-ref user-input "project-name"))
            (final-report
             `(@ (project-name ,project-name)
+                (date ,(date->rfc3339-string (current-date 0)))
                 (results
                  (@ ,@(map
                        (lambda (test-item)
                          (let* ((sym (test-item-sym test-item))
-                                (response (assoc-ref %test-report sym)))
+                                (response (assoc-ref report sym)))
                            (if response
                                `(,sym
                                  (@ (result ,(.type-for-report response))
@@ -1146,8 +1180,12 @@ leave the tests in progress."
                                           `((comment ,(.comment response)))
                                           '())))
                                `(,sym (@ (result null))))))
-                       all-test-items))))))
-      (set! (.final-report case-worker) final-report)
+                       all-test-items)))))
+           (report-id
+            (<-wait (.db-manager case-worker) 'store-document!
+                    (with-output-to-string
+                      (lambda ()
+                        (json-pprint final-report))))))
       (get-user-input
        `((h1 (@ (style "text-align: centered;"))
              "You're all done!  (Almost!)")
@@ -1155,8 +1193,7 @@ leave the tests in progress."
             "report to the ActivityPub implementation reports page. "
             "First:")
          (p (@ (style "text-align: center;"))
-            ,(link (string-append "/download-report/"
-                                  (number->string (.client-id case-worker)))
+            ,(link (string-append "/download-report/" report-id)
                    "Download Report!")))))))
 
 
@@ -2210,6 +2247,8 @@ object from a returned Create object."
   ()
   (workers #:init-thunk make-hash-table
            #:accessor .workers)
+  (db-manager #:init-keyword #:db-manager
+              #:accessor .db-manager)
   ;; This is a kludge... we really shouldn't have to double
   ;; record these, should we?
   (client-worker-map #:init-thunk make-hash-table
@@ -2219,7 +2258,8 @@ object from a returned Create object."
   (pk 'connected!)
   (let ((worker (create-actor <case-worker>
                               #:client-id client-id
-                              #:manager (actor-id case-manager))))
+                              #:manager (actor-id case-manager)
+                              #:db-manager (.db-manager case-manager))))
     (hash-set! (.workers case-manager)
                client-id worker)))
 
@@ -2256,22 +2296,30 @@ If ERROR-ON-NOTHING, error out if worker is not found."
       (route request)
     (apply view request body args)))
 
+
 (define (main args)
   (run-hive
    (lambda (hive)
-     (define base-uri-arg
-       (match args
-         ((_ uri) uri)
-         (_ "http://localhost:8989/")))
-     (with-extended-ctx
-      `((base-uri . ,(string->uri base-uri-arg)))
-      (lambda ()
-        (create-actor <case-manager>
-                      #:http-handler (live-wrap http-handler)
-                      #:port 8989
-                      #:on-ws-client-connect (live-wrap case-manager-ws-client-connect)
-                      #:on-ws-client-disconnect (live-wrap case-manager-ws-client-disconnect)
-                      #:on-ws-message (live-wrap case-manager-ws-new-message))
-        (spawn-repl)
-        (format #t "Running on ~a\n" base-uri-arg)
-        (wait (make-condition)))))))
+     (define (run db-path base-uri-arg)
+       (with-extended-ctx
+        `((base-uri . ,(string->uri base-uri-arg)))
+        (lambda ()
+          (define db-manager
+            (create-actor <db-manager>
+                          #:db-path db-path))
+          (create-actor <case-manager>
+                        #:db-manager db-manager
+                        #:http-handler (live-wrap http-handler)
+                        #:port 8989
+                        #:on-ws-client-connect (live-wrap case-manager-ws-client-connect)
+                        #:on-ws-client-disconnect (live-wrap case-manager-ws-client-disconnect)
+                        #:on-ws-message (live-wrap case-manager-ws-new-message))
+          (spawn-repl)
+          (format #t "Running on ~a\n" base-uri-arg)
+          (wait (make-condition)))))
+     (match args
+       ((_ db-path base-uri-arg)
+        (run db-path base-uri-arg))
+       ((_ db-path)
+        (run db-path "http://localhost:8989/"))
+       (_ (display "aptestsuite.scm DB-PATH [BASE-URI]"))))))
