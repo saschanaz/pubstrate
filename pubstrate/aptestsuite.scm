@@ -671,6 +671,10 @@ message handling, and within `with-user-io-prompt'."
   `(span (@ (class "result-log-inconclusive"))
          "Inconclusive"))
 
+(define-method (response-as-log-result-text (response <not-applicable>))
+  `(span (@ (class "result-log-not-applicable"))
+         "N/A"))
+
 (define-method (response-as-log (response <response>))
   (log-wrapper (test-item-desc (response-test-item response))
                ": " (response-as-log-result-text response)
@@ -1172,11 +1176,15 @@ leave the tests in progress."
                (h3 (@ (style "text-align: center; padding: 10px;"))
                    "Looks good?")
                (p "If the above looks correct, enter a name for your project "
-                  "and then press submit to generate an implementation report:")
-               (p (b "Project name: ") (input (@ (name "project-name")))))))
+                  "and (if appropriate) a website, then press submit to "
+                  "generate an implementation report:")
+               (p (b "Project name: ") (input (@ (name "project-name"))))
+               (p (b "Website: ") (input (@ (name "website")))))))
            (project-name (jsobj-ref user-input "project-name"))
+           (website (jsobj-ref user-input "website"))
            (final-report
             `(@ (project-name ,project-name)
+                (website ,website)
                 (date ,(date->rfc3339-string (current-date 0)))
                 (results
                  (@ ,@(map
@@ -2036,41 +2044,53 @@ object from a returned Create object."
 
   ;; *DELIVERY TESTS*
 
-  ;;; @@: These are only applicable if c2s is also enabled
-  (check-in "Federating from the outbox"
-            '(p "Construct and submit activities to your actor's outbox making "
-                "use of the " (code "to") ", " (code "cc") ", " (code "bcc")
-                ", and " (code "bto") " addressing fields. ")
-            '((inbox:delivery:performs-delivery
-               "Server performed delivery on all Activities posted to the outbox")
-              (inbox:delivery:addressing
-               ("Server utilized " (code "to") ", " (code "cc") ", " (code "bcc")
-                ", and " (code "bto") " to determine delivery recipients."))))
-  (check-in "Adding an id"
-            '("Submit an activity to your outbox without specifying an "
-              (code "id") ".  The server should add an " (code "id")
-              " to the object before delivering.")
-            '((inbox:delivery:adds-id
-               ("The server added an " (code "id") " to the activity."))))
+  (if (.testing-c2s-server? case-worker)
+      (begin
+        (check-in "Federating from the outbox"
+                  '(p "Construct and submit activities to your actor's outbox making "
+                      "use of the " (code "to") ", " (code "cc") ", " (code "bcc")
+                      ", and " (code "bto") " addressing fields. ")
+                  '((inbox:delivery:performs-delivery
+                     "Server performed delivery on all Activities posted to the outbox")
+                    (inbox:delivery:addressing
+                     ("Server utilized " (code "to") ", " (code "cc") ", " (code "bcc")
+                      ", and " (code "bto") " to determine delivery recipients."))))
+        (check-in "Adding an id"
+                  '("Submit an activity to your outbox without specifying an "
+                    (code "id") ".  The server should add an " (code "id")
+                    " to the object before delivering.")
+                  '((inbox:delivery:adds-id
+                     ("The server added an " (code "id") " to the activity."))))
 
-  (check-in "Delivering with credentials"
-            '("Construct and deliver an activity with addressing pointing at "
-              "the id of a collection the activity's actor can access but "
-              "which is not on their server.")
-            `((inbox:delivery:submit-with-credentials
-               ("Did the server retrieve the members of the collection "
-                "by using the credentials of the actor? "
-                "(For example, if the actor has a public key on their profile, "
-                "the request may be signed with "
-                ,(link "https://tools.ietf.org/html/draft-cavage-http-signatures-08"
-                       "HTTP Signatures") ".)"))
-              (inbox:delivery:deliver-to-collection
-               ("Did the server traverse the collection to deliver to the "
-                "inboxes of all items in the collection?"))
-              ;; TODO: This should be nested
-              (inbox:delivery:deliver-to-collection:recursively
-               ("Does the implementation deliver recursively to collections "
-                "within a collection (with some limit on recursion >= 1)?"))))
+        (check-in "Delivering with credentials"
+                  '("Construct and deliver an activity with addressing pointing at "
+                    "the id of a collection the activity's actor can access but "
+                    "which is not on their server.")
+                  `((inbox:delivery:submit-with-credentials
+                     ("Did the server retrieve the members of the collection "
+                      "by using the credentials of the actor? "
+                      "(For example, if the actor has a public key on their profile, "
+                      "the request may be signed with "
+                      ,(link "https://tools.ietf.org/html/draft-cavage-http-signatures-08"
+                             "HTTP Signatures") ".)"))
+                    (inbox:delivery:deliver-to-collection
+                     ("Did the server traverse the collection to deliver to the "
+                      "inboxes of all items in the collection?"))
+                    ;; TODO: This should be nested
+                    (inbox:delivery:deliver-to-collection:recursively
+                     ("Does the implementation deliver recursively to collections "
+                      "within a collection (with some limit on recursion >= 1)?")))))
+      (begin
+        (for-each
+         (lambda (sym)
+           (report-on! sym <not-applicable>
+                       #:comment "Tests only apply if supporting both C2S and S2S"))
+         '(inbox:delivery:performs-delivery
+           inbox:delivery:addressing
+           inbox:delivery:adds-id
+           inbox:delivery:submit-with-credentials
+           inbox:delivery:deliver-to-collection
+           inbox:delivery:deliver-to-collection:recursively))))
 
   (check-in "Activities requiring the object property"
             '("The distribution of the following activities require that they contain the "
@@ -2137,7 +2157,9 @@ object from a returned Create object."
                 (code "to") ", " (code "bto") ", " (code "cc") ", " (code "bcc")
                 ", " (code "audience")
                 " object values to determine whether/where to forward "
-                "according to criteria in 7.1.2"))))
+                "according to criteria in 7.1.2"))
+              (inbox:accept:special-forward:limits-recursion
+               "Limits depth of this recursion.")))
 
   (check-in "Verification of content authorship"
             `("Before accepting activities delivered to an actor's inbox "
