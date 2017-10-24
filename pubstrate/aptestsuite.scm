@@ -92,6 +92,20 @@
               request body)
       (respond-not-found)))
 
+(define (download-report request body client-id)
+  (define worker
+    (hash-ref (.workers (*current-actor*))
+              client-id))
+  (if worker
+      (let ((report (<-wait worker 'get-report)))
+        (if report
+            (respond (with-output-to-string
+                       (lambda ()
+                         (json-pprint report)))
+                     #:content-type 'text/json)
+            (respond-not-found)))
+      (respond-not-found)))
+
 (define (route request)
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
     (() (values view:main-display '()))
@@ -100,6 +114,9 @@
     (("ap" "u" client-id pseudoactor rest-paths ...)
      (values send-to-pseudoactor (list client-id pseudoactor rest-paths)))
 
+    (("download-report" client-id)
+     (values download-report (list (string->number client-id))))
+
     ;; static files 
     (("static" static-path ...)
      ;; TODO: make this toggle'able
@@ -107,7 +124,6 @@
 
     ;; Not found!
     (_ (values ps-view:standard-four-oh-four '()))))
-
 
 
 ;;; Clearing out blocked ports
@@ -299,7 +315,8 @@
    (rewind case-worker-rewind)
    (shutdown case-worker-shutdown)
    (pseudoactor-view case-worker-pseudoactor-view)
-   (start-script case-worker-start-script))
+   (start-script case-worker-start-script)
+   (get-report case-worker-get-report))
   (client-id #:init-keyword #:client-id
              #:accessor .client-id)
   (manager #:init-keyword #:manager
@@ -414,6 +431,9 @@
 
 (define (case-worker-shutdown case-worker m)
   (self-destruct case-worker))
+
+(define (case-worker-get-report case-worker m . args)
+  (.final-report case-worker))
 
 (define %user-io-prompt (make-prompt-tag))
 
@@ -1059,7 +1079,6 @@ leave the tests in progress."
 
   (show-results-page case-worker))
 
-(define %test-report)
 (define (show-results-page case-worker)
   (define report (.report case-worker))
   (define (item-table test-items)
@@ -1128,7 +1147,17 @@ leave the tests in progress."
                                           '())))
                                `(,sym (@ (result null))))))
                        all-test-items))))))
-      (set! (.final-report case-worker) final-report))))
+      (set! (.final-report case-worker) final-report)
+      (get-user-input
+       `((h1 (@ (style "text-align: centered;"))
+             "You're all done!  (Almost!)")
+         (p "Nice job!  Now all that's left is to submit your implementation "
+            "report to the ActivityPub implementation reports page. "
+            "First:")
+         (p (@ (style "text-align: center;"))
+            ,(link (string-append "/download-report/"
+                                  (number->string (.client-id case-worker)))
+                   "Download Report!")))))))
 
 
 ;;; Client tests
