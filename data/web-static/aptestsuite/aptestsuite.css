@@ -228,3 +228,7 @@ input[type='text'] {
 .result-log-inconclusive {
     color: #817668;
 }
+
+.result-log-not-applicable {
+    color: #302f29;
+}
