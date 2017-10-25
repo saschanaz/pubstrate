@@ -1194,7 +1194,7 @@ leave the tests in progress."
                                (rows "4")) "")))))
            (project-name (jsobj-ref user-input "project-name"))
            (website (jsobj-ref user-input "website"))
-           (notes (jsobj-ref (pk 'user-input user-input) "notes"))
+           (notes (jsobj-ref user-input "notes"))
            (final-report
             `(@ (project-name ,project-name)
                 (website ,website)
