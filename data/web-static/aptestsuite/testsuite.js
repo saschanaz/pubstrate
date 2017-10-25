@@ -162,11 +162,17 @@ var input_type_processors = {
 function getDataFromActivePrompt() {
     var prompt = getActivePrompt();
     var inputs = prompt.getElementsByTagName("input");
+    var textareas = prompt.getElementsByTagName("textarea");
     var data = {};
     for (var i = 0; i < inputs.length; i++) {
         var input = inputs[i];
         // Dispatch to the processor for this type
         data[input["name"]] = input_type_processors[input["type"]](input);
+    }
+    for (var i = 0; i < textareas.length; i++) {
+        var textarea = textareas[i];
+        // Dispatch to the processor for this type
+        data[textarea["name"]] = textarea.value;
     }
     return data;
 }

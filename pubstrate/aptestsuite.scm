@@ -1178,14 +1178,28 @@ leave the tests in progress."
                (p "If the above looks correct, enter a name for your project "
                   "and (if appropriate) a website, then press submit to "
                   "generate an implementation report:")
-               (p (b "Project name: ") (input (@ (name "project-name"))))
-               (p (b "Website: ") (input (@ (name "website")))))))
+               (p (b "Project name: ") (br)
+                  (input (@ (name "project-name")
+                            (style "width: 100%;"))))
+               (p (b "Website: ") (br)
+                  (input (@ (name "website")
+                            (style "width: 100%;"))))
+               (p (b "Notes: ")
+                  (br)
+                  (i "Tested interop with other projects?  Tell us their names / "
+                     "websites!")
+                  (br)
+                  (textarea (@ (name "notes")
+                               (style "width: 100%;")
+                               (rows "4")) "")))))
            (project-name (jsobj-ref user-input "project-name"))
            (website (jsobj-ref user-input "website"))
+           (notes (jsobj-ref (pk 'user-input user-input) "notes"))
            (final-report
             `(@ (project-name ,project-name)
                 (website ,website)
                 (date ,(date->rfc3339-string (current-date 0)))
+                (notes ,notes)
                 (results
                  (@ ,@(map
                        (lambda (test-item)
