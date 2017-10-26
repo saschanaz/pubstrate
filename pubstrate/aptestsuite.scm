@@ -35,6 +35,7 @@
              (srfi srfi-19)  ; dates
              (srfi srfi-11)
              (srfi srfi-41)  ; streams
+             (web http)
              (web uri)
              (web request)
              (web response)
@@ -43,6 +44,7 @@
              (pubstrate asobj)
              (pubstrate apclient)
              (pubstrate contrib html)
+             (pubstrate contrib define-method-star)
              (pubstrate vocab)
              (pubstrate package-config)
              (pubstrate webapp utils)
@@ -376,7 +378,11 @@
   (testing-s2s-server? #:init-value #f
                        #:accessor .testing-s2s-server?)
   (db-manager #:init-keyword #:db-manager
-              #:getter .db-manager))
+              #:getter .db-manager)
+  ;; "extra debugging" mode
+  (debug #:init-keyword #:debug
+         #:accessor .debug
+         #:init-value #f))
 
 (define (case-worker-pseudoactor-view case-worker m
                                       pseudoactor-id path
@@ -502,22 +508,22 @@
            (lambda ()
              (sxml->html sxml (current-output-port))))))))
 
-(define (show-user sxml)
+(define* (show-user sxml #:key (case-worker (*current-actor*)))
   "Show the user the following SXML.
 
 This must be done within the dynamic execution of both a case worker's
 message handling, and within `with-user-io-prompt'."
-  (define case-worker (*current-actor*))
   (<- (.manager case-worker) 'ws-send
       (.client-id case-worker)
       (gen-payload case-worker "notice" sxml)))
 
-(define* (get-user-input sxml #:key (checkpoint #t))
+(define* (get-user-input sxml #:key
+                         (checkpoint #t)
+                         (case-worker (*current-actor*)))
   "Show user a prompt with SXML, possibly saving a CHECKPOINT
 
 This must be done within the dynamic execution of both a case worker's
 message handling, and within `with-user-io-prompt'."
-  (define case-worker (*current-actor*))
   (if checkpoint
       (abort-to-prompt %user-io-prompt '*save-checkpoint*)
       (set! (.next-checkpoint case-worker) #f))
@@ -1014,6 +1020,74 @@ message handling, and within `with-user-io-prompt'."
   (hashq-ref all-test-items-hashed sym))
 
 
+;;; More debuggable apclient
+(define-class <debug-apc> (<apclient>)
+  (case-worker #:init-keyword #:case-worker
+               #:accessor .case-worker))
+
+(define (%get-and-show-response apclient next-method)
+  (receive (response body)
+      (next-method)
+    (show-user
+     `((p (b "<<< DEBUG:") " Got back a " ,(number->string (response-code response))
+          " with headers:")
+       (div (@ (class "req-block"))
+            (pre ,(call-with-output-string
+                    (lambda (p) (write-headers (response-headers response)
+                                               p)))))
+       " and body: "
+       (div (@ (class "req-block"))
+            (pre
+             ,(if (match (response-content-type response)
+                    (#f #f)
+                    (((or 'application/activity+json
+                          'application/ld+json) rest ...)
+                     #t)
+                    ((resource rest ...)
+                     (string-prefix? (symbol->string resource) "text/")))
+                  
+                  (utf8->string body)
+                  "<<binary contents>>"))))
+     #:case-worker (.case-worker apclient))
+    (values response body)))
+
+;;; Override get/post methods so we can show the user what the request/response
+;;; looks like
+(define (uri-as-string uri)
+  (match uri
+    ((? string?) uri)
+    ((? uri?) (uri->string uri))))
+
+(define-method* (apclient-get (apclient <debug-apc>) uri
+                              #:key (headers '()))
+  (show-user
+   `((p (b ">>> DEBUG:") " Sending " (code "GET") " request to "
+        (code ,(uri-as-string uri))
+        " with headers: ")
+     (div (@ (class "req-block"))
+          (pre ,(call-with-output-string
+                  (lambda (p) (write-headers headers p))))))
+   #:case-worker (.case-worker apclient))
+  (%get-and-show-response apclient next-method))
+
+(define-method* (apclient-post (apclient <debug-apc>) uri body
+                               #:key (headers '()))
+  (show-user
+   `((p (b ">>> DEBUG:") " Sending " (code "POST") " request to "
+        (code ,(uri-as-string uri))
+        " with headers: ")
+     (div (@ (class "req-block"))
+          (pre ,(call-with-output-string
+                      (lambda (p) (write-headers headers p)))))
+     (p "and body:")
+     (div (@ (class "req-block"))
+          (pre ,(match body
+                  ((? string?) body)
+                  ((? bytevector?) "<binary blob>")))))
+   #:case-worker (.case-worker apclient))
+  (%get-and-show-response apclient next-method))
+
+
 ;;; The main script
 
 (define (link url body)
@@ -1075,7 +1149,14 @@ leave the tests in progress."
                               "over the "
                               ,(link "https://www.w3.org/TR/activitypub/#server-to-server-interactions"
                                      "ActivityPub server-to-server protocol")
-                              "."))))
+                              ".")))
+               (table (@ (class "input-table"))
+                      (tr (td (@ (style "padding-top: 1em; padding-left: 1em;"))
+                              (input (@ (name "verbose-debugging")
+                                        (type "checkbox"))))
+                          (td (@ (style "padding-top: 1em;"))
+                              (i "Check if you'd like verbose debugging about what HTTP "
+                                 "requests the server is running.")))))
              #:checkpoint checkpoint))
            (testing-client (jsobj-ref user-input "testing-client"))
            (testing-c2s-server (jsobj-ref user-input "testing-c2s-server"))
@@ -1085,6 +1166,10 @@ leave the tests in progress."
          (lambda (test)
            (report-on! (test-item-sym test) <not-applicable>))
          (flatten-test-items tests)))
+
+      ;; Set whether or not we're using verbose debugging here
+      (set! (.debug case-worker)
+            (pk 'verbose-debugging (jsobj-ref user-input "verbose-debugging")))
 
       (if (or testing-client testing-c2s-server testing-s2s-server)
           ;; We need at least one to continue
@@ -1362,7 +1447,15 @@ leave the tests in progress."
             (show-user (warn "Not a valid uri!"))
             (retry))
            (else
-            (make-apclient user-id))))
+            (let ((apclient
+                   (if (.debug case-worker)
+                       (make <debug-apc>
+                         #:id (string->uri user-id)
+                         #:case-worker case-worker)
+                       (make <apclient>
+                         #:id (string->uri user-id)))))
+              (apclient-user apclient) ; called for init side effect :\
+              apclient))))
         (lambda _
           (show-user (warn "Sorry, there doesn't seem to be a valid AS2 object "
                            "at that endpoint?"))
@@ -1445,7 +1538,7 @@ leave the tests in progress."
         ;; [outbox:ignores-id]
         ;; Now we fetch the object at the location...
         (receive (loc-response loc-asobj)
-            (http-get-asobj location-uri)
+            (plunge (apclient-get-local-asobj apclient location-uri))
           (or (and-let* ((is-200 (= (response-code loc-response) 200))
                          (is-asobj (asobj? loc-asobj))
                          (object 
@@ -1460,7 +1553,7 @@ leave the tests in progress."
                              (and=> (string->uri obj)
                                     (lambda (obj-uri)
                                       (receive (obj-response obj-asobj)
-                                          (http-get-asobj obj-uri)
+                                          (apclient-get-asobj apclient obj-uri)
                                         (and (= (response-code obj-response) 200) ; ok!
                                              obj-asobj)))))))
                          ;; make sure the id was changed for the outer activity
@@ -1497,7 +1590,7 @@ Will abort if any of such steps fail."
     (match (response-location submit-response)
       ((? uri? location-uri)
        (receive (loc-response loc-asobj)
-           (http-get-asobj location-uri)
+           (apclient-get-asobj apclient location-uri)
          (when (not (asobj? loc-asobj))
            (throw 'report-abort
                   "Submitted object, but no ActivityStreams object at response's Location"))
@@ -1597,7 +1690,7 @@ object from a returned Create object."
      (match (response-location submit-response)
        ((? uri? location-uri)
         (receive (loc-response loc-asobj)
-            (http-get-asobj location-uri)
+            (plunge (apclient-get-asobj apclient location-uri))
           (report-on! 'outbox:upload-media:location-header
                       <success>)
           ;; So either we got back the object, or its Create.
@@ -1610,7 +1703,8 @@ object from a returned Create object."
                   ((and (asobj-is-a? loc-asobj ^Create)
                         (asobj-ref loc-asobj "object"))
                    (receive (_ image-asobj)
-                       (http-get-asobj (asobj-id (asobj-ref loc-asobj "object")))
+                       (plunge (apclient-get-asobj
+                                apclient (asobj-id (asobj-ref loc-asobj "object"))))
                      (when (or (not (asobj? image-asobj))
                                (not (asobj-is-a? image-asobj ^Image)))
                        (throw 'report-abort
@@ -2018,8 +2112,9 @@ object from a returned Create object."
                                 #:actor (pseudoactor-id obnoxious-pseudoactor)
                                 #:to (uri->string (apclient-id apclient)))))
                    ((post-response _)
-                    (http-post-asobj (apclient-inbox-uri apclient)
-                                     obnoxious-post-in-create)))
+                    (plunge
+                     (apclient-post-asobj apclient (apclient-inbox-uri apclient)
+                                          obnoxious-post-in-create))))
        (match (response-code post-response)
          (405 (report-on! 'outbox:block:prevent-interaction-with-actor
                           <inconclusive>

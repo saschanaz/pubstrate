@@ -40,6 +40,8 @@
 
             make-apclient
             apclient-user
+            apclient-get apclient-post
+            apclient-get-asobj apclient-post-asobj
             apclient-inbox-uri apclient-outbox-uri
             apclient-followers-uri apclient-following-uri
             apclient-liked-uri
@@ -278,14 +280,30 @@
                           (%default-env))
               body)))
 
-(define-method* (apclient-get-local apclient uri
-                                    #:key (headers '()))
-  "Get URI with BODY, using appropriate local authentication"
-  (http-get-async uri #:headers (append (apclient-auth-headers apclient)
-                                        headers)))
+(define-method* (apclient-get (apclient <apclient>) uri
+                              #:key (headers '()))
+  (http-get-async uri #:headers headers))
 
-(define-method* (apclient-get-local-asobj apclient uri
-                                          #:key (headers '()))
+(define-method* (apclient-get-asobj (apclient <apclient>) uri
+                                    #:key (headers '()))
+  "Get URI with BODY as asobj, using appropriate local authentication"
+  (call-with-values
+      (lambda ()
+        (apclient-get apclient uri
+                      #:headers (cons as2-accept-header headers)))
+    response-with-body-maybe-as-asobj))
+
+(define-method* (apclient-get-local (apclient <apclient>) uri
+                                    #:key (headers '())
+                                    #:allow-other-keys)
+  "Get URI with BODY, using appropriate local authentication"
+  (apclient-get apclient uri
+                #:headers (append (apclient-auth-headers apclient)
+                                  headers)))
+
+(define-method* (apclient-get-local-asobj (apclient <apclient>) uri
+                                          #:key (headers '())
+                                          #:allow-other-keys)
   "Get URI with BODY as asobj, using appropriate local authentication"
   (call-with-values
       (lambda ()
@@ -293,15 +311,30 @@
                             #:headers (cons as2-accept-header headers)))
     response-with-body-maybe-as-asobj))
 
-(define-method* (apclient-post-local apclient uri body
-                                     #:key (headers '()))
+(define-method* (apclient-post (apclient <apclient>) uri body
+                               #:key (headers '()))
   (http-post-async uri
-                   #:headers (append (apclient-auth-headers apclient)
-                                     headers)
+                   #:headers headers
                    #:body body))
 
-(define-method* (apclient-post-local-asobj apclient uri asobj
-                                           #:key (headers '()))
+(define-method* (apclient-post-asobj (apclient <apclient>) uri asobj
+                                     #:key (headers '()))
+  (call-with-values
+      (lambda ()
+        (http-post-async uri
+                         #:headers (cons as2-accept-header headers)
+                         #:body (asobj->string asobj)))
+    response-with-body-maybe-as-asobj))
+
+(define-method* (apclient-post-local (apclient <apclient>) uri body
+                                     #:key (headers '()))
+  (apclient-post apclient uri body 
+                 #:headers (append (apclient-auth-headers apclient)
+                                   headers)))
+
+(define-method* (apclient-post-local-asobj (apclient <apclient>) uri asobj
+                                           #:key (headers '())
+                                           #:allow-other-keys)
   "Post ASOBJ to local URI using APCLIENT's credentials.
 
  (Warning!  If this is used to post to a remote object, it'll
