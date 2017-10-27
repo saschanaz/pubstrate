@@ -1038,16 +1038,20 @@ message handling, and within `with-user-io-prompt'."
        " and body: "
        (div (@ (class "req-block"))
             (pre
-             ,(if (match (response-content-type response)
-                    (#f #f)
-                    (((or 'application/activity+json
-                          'application/ld+json) rest ...)
-                     #t)
-                    ((resource rest ...)
-                     (string-prefix? (symbol->string resource) "text/")))
-                  
-                  (utf8->string body)
-                  "<<binary contents>>"))))
+             ,(match (response-content-type response)
+                (#f "<<binary contents>>")
+                (((or 'application/activity+json
+                      'application/ld+json
+                      'text/json) rest ...)
+                 (with-output-to-string
+                   (lambda ()
+                     (json-pprint
+                      (read-json-from-string (utf8->string body))))))
+                (((? (lambda (resource)
+                       (string-prefix? (symbol->string resource) "text/")))
+                  rest ...)
+                 (utf8->string body))
+                (_ "<<binary contents>>")))))
      #:case-worker (.case-worker apclient))
     (values response body)))
 
@@ -1072,6 +1076,12 @@ message handling, and within `with-user-io-prompt'."
 
 (define-method* (apclient-post (apclient <debug-apc>) uri body
                                #:key (headers '()))
+  (define (body-as-string)
+    (match body
+      ((? bytevector?)
+       (utf8->string body))
+      ((? string?)
+       body)))
   (show-user
    `((p (b ">>> DEBUG:") " Sending " (code "POST") " request to "
         (code ,(uri-as-string uri))
@@ -1081,9 +1091,21 @@ message handling, and within `with-user-io-prompt'."
                       (lambda (p) (write-headers headers p)))))
      (p "and body:")
      (div (@ (class "req-block"))
-          (pre ,(match body
-                  ((? string?) body)
-                  ((? bytevector?) "<binary blob>")))))
+          (pre ,(match (assoc-ref headers 'content-type)
+                  (#f "<<binary contents>>")
+                  (((or 'application/activity+json
+                        'application/ld+json
+                        'text/json) rest ...)
+                   (with-output-to-string
+                     (lambda ()
+                       (json-pprint
+                        (read-json-from-string
+                         (body-as-string))))))
+                  (((? (lambda (resource)
+                         (string-prefix? (symbol->string resource) "text/")))
+                    rest ...)
+                   (body-as-string))
+                  (_ "<<binary contents>>")))))
    #:case-worker (.case-worker apclient))
   (%get-and-show-response apclient next-method))
 
@@ -1590,7 +1612,7 @@ Will abort if any of such steps fail."
     (match (response-location submit-response)
       ((? uri? location-uri)
        (receive (loc-response loc-asobj)
-           (apclient-get-asobj apclient location-uri)
+           (apclient-get-local-asobj apclient location-uri)
          (when (not (asobj? loc-asobj))
            (throw 'report-abort
                   "Submitted object, but no ActivityStreams object at response's Location"))
@@ -1605,7 +1627,8 @@ Will abort if any of such steps fail."
 object from a returned Create object."
   (define to-submit
     (if wrap-in-create?
-        (as:create #:object asobj)
+        (as:create #:actor (uri->string (apclient-id apclient))
+                   #:object asobj)
         asobj))
 
   (let ((returned-asobj
@@ -1690,7 +1713,7 @@ object from a returned Create object."
      (match (response-location submit-response)
        ((? uri? location-uri)
         (receive (loc-response loc-asobj)
-            (plunge (apclient-get-asobj apclient location-uri))
+            (plunge (apclient-get-local-asobj apclient location-uri))
           (report-on! 'outbox:upload-media:location-header
                       <success>)
           ;; So either we got back the object, or its Create.
@@ -1703,7 +1726,7 @@ object from a returned Create object."
                   ((and (asobj-is-a? loc-asobj ^Create)
                         (asobj-ref loc-asobj "object"))
                    (receive (_ image-asobj)
-                       (plunge (apclient-get-asobj
+                       (plunge (apclient-get-local-asobj
                                 apclient (asobj-id (asobj-ref loc-asobj "object"))))
                      (when (or (not (asobj? image-asobj))
                                (not (asobj-is-a? image-asobj ^Image)))
@@ -1780,6 +1803,7 @@ object from a returned Create object."
     "Try to submit the Create activity, and return the location-uri"
     (define to-submit
       (as:create
+       #:actor (uri->string (apclient-id apclient))
        #:object (as:note #:content "I'm feeling indecisive!"
                          #:name "An indecisive note")))
     ;; Submit initial activity
@@ -1809,6 +1833,7 @@ object from a returned Create object."
     (plunge
      (apclient-submit apclient
                       (as:update
+                       #:actor (uri->string (apclient-id apclient))
                        #:object (as:note #:id object-location
                                          #:content "I've changed my mind!"
                                          #:name 'null))))
@@ -1835,6 +1860,7 @@ object from a returned Create object."
     (plunge
      (apclient-submit apclient
                       (as:update
+                       #:actor (uri->string (apclient-id apclient))
                        #:object (as:note #:id object-location
                                          #:name "new name, same flavor"))))
 
@@ -1944,22 +1970,23 @@ object from a returned Create object."
          (report-on! 'outbox:create:actor-to-attributed-to
                      <fail>)))))
 
-;; TODO: Now we need to have a dummy activitypub server running...
 (define (test-outbox-activity-follow case-worker)
-  (define actor-to-follow
-    (case-worker-pseudoactor-new! case-worker))
-  (define follow-id (pseudoactor-id actor-to-follow))
-  (define activity-to-submit
-    (as:follow #:object follow-id))
-  (define apclient (.apclient case-worker))
+  ;; @@: These should move into the let
 
   ;; [outbox:follow]
   ;; [outbox:follow:adds-followed-object]
   (with-report
    '(outbox:follow
      outbox:follow:adds-followed-object)
-   (let ((retrieved-asobj
-          (%submit-asobj-and-retrieve apclient activity-to-submit)))
+   (let* ((actor-to-follow
+           (case-worker-pseudoactor-new! case-worker))
+          (follow-id (pseudoactor-id actor-to-follow))
+          (apclient (.apclient case-worker))
+          (activity-to-submit
+           (as:follow #:actor (uri->string (apclient-id apclient))
+                      #:object follow-id))
+          (retrieved-asobj
+           (%submit-asobj-and-retrieve apclient activity-to-submit)))
      (report-on! 'outbox:follow <success>)
      ;; TODO: now to look through the following collection
      (let* ((f-stream
@@ -2001,7 +2028,8 @@ object from a returned Create object."
                         (as:note #:content "I'm a note!")))
           (added-note (%submit-asobj-and-retrieve
                        apclient
-                       (as:add #:object (asobj-id simple-note)
+                       (as:add #:actor (uri->string (apclient-id apclient))
+                               #:object (asobj-id simple-note)
                                #:target (asobj-id collection))))
           (note-is-member?
            (lambda ()
@@ -2041,7 +2069,8 @@ object from a returned Create object."
      ;;   because it does some extra sanity checks
      (%submit-asobj-and-retrieve
       apclient
-      (as:remove #:object (asobj-id simple-note)
+      (as:remove #:actor (uri->string (apclient-id apclient))
+                 #:object (asobj-id simple-note)
                  #:target (asobj-id collection)))
      ;; Assuming we got this far, it must have submitted okay
      ;; [outbox:remove]
@@ -2068,7 +2097,8 @@ object from a returned Create object."
                    (as:note #:content "A very likable post!")))
           (like (%submit-asobj-and-retrieve
                  apclient
-                 (as:like #:object (asobj-id a-note))))
+                 (as:like #:actor (uri->string (apclient-id apclient))
+                          #:object (asobj-id a-note))))
           (liked-stream
            ;; Limit to 200 items so we don't search forever.
            ;; That should be more than enough.
@@ -2093,7 +2123,8 @@ object from a returned Create object."
           (block-asobj
            (%submit-asobj-and-retrieve
             apclient
-            (as:block #:object (pseudoactor-id obnoxious-pseudoactor)))))
+            (as:block #:actor (uri->string (apclient-id apclient))
+                      #:object (pseudoactor-id obnoxious-pseudoactor)))))
      ;; [outbox:block]
      (report-on! 'outbox:block <success>)
 
