@@ -34,6 +34,7 @@
              (srfi srfi-1)   ; list utils
              (srfi srfi-19)  ; dates
              (srfi srfi-11)
+             (srfi srfi-26)  ; cut
              (srfi srfi-41)  ; streams
              (web http)
              (web uri)
@@ -89,15 +90,16 @@
   (respond-html
    (main-tmpl)))
 
-(define (send-to-pseudoactor request body client-id pseudoactor rest-paths)
-  (define worker
-    (hash-ref (.workers (*current-actor*))
-              (string->number client-id)))
+(define (send-to-pseudoactor request body client-id pseudoactor-name rest-paths)
+  (define pseudoactor
+    (and=>
+     (hash-ref (.client-pseudoactors (*current-actor*))
+               (string->number client-id))
+     (cut hash-ref <> pseudoactor-name)))
 
-  (if worker
-      (<-wait worker 'pseudoactor-view
-              pseudoactor rest-paths
-              request body)
+  (if pseudoactor
+      (<-wait pseudoactor 'pseudoactor-view
+              rest-paths request body)
       (respond-not-found)))
 
 (define (download-report request body db-key)
@@ -191,7 +193,28 @@
 
 ;;; These are "actors" (and only pseudo-) in the ActivityPub sense.
 ;;; Basically we need to collect some information 
-(define-class <pseudoactor> ()
+(define-actor <pseudoactor> (<actor>)
+  ((get-username
+    (lambda (actor m)
+      (.username actor)))
+   (get-client-id
+    (lambda (actor m)
+      (.client-id actor)))
+   (get-inbox
+    (lambda (actor m)
+      (.inbox actor)))
+   (get-outbox
+    (lambda (actor m)
+      (.outbox actor)))
+   (get-pseudoactor-id
+    (lambda (actor m)
+      (%pseudoactor-id actor)))
+   (asobj->outbox! %pseudoactor-asobj->outbox!)
+   (pseudoactor-view pseudoactor-view)
+   (pseudoactor-asobj %pseudoactor-asobj)
+   (shutdown
+    (lambda (actor m)
+      (self-destruct actor))))
   (username #:init-thunk random-username
             #:accessor .username)
   ;; used for constructing the url
@@ -216,18 +239,24 @@
                                  "/")))))
 
 
-(define-method (pseudoactor-id (pseudoactor <pseudoactor>))
+(define-method (%pseudoactor-id (pseudoactor <pseudoactor>))
   (pseudoactor-url pseudoactor '()))
 
-(define-method (pseudoactor-asobj (pseudoactor <pseudoactor>))
+(define (pseudoactor-id to-address)
+  (<-wait to-address 'get-pseudoactor-id))
+
+(define-method (%pseudoactor-asobj (pseudoactor <pseudoactor>))
   (as:person #:id (pseudoactor-id pseudoactor)
              #:name (.username pseudoactor)
              #:preferredUsername (.username pseudoactor)
              #:inbox (pseudoactor-url pseudoactor '("inbox"))
              #:outbox (pseudoactor-url pseudoactor '("outbox"))))
 
-(define-method (pseudoactor-asobj->outbox! (pseudoactor <pseudoactor>)
-                                           asobj)
+(define (pseudoactor-asobj pseudoactor m)
+  (%pseudoactor-asobj pseudoactor))
+
+(define-method (%pseudoactor-asobj->outbox! (pseudoactor <pseudoactor>) m
+                                            asobj)
   "Save asobj to outbox and assign an id to it, returning asobj saved with id."
   (define post-id (random-token))
   (define id-uri (pseudoactor-url pseudoactor `("post" ,post-id)))
@@ -236,12 +265,15 @@
   (hash-set! (.outbox pseudoactor) post-id new-asobj)
   new-asobj)
 
+(define (pseudoactor-asobj->outbox! actor-address asobj)
+  (<-wait actor-address 'asobj->outbox! asobj))
+
 (define-method (pseudoactor-view-user-page (pseudoactor <pseudoactor>)
                                            request body)
   (values (build-response
            #:code 200
            #:headers '((content-type . (application/activity+json))))
-          (asobj->string (pseudoactor-asobj pseudoactor))))
+          (asobj->string (%pseudoactor-asobj pseudoactor))))
 
 (define-method (pseudoactor-view-inbox (pseudoactor <pseudoactor>)
                                        request body)
@@ -275,6 +307,13 @@
     (("inbox") (values pseudoactor-view-inbox '()))
     (("outbox") (values pseudoactor-view-outbox '()))
     (("post" post-id) (values pseudoactor-view-post (list post-id)))))
+
+(define (pseudoactor-view pseudoactor m path request body)
+  (let-values (((view args)
+                (pseudoactor-route pseudoactor path)))
+    (if pseudoactor
+        (apply view pseudoactor request body args)
+        (respond-not-found))))
 
 
 ;;; Clearing out blocked ports
@@ -335,7 +374,7 @@
   ((receive-input case-worker-receive-input)
    (rewind case-worker-rewind)
    (shutdown case-worker-shutdown)
-   (pseudoactor-view case-worker-pseudoactor-view)
+   ;; (pseudoactor-view case-worker-pseudoactor-view)
    (start-script case-worker-start-script))
   (client-id #:init-keyword #:client-id
              #:accessor .client-id)
@@ -359,11 +398,6 @@
   ;; ActivityPub client used to connect to the server
   (apclient #:init-value #f
             #:accessor .apclient)
-  ;; Pseudoactors represent actors in the activitypub sense,
-  ;; not in the 8sync sense.  They're used for testing addressing and
-  ;; etc.
-  (pseudoactors #:init-thunk make-hash-table
-                #:accessor .pseudoactors)
   (testing-client? #:init-value #f
                    #:accessor .testing-client?)
   (testing-c2s-server? #:init-value #f
@@ -377,28 +411,11 @@
          #:accessor .debug
          #:init-value #f))
 
-(define (case-worker-pseudoactor-view case-worker m
-                                      pseudoactor-id path
-                                      request body)
-  (define pseudoactor
-    (case-worker-pseudoactor-ref case-worker pseudoactor-id))
-
-  (let-values (((view args)
-                (pseudoactor-route pseudoactor path)))
-    (if pseudoactor
-        (apply view pseudoactor request body args)
-        (respond-not-found))))
-
 (define (case-worker-pseudoactor-new! case-worker)
   (define pseudoactor
-    (make <pseudoactor>
-      #:client-id (.client-id case-worker)))
-  (hash-set! (.pseudoactors case-worker)
-             (.username pseudoactor) pseudoactor)
+    (<-wait (.manager case-worker) 'create-pseudoactor
+            (.client-id case-worker)))
   pseudoactor)
-
-(define (case-worker-pseudoactor-ref case-worker key)
-  (hash-ref (.pseudoactors case-worker) key))
 
 (define (case-worker-receive-input case-worker m input)
   (with-user-io-prompt
@@ -2421,7 +2438,7 @@ object from a returned Create object."
 ;; It's called case-manager because of bad puns; case-worker is delegated
 ;; to for all the communication with the client over the websocket.
 (define-actor <case-manager> (<websocket-server>)
-  ()
+  ((create-pseudoactor case-manager-create-pseudoactor))
   (workers #:init-thunk make-hash-table
            #:accessor .workers)
   (db-manager #:init-keyword #:db-manager
@@ -2429,7 +2446,21 @@ object from a returned Create object."
   ;; This is a kludge... we really shouldn't have to double
   ;; record these, should we?
   (client-worker-map #:init-thunk make-hash-table
-                     #:accessor .client-worker-map))
+                     #:accessor .client-worker-map)
+  ;; Pseudoactors represent actors in the activitypub sense
+  (client-pseudoactors #:init-thunk make-hash-table
+                       #:accessor .client-pseudoactors))
+
+(define (case-manager-create-pseudoactor case-manager m client-id)
+  "Create and register pseudoactor for client-id"
+  (let ((client-psdas (hash-ref (.client-pseudoactors case-manager)
+                                client-id))
+        (psdo-actor
+         (create-actor <pseudoactor>
+                       #:client-id client-id)))
+    (hash-set! client-psdas (<-wait psdo-actor 'get-username)
+               psdo-actor)
+    psdo-actor))
 
 (define (case-manager-ws-client-connect case-manager client-id)
   (pk 'connected!)
@@ -2439,7 +2470,10 @@ object from a returned Create object."
                  #:manager (actor-id case-manager)
                  #:db-manager (.db-manager case-manager))))
     (hash-set! (.workers case-manager)
-               client-id worker)))
+               client-id worker)
+    (hash-set! (.client-pseudoactors case-manager)
+               client-id (make-hash-table))
+    'done))
 
 (define* (case-manager-worker-ref case-manager client-id
                                   #:key (error-on-nothing #t))
@@ -2457,7 +2491,13 @@ If ERROR-ON-NOTHING, error out if worker is not found."
   (pk 'disconnected!)
   (let ((worker (case-manager-worker-ref case-manager client-id)))
     (<- worker 'shutdown)
-    (hash-remove! (.workers case-manager) client-id)))
+    (hash-remove! (.workers case-manager) client-id)
+    (hash-for-each
+     (lambda (psda _)
+       (<- psda 'shutdown))
+     (hash-ref (.client-pseudoactors case-manager) client-id))
+    (hash-remove! (.client-pseudoactors case-manager) client-id)
+    'done))
 
 (define (case-manager-ws-new-message case-manager client-id raw-data)
   (let ((worker (case-manager-worker-ref case-manager client-id))
