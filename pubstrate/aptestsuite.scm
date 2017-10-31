@@ -738,27 +738,28 @@ message handling, and within `with-user-io-prompt'."
      (outbox:location-header
       MUST
       "Response includes Location header whose value is id of new object, unless the Activity is transient")
-     (outbox:upload-media
-      MUST
-      "Accepts Uploaded Media in submissions"
-      #:subitems ((outbox:upload-media:file-parameter
-                   MUST
-                   "accepts uploadedMedia file parameter")
-                  (outbox:upload-media:object-parameter
-                   MUST
-                   "accepts uploadedMedia object parameter")
-                  (outbox:upload-media:201-or-202-status
-                   MUST
-                   "Responds with status code of 201 Created or 202 Accepted as described in 6.")
-                  (outbox:upload-media:location-header
-                   MUST
-                   "Response contains a Location header pointing to the to-be-created object's id.")
-                  (outbox:upload-media:appends-id
-                   MUST
-                   "Appends an id property to the new object")
-                  (outbox:upload-media:url
-                   SHOULD
-                   "After receiving submission with uploaded media, the server should include the upload's new URL in the submitted object's url property")))
+
+     ;; (outbox:upload-media
+     ;;  MUST
+     ;;  "Accepts Uploaded Media in submissions"
+     ;;  #:subitems ((outbox:upload-media:file-parameter
+     ;;               MUST
+     ;;               "accepts uploadedMedia file parameter")
+     ;;              (outbox:upload-media:object-parameter
+     ;;               MUST
+     ;;               "accepts uploadedMedia object parameter")
+     ;;              (outbox:upload-media:201-or-202-status
+     ;;               MUST
+     ;;               "Responds with status code of 201 Created or 202 Accepted as described in 6.")
+     ;;              (outbox:upload-media:location-header
+     ;;               MUST
+     ;;               "Response contains a Location header pointing to the to-be-created object's id.")
+     ;;              (outbox:upload-media:appends-id
+     ;;               MUST
+     ;;               "Appends an id property to the new object")
+     ;;              (outbox:upload-media:url
+     ;;               SHOULD
+     ;;               "After receiving submission with uploaded media, the server should include the upload's new URL in the submitted object's url property")))
      (outbox:update
       MUST
       "Update"
@@ -1201,7 +1202,7 @@ leave the tests in progress."
 
       ;; Set whether or not we're using verbose debugging here
       (set! (.debug case-worker)
-            (pk 'verbose-debugging (jsobj-ref user-input "verbose-debugging")))
+            (jsobj-ref user-input "verbose-debugging"))
 
       (if (or testing-client testing-c2s-server testing-s2s-server)
           ;; We need at least one to continue
@@ -1437,7 +1438,9 @@ leave the tests in progress."
   (test-outbox-activity-posted case-worker)
   (test-outbox-non-activity case-worker)
   (test-outbox-update case-worker)
-  (test-outbox-upload-media case-worker)
+  ;;; We HAVE these tests, but since they didn't make it into
+  ;;; ActivityPub proper they're commented out of the test suite for now...
+  ;; (test-outbox-upload-media case-worker)
   (test-outbox-activity-follow case-worker)
   ;; (test-outbox-verification case-worker)
   ;; (test-outbox-subjective case-worker)
@@ -1982,20 +1985,18 @@ object from a returned Create object."
 
   ;; [outbox:follow]
   ;; [outbox:follow:adds-followed-object]
-  (pk 'follow-tests)
   (with-report
    '(outbox:follow
      outbox:follow:adds-followed-object)
    (let* ((actor-to-follow
-           (case-worker-pseudoactor-new! (pk 1 case-worker)))
-          (follow-id (pseudoactor-id (pk 2 actor-to-follow)))
-          (apclient (.apclient (pk 3 case-worker)))
+           (case-worker-pseudoactor-new! case-worker))
+          (follow-id (pseudoactor-id actor-to-follow))
+          (apclient (.apclient case-worker))
           (activity-to-submit
            (as:follow #:actor (uri->string (apclient-id apclient))
-                      #:object (pk 4 follow-id)))
+                      #:object follow-id))
           (retrieved-asobj
-           (pk 6 (%submit-asobj-and-retrieve (pk 5 apclient) activity-to-submit))))
-     (pk 'initial-follow)
+           (%submit-asobj-and-retrieve apclient activity-to-submit)))
      (report-on! 'outbox:follow <success>)
      ;; TODO: now to look through the following collection
      (let* ((f-stream
