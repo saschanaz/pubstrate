@@ -34,6 +34,7 @@
   #:use-module (sjson utils)
   #:use-module (srfi srfi-11)  ; let-values
   #:use-module (srfi srfi-41)  ; streams
+  #:use-module (srfi srfi-26)  ; cut
   #:use-module (webutils multipart)
   #:export (<apclient>
             apclient-id apclient-auth-token
@@ -141,17 +142,19 @@
 
 (define (%apclient-get-local-asobj uri-fetcher)
   (lambda (apclient)
-    (receive (response body)
-        (apclient-get-local-asobj
-         apclient (uri-fetcher apclient))
-      (when (not (= (response-code response) 200))
-        (throw 'apclient-response-not-ok
-               "Got a response that wasn't 200 OK"
-               #:response response))
-      (when (not (asobj? body))
-        (throw 'apclient-response-not-as2
-               "No ActivityStreams object returned"))
-      body)))
+    (match (uri-fetcher apclient)
+      (#f #f)
+      (fetched
+       (receive (response body)
+           (apclient-get-local-asobj apclient fetched)
+         (when (not (= (response-code response) 200))
+           (throw 'apclient-response-not-ok
+                  "Got a response that wasn't 200 OK"
+                  #:response response))
+         (when (not (asobj? body))
+           (throw 'apclient-response-not-as2
+                  "No ActivityStreams object returned"))
+         body)))))
 
 (define* (apclient-collection-page-stream apclient collection
                                           #:key local?)
@@ -226,9 +229,12 @@
 
 (define* (%apclient-get-item-stream get-collection)
   (lambda (apclient)
-    (apclient-collection-item-stream
-     apclient (get-collection apclient)
-     #:local? #t)))
+    (match (get-collection apclient)
+      (#f stream-null)
+      (collection
+       (apclient-collection-item-stream
+        apclient collection
+        #:local? #t)))))
 
 (define apclient-inbox-uri
   (%apclient-uri-property "inbox"))
