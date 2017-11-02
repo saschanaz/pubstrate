@@ -763,19 +763,20 @@ message handling, and within `with-user-io-prompt'."
      (outbox:update
       MUST
       "Update"
-      #:subitems ((outbox:update:check-authorized
-                   MUST
-                   "Server takes care to be sure that the Update is authorized to modify its object before modifying the server's stored copy")))
+      ;; #:subitems ((outbox:update:check-authorized
+      ;;              MUST
+      ;;              "Server takes care to be sure that the Update is authorized to modify its object before modifying the server's stored copy"))
+      )
     ;;; SHOULD
-     (outbox:not-trust-submitted
-      SHOULD
-      "Server does not trust client submitted content")
-     (outbox:validate-content
-      SHOULD
-      "Validate the content they receive to avoid content spoofing attacks.")
-     (outbox:do-not-overload
-      SHOULD
-      "Take care not to overload other servers with delivery submissions")
+     ;; (outbox:not-trust-submitted
+     ;;  SHOULD
+     ;;  "Server does not trust client submitted content")
+     ;; (outbox:validate-content
+     ;;  SHOULD
+     ;;  "Validate the content they receive to avoid content spoofing attacks.")
+     ;; (outbox:do-not-overload
+     ;;  SHOULD
+     ;;  "Take care not to overload other servers with delivery submissions")
      (outbox:create
       SHOULD
       "Create"
