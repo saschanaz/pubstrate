@@ -1440,6 +1440,7 @@ leave the tests in progress."
 (define (test-c2s-server case-worker)
   (set-up-c2s-server-client-auth case-worker)
   (test-outbox-activity-posted case-worker)
+  (test-outbox-removes-bto-and-bcc case-worker)
   (test-outbox-non-activity case-worker)
   (test-outbox-update case-worker)
   ;;; We HAVE these tests, but since they didn't make it into
@@ -1535,7 +1536,6 @@ leave the tests in progress."
   "Couldn't verify since no Location header present in response")
 
 (define* (test-outbox-activity-posted case-worker)
-  ;; TODO: [outbox:removes-bto-and-bcc]
   ;;   Maybe?  This is a bit federation'y, requires that we have
   ;;   a server it can talk to
   (define apclient (.apclient case-worker))
@@ -1615,7 +1615,6 @@ leave the tests in progress."
          (report-on! 'outbox:accepts-activities <inconclusive>
                      #:comment "Response code neither 200 nor 201, and no Location header present")))))
 
-
 (define (%submit-asobj-and-retrieve apclient asobj)
   "Helper procedure for submitting ASOBJ to APCLIENT's inbox.
 Retrieve the submitted object as an activitystreams object.
@@ -1667,6 +1666,28 @@ object from a returned Create object."
                 "Create object returned with no object"))))
      ;; Not wrapped in a Create?  Return as-is.
      (else returned-asobj))))
+
+(define (test-outbox-removes-bto-and-bcc case-worker)
+  (define apclient (.apclient case-worker))
+  (with-report
+   '(outbox:removes-bto-and-bcc)
+   (let* ((bcc-pseudoactor (case-worker-pseudoactor-new! case-worker))
+          (bto-pseudoactor (case-worker-pseudoactor-new! case-worker))
+          (submitted-asobj
+           (%submit-asobj-and-retrieve
+            apclient
+            (as:create #:actor (uri->string (apclient-id apclient))
+                       #:bto (pseudoactor-id bto-pseudoactor)
+                       #:bcc (pseudoactor-id bcc-pseudoactor)
+                       #:object (as:note #:attributedTo (uri->string (apclient-id apclient))
+                                         #:content "Up for some root beer floats?")))))
+     (if (and (not (asobj-ref submitted-asobj "bto"))
+              (not (asobj-ref submitted-asobj "bcc")))
+         (report-on! 'outbox:removes-bto-and-bcc
+                     <success>)
+         (report-on! 'outbox:removes-bto-and-bcc
+                     <fail>)))))
+
 
 (define (test-outbox-non-activity case-worker)
   (define activity-to-submit
