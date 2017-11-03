@@ -1319,6 +1319,9 @@ leave the tests in progress."
                 (website ,website)
                 (date ,(date->rfc3339-string (current-date 0)))
                 (notes ,notes)
+                (testing-client ,(.testing-client? case-worker))
+                (testing-c2s-server ,(.testing-c2s-server? case-worker))
+                (testing-s2s-server ,(.testing-s2s-server? case-worker))
                 (results
                  (@ ,@(map
                        (lambda (test-item)
