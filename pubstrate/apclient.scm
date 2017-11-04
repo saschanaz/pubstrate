@@ -64,7 +64,9 @@
 
             http-get-asobj http-post-asobj
 
-            stream-member))
+            stream-member
+
+            generate-reply-shell))
 
 ;; TODO: Add authentication info, etc...
 (define-class <apclient> ()
@@ -422,3 +424,76 @@ stream at point where stream-car of the stream matches PRED."
           (else
            (lp (stream-cdr stream)
                (and limit (- limit 1)))))))
+
+(define* (generate-reply-shell apclient asobj
+                               #:key (max-depth 3)
+                               (astype ^Object)
+                               (extra-fields '()))
+  "Returns a minimal object with addressing set based on the ASOBJ"
+  ;; We only set to once, unlike cc.
+  (define to (make-hash-table))
+  (define cc (make-hash-table))
+  (define in-reply-to
+    (or (asobj-id asobj)
+        (asobj-ref asobj '("object" "id"))))
+  (define (add-actors-to! table data)
+    (match data
+      (#f #f)  ; do nothing
+      ((? asobj?)
+       (hash-set! table (asobj-id data) #t))
+      ((? string?)
+       (hash-set! table data #t))
+      ((items ...)
+       (for-each
+        (lambda (item)
+          (add-actors-to! table item))
+        items))))
+  (define (set-table->list set-table)
+    (hash-map->list (lambda (key _) key) set-table))
+
+  ;; First let's generate the to field
+  (add-actors-to! to (asobj-ref asobj "actor"))
+  (add-actors-to! to (asobj-ref asobj "attributedTo"))
+  (add-actors-to! to (asobj-ref asobj '("object" "actor")))
+  (add-actors-to! to (asobj-ref asobj '("object" "attributedTo")))
+
+  (let cc-lp ((asobj asobj)
+              (depth 0))
+    (add-actors-to! cc (asobj-ref asobj "to"))
+    (add-actors-to! cc (asobj-ref asobj "cc"))
+    (add-actors-to! cc (asobj-ref asobj "actor"))
+    (add-actors-to! cc (asobj-ref asobj "attributedTo"))
+    (when (< depth max-depth)
+      (for-each
+       (lambda (field)
+         (match (asobj-ref asobj field)
+           (#f #f)  ; nothing to do
+           ((? asobj? field-asobj)
+            (cc-lp field-asobj (1+ depth)))
+           ((items ...)
+            (for-each
+             (lambda (item)
+               (match item
+                 ((? asobj?)
+                  (cc-lp item (1+ depth)))
+                 (_ #f)))
+             items))
+           (_ #f)))  ; who knows what this is, but don't fail
+       '("object" "target" "inReplyTo" "tag"))))
+
+  ;; Filter out the apclient-id
+  (hash-remove! to (uri->string (apclient-id apclient)))
+  (hash-remove! cc (uri->string (apclient-id apclient)))
+
+  ;; Filter everything out of cc that's in to
+  (hash-for-each
+   (lambda (to-item _)
+     (hash-remove! cc to-item))
+   to)
+
+  ;; Finally build the object to return
+  (apply make-as astype (%default-env)
+         #:to (set-table->list to)
+         #:cc (set-table->list cc)
+         #:inReplyTo in-reply-to
+         extra-fields))
