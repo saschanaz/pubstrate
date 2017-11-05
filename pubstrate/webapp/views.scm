@@ -395,16 +395,24 @@ toplevel COLLECTION with the \"first\" page property set."
                        (compose asobj-fatten
                                 (lambda (asobj)
                                   (%tweak-for-display asobj request))))))
+    (define (get-status)
+      (if (asobj-is-a? asobj ^Tombstone)
+          status:gone
+          status:ok))
     (match (request-method request)
       ('GET
        ;; TODO: authorization check?
        (cond
         ((requesting-asobj? request)
-         (respond (asobj->string asobj)
-                  #:content-type 'application/activity+json))
+         (if asobj
+             (respond (asobj->string asobj)
+                      #:content-type 'application/activity+json
+                      #:status (get-status))
+             (respond-not-found)))
         (else
          (if asobj
-             (respond-html (base-tmpl (toplevel-activity-tmpl asobj)))
+             (respond-html (base-tmpl (toplevel-activity-tmpl asobj))
+                           #:status (get-status))
              (respond-not-found)))))
       (_ (respond #:status status:method-not-allowed)))))
 
