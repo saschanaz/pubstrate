@@ -233,10 +233,9 @@ Returns #t if the object is added to the inbox, #f otherwise."
 a field isn't found, we throw an exception."
   (let ((var (let ((val (asobj-ref asobj field %nothing)))
                (if (eq? val %nothing)
-                   (throw 'effect-error
-                          "Missing field on activitystreams object"
-                          #:asobj asobj
-                          #:field field)
+                   (raise-user-error
+                    (format #f "Missing field ~s"
+                            field))
                    val))) ...)
     body ...))
 
@@ -623,7 +622,8 @@ save it and return it.")
                                 #:key (get-collection
                                        (lambda (asobj outbox-user)
                                          (db-asobj-ref (ctx-ref 'db)
-                                                       (asobj-ref-id asobj "target")))))
+                                                       (or (asobj-ref-id asobj "target")
+                                                           (raise-user-error "No \"target\" property."))))))
   (let* ((asobj (incoming-activity-common-tweaks asobj outbox-user))
          (object-id (or (asobj-ref-id asobj "object")
                         (raise-user-error "No \"object\" property.")))
