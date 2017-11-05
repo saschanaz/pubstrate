@@ -1395,7 +1395,9 @@ leave the tests in progress."
 (define (test-client case-worker)
   (define (check-in title description questions)
     (%check-in case-worker title description questions))
-  
+
+  (show-user (center-text `(h2 "Client tests...")))
+
   (check-in "Client: Basic submission"
             "Construct a basic activity and submit it to the actor's outbox."
             '((client:submission:discovers-url-from-profile
@@ -1420,7 +1422,7 @@ leave the tests in progress."
    ;;  MUST
    ;;  "Client supports [uploading media](https://www.w3.org/TR/activitypub/#uploading-media) by sending a multipart/form-data request body")
  
-  (check-in "Client: Add targets"
+  (check-in "Client: Add targets on reply"
             "Reply to a post with multiple recipients."
             '((client:submission:recursively-add-targets
                "The client suggests audience targeting based on participants in the referenced thread")
@@ -2215,11 +2217,12 @@ object from a returned Create object."
   (define (check-in title description questions)
     (%check-in case-worker title description questions))
 
+  (show-user (center-text `(h2 "Testing server's federation / server-to-server support...")))
   ;; *DELIVERY TESTS*
 
   (if (.testing-c2s-server? case-worker)
       (begin
-        (check-in "Federating from the outbox"
+        (check-in "S2S Server: Federating from the outbox"
                   '(p "Construct and submit activities to your actor's outbox making "
                       "use of the " (code "to") ", " (code "cc") ", " (code "bcc")
                       ", and " (code "bto") " addressing fields. ")
@@ -2228,14 +2231,14 @@ object from a returned Create object."
                     (inbox:delivery:addressing
                      ("Server utilized " (code "to") ", " (code "cc") ", " (code "bcc")
                       ", and " (code "bto") " to determine delivery recipients."))))
-        (check-in "Adding an id"
+        (check-in "S2S Server: Adding an id"
                   '("Submit an activity to your outbox without specifying an "
                     (code "id") ".  The server should add an " (code "id")
                     " to the object before delivering.")
                   '((inbox:delivery:adds-id
                      ("The server added an " (code "id") " to the activity."))))
 
-        (check-in "Delivering with credentials"
+        (check-in "S2S Server: Delivering with credentials"
                   '("Construct and deliver an activity with addressing pointing at "
                     "the id of a collection the activity's actor can access but "
                     "which is not on their server.")
@@ -2265,7 +2268,7 @@ object from a returned Create object."
            inbox:delivery:deliver-to-collection
            inbox:delivery:deliver-to-collection:recursively))))
 
-  (check-in "Activities requiring the object property"
+  (check-in "S2S Server: Activities requiring the object property"
             '("The distribution of the following activities require that they contain the "
               (code "object") " property: "
               (code "Create") ", " (code "Update") ", " (code "Delete")
@@ -2274,14 +2277,14 @@ object from a returned Create object."
             '((inbox:delivery:delivers-with-object-for-certain-activities
                '("Implementation always includes " (code "object") " property "
                  "for each of the above supported activities."))))
-  (check-in "Activities requiring the target property"
+  (check-in "S2S Server: Activities requiring the target property"
             '("The distribution of the following activities require that they contain the "
               (code "target") " property: "
               (code "Add") ", " (code "Remove")".")
             '((inbox:delivery:delivers-with-target-for-certain-activities
                '("Implementation always includes " (code "target") " property "
                  "for each of the above supported activities."))))
-  (check-in "Deduplication of recipient list"
+  (check-in "S2S Server: Deduplication of recipient list"
             '("Attempt to submit for delivery an activity that addresses the "
               "same actor (ie an actor with the same " (code "id") ") twice. "
               "(For example, the same actor could appear on both the "
@@ -2292,7 +2295,7 @@ object from a returned Create object."
               "list of inboxes to deliver to before delivering.")
             '((inbox:delivery:deduplicates-final-recipient-list
                '("The final recipient list is deduplicated before delivery."))))
-  (check-in "Do-not-deliver considerations"
+  (check-in "S2S Server: Do-not-deliver considerations"
             #f
             '((inbox:delivery:do-not-deliver-to-actor
                ("Server does not deliver to recipients which are the same as the "
@@ -2305,13 +2308,13 @@ object from a returned Create object."
    '(h3 "Tests for receiving objects to inbox"))
 
   ;; *RECEIVE TESTS*
-  (check-in "Deduplicating received activities"
+  (check-in "S2S Server: Deduplicating received activities"
             #f
             '((inbox:accept:deduplicate
                ("Server deduplicates activities received in inbox by comparing "
                 "activity " (code "id") "s"))))
 
-  (check-in "Special forwarding mechanism"
+  (check-in "S2S Server: Special forwarding mechanism"
             `("ActivityPub contains a "
               ,(link "https://www.w3.org/TR/activitypub/#inbox-delivery"
                      "special mechanism for forwarding replies")
@@ -2334,7 +2337,7 @@ object from a returned Create object."
               (inbox:accept:special-forward:limits-recursion
                "Limits depth of this recursion.")))
 
-  (check-in "Verification of content authorship"
+  (check-in "S2S Server: Verification of content authorship"
             `("Before accepting activities delivered to an actor's inbox "
               "some sort of verification should be performed.  "
               "(For example, if the delivering actor has a public key on their profile, "
@@ -2346,7 +2349,7 @@ object from a returned Create object."
                 "content's origin without some form of verification."))))
 
   ;; SHOULD
-  (check-in "Update activity"
+  (check-in "S2S Server: Update activity"
             '("On receiving an " (code "Update") " activity to an actor's inbox, "
               "the server:")
             '((inbox:accept:update:is-authorized
@@ -2355,7 +2358,7 @@ object from a returned Create object."
                "Completely replaces its copy of the activity with the newly received value")))
 
   ;; * Follow
-  (check-in "Activity acceptance side-effects"
+  (check-in "S2S Server: Activity acceptance side-effects"
             "Test accepting the following activities to an actor's inbox and observe the side effects:"
             `((inbox:accept:follow:add-actor-to-users-followers
                ((code "Follow")
@@ -2394,8 +2397,10 @@ object from a returned Create object."
   (define (check-in title description questions)
     (%check-in case-worker title description questions))
 
+  (show-user (center-text `(h2 "Common server tests...")))
+
   ;; @@: Does this belong in c2s section?
-  (check-in "Fetching the inbox"
+  (check-in "Server: Fetching the inbox"
             '("Try retrieving the actor's " (code "inbox") " of an actor.")
             '((server:inbox:responds-to-get
                "Server responds to GET request at inbox URL")
