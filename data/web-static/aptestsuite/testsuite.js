@@ -193,10 +193,14 @@ function submitCurrentPrompt(ws) {
 function disableActivePrompt() {
     var prompt = getActivePrompt();
     var inputs = prompt.getElementsByTagName("input");
+    var textareas = prompt.getElementsByTagName("textarea");
 
     // Kludgily disable these
     for (var i = 0; i < inputs.length; i++) {
         inputs[i].setAttribute("disabled", "true");
+    };
+    for (var i = 0; i < textareas.length; i++) {
+        textareas[i].setAttribute("disabled", "true");
     };
 
     // Set buttons to text that says *submitted*
