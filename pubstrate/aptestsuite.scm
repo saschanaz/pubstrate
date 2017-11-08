@@ -2334,7 +2334,7 @@ object from a returned Create object."
 
   (check-in "S2S Server: Special forwarding mechanism"
             `("ActivityPub contains a "
-              ,(link "https://www.w3.org/TR/activitypub/#inbox-delivery"
+              ,(link "https://www.w3.org/TR/activitypub/#inbox-forwarding"
                      "special mechanism for forwarding replies")
               " to avoid \"ghost replies\".")
 
@@ -2343,7 +2343,7 @@ object from a returned Create object."
                 (code "to") ", " (code "bto") ", " (code "cc") ", " (code "bcc")
                 ", " (code "audience")
                 " if and only if "
-                ,(link "https://www.w3.org/TR/activitypub/#inbox-delivery"
+                ,(link "https://www.w3.org/TR/activitypub/#inbox-forwarding"
                        "criteria")
                 " are met."))
               (inbox:accept:special-forward:recurses
