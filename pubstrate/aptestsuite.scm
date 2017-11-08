@@ -1295,30 +1295,48 @@ leave the tests in progress."
                (h3 (@ (style "text-align: center; padding: 10px;"))
                    "Looks good?")
                (p "If the above looks correct, enter a name for your project "
-                  "and (if appropriate) a website, then press submit to "
-                  "generate an implementation report:")
+                  "and any other appropriate information you'd like to share, "
+                  "then press submit to generate an implementation report:")
                (p (b "Project name: ") (br)
                   (input (@ (name "project-name")
                             (style "width: 100%;"))))
                (p (b "Website: ") (br)
                   (input (@ (name "website")
                             (style "width: 100%;"))))
+               (p (b "Source code repo: ") (br)
+                  (input (@ (name "repo")
+                            (style "width: 100%;"))))
+               (p (b "Interop with other projects:")
+                  (br)
+                  (i (@ (style "color: grey"))
+                     "supports "
+                     ,(link "http://commonmark.org/help/"
+                            "markdown"))
+                  (br
+                   (input (@ (name "interop")
+                             (style "width: 100%;")))))
                (p (b "Notes: ")
                   (br)
-                  (i "Tested interop with other projects?  Tell us their names / "
-                     "websites!")
+                  (i (@ (style "color: grey"))
+                     "supports "
+                     ,(link "http://commonmark.org/help/"
+                            "markdown"))
                   (br)
                   (textarea (@ (name "notes")
                                (style "width: 100%;")
                                (rows "4")) "")))))
            (project-name (jsobj-ref user-input "project-name"))
            (website (jsobj-ref user-input "website"))
+           (repo (jsobj-ref user-input "repo"))
+           (interop (jsobj-ref user-input "interop"))
            (notes (jsobj-ref user-input "notes"))
            (final-report
             `(@ (project-name ,project-name)
                 (website ,website)
                 (date ,(date->rfc3339-string (current-date 0)))
                 (notes ,notes)
+                (interop ,repo)
+                (interop ,interop)
                 (testing-client ,(.testing-client? case-worker))
                 (testing-c2s-server ,(.testing-c2s-server? case-worker))
                 (testing-s2s-server ,(.testing-s2s-server? case-worker))
