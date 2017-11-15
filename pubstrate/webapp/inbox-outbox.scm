@@ -114,13 +114,35 @@ Note that this has potential side effects; it fetches objects from
 the db, but also if it does not yet have references to these objects,
 it will fetch them remotely from the web.  It may even stick them
 in the db!"
-  (define (append-actor-or-collection id lst)
-    ;; TODO: Dereference collections...!
-    ;; TODO Handle inline actors!
-    (let ((actor-obj (get-asobj id #:db-new db-new)))
-      (if actor-obj
-          (cons actor-obj lst)
-          lst)))
+  (define* (append-actor-or-collection id lst #:optional (recur 5))
+    (if (= recur 0)
+        ;; we've already recursed too deep...
+        lst
+        ;; TODO Handle inline actors??
+        (match (get-asobj id #:db-new db-new)
+          (#f lst)
+          ((? (lambda (x)
+                (and (asobj? x)
+                     (asobj-is-a? x ^Collection)))
+              col)
+           (cond
+            ((asobj-ref col "inbox")
+             ;; Well, it has an inbox, so I guess it'll federate it out
+             ;; for us
+             (cons col lst))
+            ;; Otherwise let's dereference it ourselves
+            ((asobj-private-ref col "container") =>
+             (lambda (container-key)
+               (define db (ctx-ref 'db))
+               (append
+                (fold (lambda (asobj-id prev)
+                        (append-actor-or-collection asobj-id prev
+                                                    (1- recur)))
+                      lst
+                      (db-container-fetch-all db container-key)))))))
+          ;; Horray, an asobj, so simple
+          ((? asobj? asobj)
+           (cons asobj lst)))))
   (define (asobj-key-as-list asobj key)
     (let ((result (asobj-ref asobj key '())))
       (if (json-array? result)
