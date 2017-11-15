@@ -286,6 +286,8 @@ thrown.")
    asobj))
 
 (define (unify-addressing obj1 obj2)
+  "Unify the addressing properties on OBJ1 and OBJ to be the union of
+each other."
   ;; Get an array of all items as string uris
   (define id-or-id-of
     (match-lambda
