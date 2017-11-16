@@ -1335,7 +1335,7 @@ leave the tests in progress."
                 (website ,website)
                 (date ,(date->rfc3339-string (current-date 0)))
                 (notes ,notes)
-                (interop ,repo)
+                (repo ,repo)
                 (interop ,interop)
                 (testing-client ,(.testing-client? case-worker))
                 (testing-c2s-server ,(.testing-c2s-server? case-worker))
