@@ -1332,7 +1332,7 @@ leave the tests in progress."
            (notes (jsobj-ref user-input "notes"))
            (final-report
             `(@ (project-name ,project-name)
-                (website ,website)
+                (homepage ,website)
                 (date ,(date->rfc3339-string (current-date 0)))
                 (notes ,notes)
                 (repo ,repo)
