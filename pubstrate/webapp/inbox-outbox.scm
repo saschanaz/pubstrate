@@ -205,7 +205,7 @@ Returns #t if the object is added to the inbox, #f otherwise."
      ((not passed-filter?)
       'reject)
      (else 'accept)))
-  (case (pk 'acceptability asobj (asobj-acceptability asobj))
+  (case (asobj-acceptability asobj)
     ((accept)
      ;; Add this object to the db if it's not there already
      (if (not (db-asobj-ref db id))
