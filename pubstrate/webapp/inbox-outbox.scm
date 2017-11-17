@@ -195,10 +195,17 @@ Returns #t if the object is added to the inbox, #f otherwise."
   (define db (ctx-ref 'db))
   (define id (asobj-id asobj))
   (define (asobj-acceptability asobj)
-    ;; TODO
-    ;; accept not-authorized invalid reject
-    'accept)
-  (case (asobj-acceptability asobj)
+    ;; TODO: Also test nested objects that may not be expanded
+    (define passed-filter?
+      ((config-ref (ctx-ref 'config) 'incoming-filter)
+       asobj actor))
+    (cond
+     ;; TODO
+     ;; accept not-authorized invalid reject
+     ((not passed-filter?)
+      'reject)
+     (else 'accept)))
+  (case (pk 'acceptability asobj (asobj-acceptability asobj))
     ((accept)
      ;; Add this object to the db if it's not there already
      (if (not (db-asobj-ref db id))
@@ -206,9 +213,12 @@ Returns #t if the object is added to the inbox, #f otherwise."
      ;; Add to the actor's inbox
      (when (not (user-inbox-member? db actor id))
        (user-add-to-inbox! db actor id)))
+    ((reject)
+     (log-msg 'INFO
+              (format #f "Rejected based on filter: ~s\n"
+                      (asobj-id asobj))))
     (else
      'TODO)))
-
 
 ;; TODO: Provide auth of any sort?
 (define (post-asobj-to-actor asobj actor)

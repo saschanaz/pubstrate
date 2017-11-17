@@ -64,6 +64,13 @@ for a machine."
     #:validate boolean?
     #:default (const #f))
 
+   (incoming-filter
+    "Predicate that takes an incoming AS2 object and determines
+whether or not it will be accepted to the actor's inbox.  Takes
+two arguments, the ASOBJ in question, and the ACTOR asobj."
+    #:validate procedure?
+    #:default (const #t))
+
    (db "Database.
 This should be a procedure to produce a database, or a list
 of (db-constructor args ...) where db-constructor is a procedure
