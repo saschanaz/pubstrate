@@ -32,7 +32,9 @@
   #:use-module (pubstrate asobj)
   #:use-module (pubstrate generics)
   #:use-module (pubstrate vocab)
+  #:use-module (pubstrate config)
   #:use-module (pubstrate webapp conditions)
+  #:use-module (pubstrate webapp config)
   #:use-module (pubstrate webapp ctx)
   #:use-module (pubstrate webapp db)
   #:use-module ((pubstrate webapp http-status)
@@ -186,7 +188,6 @@ in the db!"
    (collect-em-all '())
    (asobj-delete (asobj-delete asobj "bto") "bcc")))
 
-
 (define (actor-post-asobj-to-inbox! actor asobj)
   "Add ASOBJ to actor's inbox, posibly saving in the process.
 
@@ -208,18 +209,32 @@ Returns #t if the object is added to the inbox, #f otherwise."
     (else
      'TODO)))
 
+
 ;; TODO: Provide auth of any sort?
 (define (post-asobj-to-actor asobj actor)
   "Post ASOBJ to inbox-uri"
+  (define (looks-like-localhost? uri)
+    (let ((uri (match uri
+                 ((? string?) (string->uri uri))
+                 ((? uri?) uri)
+                 (#f (raise-user-error (format #f "Actor ~s missing inbox"
+                                               (asobj-id actor)))))))
+      (member (uri-host uri) '("localhost" "127.0.0.1"))))
   (define (post-remotely)
     (define headers
       '((content-type application/activity+json (charset . "utf-8"))))
     ;; TODO: retry if this fails
     (define inbox-uri (asobj-ref actor "inbox"))
-    (if inbox-uri
-        (http-post-async inbox-uri
-                         #:body (asobj->string asobj)
-                         #:headers headers)))
+    (cond
+     ((and (not (config-ref (ctx-ref 'config) 'post-to-localhost?))
+           (looks-like-localhost? inbox-uri))
+      (raise-user-error
+       (format #f "Actor ~s has localhost inbox; submitting to localhost not allowed per config"
+               (asobj-id actor))))
+     (inbox-uri
+      (http-post-async inbox-uri
+                       #:body (asobj->string asobj)
+                       #:headers headers))))
   (define (post-locally)
     (actor-post-asobj-to-inbox! actor asobj))
   ;; TODO: Treat posting locally differently

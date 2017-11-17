@@ -57,6 +57,13 @@ Instead, several other variables (such as signing-key-path) use it as
 a basis to infer a default location to put their own data."
     #:validate string?)
 
+   (post-to-localhost?
+    "Whether or not the application will permit posting to localhost / 127.0.0.1.
+Doing so can be dangerous, since some services expect localhost to be 'private'
+for a machine."
+    #:validate boolean?
+    #:default (const #f))
+
    (db "Database.
 This should be a procedure to produce a database, or a list
 of (db-constructor args ...) where db-constructor is a procedure

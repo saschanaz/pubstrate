@@ -144,8 +144,9 @@
   `((db . ,db)
     (filestore . ,filestore)
     (base-uri . ,(config-ref config 'base-uri))
+    (config . ,config)
     ;; TODO: signing-key-path
-    (session-manager . ,(make-session-manager (gen-signing-key))))  )
+    (session-manager . ,(make-session-manager (gen-signing-key)))))
 
 (define (set-app-ctx-from-config! config)
   "Set the %ctx parameter based on the application context built from CONFIG
