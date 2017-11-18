@@ -667,19 +667,18 @@ save it and return it.")
 (define (maybe obj pred)
   (and (pred obj) obj))
 
-(define* (%operate-on-container asobj outbox-user effect-proc!
+(define* (%operate-on-container asobj user effect-proc!
                                 #:key (get-collection
-                                       (lambda (asobj outbox-user)
+                                       (lambda (asobj user)
                                          (db-asobj-ref (ctx-ref 'db)
                                                        (or (asobj-ref-id asobj "target")
                                                            (raise-user-error "No \"target\" property."))))))
-  (let* ((asobj (incoming-activity-common-tweaks asobj outbox-user))
-         (object-id (or (asobj-ref-id asobj "object")
+  (let* ((object-id (or (asobj-ref-id asobj "object")
                         (raise-user-error "No \"object\" property.")))
          (object (or (maybe (asobj-ref asobj "object") asobj?)
                      (get-asobj object-id)
                      (raise-user-error "Couldn't find an \"object\" with that id.")))
-         (collection (get-collection asobj outbox-user)))
+         (collection (get-collection asobj user)))
     (when (not (and (asobj? collection)
                     (asobj-is-a? collection ^Collection)))
       (raise-user-error "Non-Collection as \"target\""))
@@ -687,7 +686,7 @@ save it and return it.")
       (raise-user-error "Can't operate on a non-local collection."))
     ;; TODO: we really need to fix our access control...
     (when (not (equal? (asobj-ref collection "attributedTo")
-                       (asobj-id outbox-user)))
+                       (asobj-id user)))
       ;; TODO: we ought to have a permission-specific condition huh?
       (raise-user-error "User doesn't have permission to edit this Collection."
                         status:unauthorized))
@@ -703,14 +702,14 @@ save it and return it.")
 (define-as-method (asobj-outbox-effects! (asobj ^Add) outbox-user)
   (define (append-to-container! container-key asobj object-id)
     (db-container-append! (ctx-ref 'db) container-key object-id))
-  (%operate-on-container asobj outbox-user
-                         append-to-container!))
+  (%operate-on-container (incoming-activity-common-tweaks asobj outbox-user)
+                         outbox-user append-to-container!))
 
 (define-as-method (asobj-outbox-effects! (asobj ^Remove) outbox-user)
   (define (remove-from-container! container-key asobj object-id)
     (db-container-remove! (ctx-ref 'db) container-key object-id))
-  (%operate-on-container asobj outbox-user
-                         remove-from-container!))
+  (%operate-on-container (incoming-activity-common-tweaks asobj outbox-user)
+                         outbox-user remove-from-container!))
 
 (define-as-method (asobj-outbox-effects! (asobj ^Like) outbox-user)
   (define user-liked-collection
@@ -718,7 +717,8 @@ save it and return it.")
                   (asobj-ref-id outbox-user "liked")))
   (define (like-it! container-key asobj object-id)
     (db-container-append! (ctx-ref 'db) container-key object-id))
-  (%operate-on-container asobj outbox-user like-it!
+  (%operate-on-container (incoming-activity-common-tweaks asobj outbox-user)
+                         outbox-user like-it!
                          #:get-collection (const user-liked-collection)))
 
 
@@ -758,6 +758,21 @@ thrown.")
                               (asobj-id actor))
                              ((? string-uri? uri)
                               uri)))))
+
+;;; Technically these work, but it's not very useful because we don't
+;;; provide a nice delegation mechanism
+;;;
+;;; TODO: provide object capabilities that allow others to add/remove
+;;;   from a collection securely
+(define-as-method (asobj-inbox-effects! (asobj ^Add) outbox-user)
+  (define (append-to-container! container-key asobj object-id)
+    (db-container-append! (ctx-ref 'db) container-key object-id))
+  (%operate-on-container asobj outbox-user append-to-container!))
+
+(define-as-method (asobj-inbox-effects! (asobj ^Remove) outbox-user)
+  (define (remove-from-container! container-key asobj object-id)
+    (db-container-remove! (ctx-ref 'db) container-key object-id))
+  (%operate-on-container asobj outbox-user remove-from-container!))
 
 ;;; In the case of server to server federation, we don't do the "implied
 ;;; Create" that we do for client to server when it's an object without
