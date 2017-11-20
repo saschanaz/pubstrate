@@ -109,6 +109,41 @@ from the web if necessary."
 
 ;; TODO: Eventually, we'll want to look up recipient profiles using
 ;;   a user's permissions / signed requests
+
+(define* (add-to-recipients id lst
+                            #:key (recur 5)
+                            (db-new #t))
+  "Append an actor or collection to a list of recipients"
+  (if (= recur 0)
+      ;; we've already recursed too deep...
+      lst
+      ;; TODO Handle inline actors??
+      (match (get-asobj id #:db-new db-new)
+        (#f lst)
+        ((? (lambda (x)
+              (and (asobj? x)
+                   (asobj-is-a? x ^Collection)))
+            col)
+         (cond
+          ((asobj-ref col "inbox")
+           ;; Well, it has an inbox, so I guess it'll federate it out
+           ;; for us
+           (cons col lst))
+          ;; Otherwise let's dereference it ourselves
+          ((asobj-private-ref col "container") =>
+           (lambda (container-key)
+             (define db (ctx-ref 'db))
+             (append
+              (fold (lambda (asobj-id prev)
+                      (add-to-recipients asobj-id prev
+                                         #:recur (1- recur)
+                                         #:db-new db-new))
+                    lst
+                    (db-container-fetch-all db container-key)))))))
+        ;; Horray, an asobj, so simple
+        ((? asobj? asobj)
+         (cons asobj lst)))))
+
 (define* (collect-recipients asobj #:key (db-new #t))
   "Collect a list of all actors to deliver to
 
@@ -116,35 +151,6 @@ Note that this has potential side effects; it fetches objects from
 the db, but also if it does not yet have references to these objects,
 it will fetch them remotely from the web.  It may even stick them
 in the db!"
-  (define* (append-actor-or-collection id lst #:optional (recur 5))
-    (if (= recur 0)
-        ;; we've already recursed too deep...
-        lst
-        ;; TODO Handle inline actors??
-        (match (get-asobj id #:db-new db-new)
-          (#f lst)
-          ((? (lambda (x)
-                (and (asobj? x)
-                     (asobj-is-a? x ^Collection)))
-              col)
-           (cond
-            ((asobj-ref col "inbox")
-             ;; Well, it has an inbox, so I guess it'll federate it out
-             ;; for us
-             (cons col lst))
-            ;; Otherwise let's dereference it ourselves
-            ((asobj-private-ref col "container") =>
-             (lambda (container-key)
-               (define db (ctx-ref 'db))
-               (append
-                (fold (lambda (asobj-id prev)
-                        (append-actor-or-collection asobj-id prev
-                                                    (1- recur)))
-                      lst
-                      (db-container-fetch-all db container-key)))))))
-          ;; Horray, an asobj, so simple
-          ((? asobj? asobj)
-           (cons asobj lst)))))
   (define (asobj-key-as-list asobj key)
     (let ((result (asobj-ref asobj key '())))
       (if (json-array? result)
@@ -155,7 +161,8 @@ in the db!"
       (fold (lambda (item prev)
               (match item
                 ((? string? _)
-                 (append-actor-or-collection item prev))
+                 (add-to-recipients item prev
+                                    #:db-new db-new))
                 ((? asobj? _)
                  (cond
                   ;; Cool, the object already has an inbox,
@@ -165,7 +172,8 @@ in the db!"
                   ;; No inbox attached to asobj, so let's go
                   ;; fetch it
                   ((asobj-id item)
-                   (append-actor-or-collection item prev))
+                   (add-to-recipients item prev
+                                      #:db-new db-new))
                   ;; What!  The actor doesn't even have an id.
                   ;; Ignore it.
                   (else
@@ -187,6 +195,83 @@ in the db!"
   (values
    (collect-em-all '())
    (asobj-delete (asobj-delete asobj "bto") "bcc")))
+
+(define (possibly-forward-to-actors-collections actor asobj)
+  (define (addressing-as-id-list addressing)
+    (match addressing
+      (#f '())
+      ((? asobj? asobj)
+       (list (asobj-id asobj)))
+      ((? string?)
+       (list addressing))
+      ((? json-array?)
+       (map (match-lambda
+              ((? asobj? asobj)
+               (asobj-id asobj))
+              ((? string? id) id))
+            addressing))))
+  (define (collections-from-addressing)
+    (let* ((all-addressing
+            (delete-duplicates
+             (append-map addressing-as-id-list (list (asobj-ref asobj "to")
+                                                     (asobj-ref asobj "cc"))))))
+      (fold
+       (lambda (id prev)
+         (cond
+          ((and id
+                (uri-local? id)
+                (db-asobj-ref (ctx-ref 'db) id))
+           =>
+           (lambda (asobj)
+             ;; If it's a collection and it's either this actor's
+             ;; followers address
+             (if (and (asobj-is-a? asobj ^Collection)
+                      ;; either it's this actor's followers address...
+                      (or (equal? id (asobj-ref-id actor "followers"))
+                          ;; or it's an object they're in the attributedTo of
+                          ;; TODO: What if the attributedTo is a list?
+                          ;; TODO: still relying on this shitty ACL system
+                          (equal? (asobj-ref-id asobj "attributedTo")
+                                  (asobj-id actor))))
+                 (cons asobj prev)
+                 prev)))
+          (else prev)))
+       '()
+       all-addressing)))
+  (define (deliver-to-these-folks)
+    (fold
+     (lambda (col prev)
+       (cond
+        ((asobj-private-ref col "container") =>
+         (lambda (container-key)
+           (define db (ctx-ref 'db))
+           (fold
+            (lambda (asobj-id prev)
+              (add-to-recipients asobj-id prev
+                                 #:recur 3))
+            prev
+            (db-container-fetch-all db container-key))))))
+     '()
+     (collections-from-addressing)))
+  (define asobj-references-mine?
+    (and=> (asobj-ref asobj "inReplyTo")
+           (lambda (in-reply-to)
+             (let ((in-reply-to-id
+                    (if (asobj? in-reply-to)
+                        (asobj-id in-reply-to)
+                        in-reply-to))
+                   (local-in-reply-to
+                    (db-asobj-ref (ctx-ref 'db) in-reply-to)))
+               (and local-in-reply-to
+                    (or (equal? (asobj-ref local-in-reply-to "actor")
+                                (asobj-id actor))
+                        (equal? (asobj-ref local-in-reply-to "attributedTo")
+                                (asobj-id actor))))))))
+  (when asobj-references-mine?
+    (for-each
+     (lambda (to-actor)
+       (post-asobj-to-actor asobj to-actor))
+     (deliver-to-these-folks))))
 
 (define (actor-post-asobj-to-inbox! actor asobj)
   "Add ASOBJ to actor's inbox, posibly saving in the process.
@@ -212,7 +297,8 @@ Returns #t if the object is added to the inbox, #f otherwise."
          (db-asobj-set! db asobj))
      ;; Add to the actor's inbox
      (when (not (user-inbox-member? db actor id))
-       (user-add-to-inbox! db actor id)))
+       (user-add-to-inbox! db actor id)
+       (possibly-forward-to-actors-collections actor asobj)))
     ((reject)
      (log-msg 'INFO
               (format #f "Rejected based on filter: ~s\n"
