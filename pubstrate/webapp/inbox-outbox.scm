@@ -626,13 +626,13 @@ save it and return it.")
        ;; Return asobj
        asobj))))
 
-;;; Block
-(define-as-method (asobj-outbox-effects! (asobj ^Block)
+
+(define-as-method (asobj-outbox-effects! (asobj ^Follow)
                                          outbox-user)
   (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
     (let-asobj-fields
      asobj ((object "object"))
-     (let* ((block-uri (match object
+     (let* ((follow-uri (match object
                           ((? string-uri? _)
                            object)
                           ((? asobj? _)
@@ -641,12 +641,64 @@ save it and return it.")
                               uri)
                              (_ (throw 'effect-error
                                        "Object has no id"
-                                       #:asobj asobj)))))))
-       (user-add-to-blocked! (ctx-ref 'db) outbox-user
-                             block-uri)
+                                       #:asobj asobj))))))
+            ;; Add follow-uri to the bcc list.  It doesn't matter
+            ;; if there's already a bcc item, since recipients should be
+            ;; de-duped.
+            (asobj (asobj-set asobj "bcc"
+                              (cons follow-uri
+                                    (asobj-ref asobj "bcc" '())))))
+       ;; Add to following list
+       ;; TODO: Do we need to check if we're already subscribed?
+       (user-add-to-following! (ctx-ref 'db) outbox-user
+                               follow-uri)
 
        ;; Return asobj
        asobj))))
+
+;;; Undo
+(define-as-method (asobj-outbox-effects! (asobj ^Undo)
+                                         outbox-user)
+  (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
+    (let-asobj-fields
+     asobj ((object "object"))
+     (let* ((object-uri
+             (match object
+               ((? string-uri? object-id)
+                (get-asobj object-id))
+               ((? asobj? _)
+                (asobj-id object))))
+            ;; Get the version as we have it in the database
+            (object (get-asobj object-uri)))
+       (undo-object! object asobj outbox-user)
+       asobj))))
+
+;; @@: Isn't this always an activity?
+(define-as-generic undo-object!
+  "Undo an ActivityStreams object/activity, to the extent possible.")
+
+;; TODO: We need to make sure it really has the permission to undo...
+(define-as-method (undo-object! (object ^Object) undo-asobj user)
+  (throw 'effect-error "Don't know how to undo this kind of object?"
+         #:asobj undo-asobj
+         #:object object))
+
+(define-as-method (undo-object! (object ^Follow) undo-asobj user)
+  (let* ((object-id (match object
+                      ((? string-uri? _)
+                       object)
+                      ((? asobj? _)
+                       (match (asobj-id object)
+                         ((? string-uri? uri)
+                          uri)
+                         (_ (throw 'effect-error
+                                   "Object has no id"
+                                   #:asobj object))))))
+         (db (ctx-ref 'db)))
+    (db-container-remove!
+     db (user-following-container-key db user)
+     object-id)))
+
 
 (define-as-method (asobj-outbox-effects! (asobj ^Delete)
                                          outbox-user)
