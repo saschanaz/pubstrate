@@ -626,6 +626,26 @@ save it and return it.")
        ;; Return asobj
        asobj))))
 
+(define-as-method (asobj-outbox-effects! (asobj ^Block)
+                                         outbox-user)
+  (let ((asobj (incoming-activity-common-tweaks asobj outbox-user)))
+    (let-asobj-fields
+     asobj ((object "object"))
+     (let* ((block-uri (match object
+                          ((? string-uri? _)
+                           object)
+                          ((? asobj? _)
+                           (match (asobj-id object)
+                             ((? string-uri? uri)
+                              uri)
+                             (_ (throw 'effect-error
+                                       "Object has no id"
+                                       #:asobj asobj)))))))
+       (user-add-to-blocked! (ctx-ref 'db) outbox-user
+                             block-uri)
+
+       ;; Return asobj
+       asobj))))
 
 (define-as-method (asobj-outbox-effects! (asobj ^Follow)
                                          outbox-user)
