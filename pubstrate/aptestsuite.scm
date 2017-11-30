@@ -766,7 +766,10 @@ message handling, and within `with-user-io-prompt'."
       ;; #:subitems ((outbox:update:check-authorized
       ;;              MUST
       ;;              "Server takes care to be sure that the Update is authorized to modify its object before modifying the server's stored copy"))
-      )
+      #:subitems ((outbox:update:partial
+                   NON-NORMATIVE
+                   "Supports partial updates in client-to-server protocol (but not server-to-server)")))
+
     ;;; SHOULD
      ;; (outbox:not-trust-submitted
      ;;  SHOULD
@@ -815,7 +818,14 @@ message handling, and within `with-user-io-prompt'."
       "Block"
       #:subitems ((outbox:block:prevent-interaction-with-actor
                    SHOULD
-                   "Prevent the blocked object from interacting with any object posted by the actor."))))))
+                   "Prevent the blocked object from interacting with any object posted by the actor.")))
+
+     (outbox:undo
+      NON-NORMATIVE
+      "Supports the Undo activity in the client-to-server protocol"
+      #:subitems ((outbox:undo:ensures-activity-and-actor-are-same
+                   MUST
+                   "Ensures that the activity and actor are the same in activity being undone."))))))
 
 
 (define server-inbox-delivery
@@ -853,7 +863,13 @@ message handling, and within `with-user-io-prompt'."
       "Does not deliver to recipients which are the same as the actor of the Activity being notified about")
      (inbox:delivery:do-not-deliver-block
       SHOULD
-      "SHOULD NOT deliver Block Activities to their object."))))
+      "SHOULD NOT deliver Block Activities to their object.")
+     (inbox:delivery:sharedInbox
+      MAY
+      "Delivers to sharedInbox endpoints to reduce the number of receiving actors delivered to by identifying all followers which share the same sharedInbox who would otherwise be individual recipients and instead deliver objects to said sharedInbox."
+      #:subitems ((inbox:delivery:sharedInbox:deliver-to-inbox-if-no-sharedInbox
+                   MUST
+                   "(For servers which deliver to sharedInbox:) Deliver to actor inboxes and collections otherwise addressed which do not have a sharedInbox."))))))
 
 (define server-inbox-accept
   (build-test-items
@@ -871,6 +887,19 @@ message handling, and within `with-user-io-prompt'."
       SHOULD
       "Limit recursion in this process")
 
+     ;; Create
+     (inbox:accept:create
+      NON-NORMATIVE
+      "Supports receiving a Create object in an actor's inbox")
+
+     ;; Delete
+     (inbox:accept:delete
+      SHOULD
+      "Assuming object is owned by sending actor/server, removes object's representation"
+      #:subitems ((inbox:accept:delete:tombstone
+                   MAY
+                   "MAY replace object's representation with a Tombstone object")))
+
      ;; * Update
      (inbox:accept:update:is-authorized
       MUST
@@ -887,6 +916,15 @@ message handling, and within `with-user-io-prompt'."
      (inbox:accept:follow:add-actor-to-users-followers
       SHOULD
       "Add the actor to the object user's Followers Collection.")
+     (inbox:accept:follow:generate-accept-or-reject
+      SHOULD
+      "Generates either an Accept or Reject activity with Follow as object and deliver to actor of the Follow")
+     (inbox:accept:accept:add-actor-to-users-following
+      SHOULD
+      "If in reply to a Follow activity, adds actor to receiver's Following Collection")
+     (inbox:accept:reject:does-not-add-actor-to-users-following
+      MUST
+      "If in reply to a Follow activity, MUST NOT add actor to receiver's Following Collection")
      ;; * Add
      (inbox:accept:add:to-collection
       SHOULD
@@ -898,6 +936,12 @@ message handling, and within `with-user-io-prompt'."
      (inbox:accept:like:indicate-like-performed
       SHOULD
       "Perform appropriate indication of the like being performed (See 7.10 for examples)")
+     (inbox:accept:announce:add-to-shares-collection
+      SHOULD
+      "Increments object's count of likes by adding the received activity to the 'shares' collection if this collection is present")
+     (inbox:accept:undo
+      NON-NORMATIVE
+      "Performs Undo of object in federated context")
      ;; @@: The same as dont-blindly-trust...
      ;; (inbox:accept:validate-content
      ;;  SHOULD
@@ -956,10 +1000,7 @@ message handling, and within `with-user-io-prompt'."
       "Implementation applies a whitelist of allowed URI protocols before issuing requests, e.g. for inbox delivery")
      (server:security-considerations:filter-incoming-content
       NON-NORMATIVE
-      "Server filters incoming content both by local untrusted users and any remote users through some sort of spam filter")
-     (server:security-considerations:sanitize-fields
-      NON-NORMATIVE
-      "Implementation takes care to santizie fields containing markup to prevent cross site scripting attacks"))))
+      "Server filters incoming content both by local untrusted users and any remote users through some sort of spam filter"))))
 
 (define client-test-items
   (build-test-items
@@ -1466,13 +1507,14 @@ leave the tests in progress."
   ;;; We HAVE these tests, but since they didn't make it into
   ;;; ActivityPub proper they're commented out of the test suite for now...
   ;; (test-outbox-upload-media case-worker)
-  (test-outbox-activity-follow case-worker)
+  (test-outbox-activity-follow-undo case-worker)
   ;; (test-outbox-verification case-worker)
   ;; (test-outbox-subjective case-worker)
   (test-outbox-activity-create case-worker)
   (test-outbox-activity-add-remove case-worker)
   (test-outbox-activity-like case-worker)
-  (test-outbox-activity-block case-worker))
+  (test-outbox-activity-block case-worker)
+  (test-outbox-remaining-questions case-worker))
 
 (define (set-up-c2s-server-client-auth case-worker)
   (define (get-user-obj)
@@ -1837,6 +1879,7 @@ object from a returned Create object."
 (define (test-outbox-update case-worker)
   "Test the Update activity"
   ;; [outbox:update]
+  ;; [outbox:update:partial]
   ;; TODO: [outbox:update:check-authorized]
   (define %nothing '(nothing))
   (define apclient (.apclient case-worker))
@@ -1937,7 +1980,9 @@ object from a returned Create object."
         (abort)))
 
     ;; Make it this far?  Looks like it passed!
-    (report-on! 'outbox:update <success>))
+    (report-on! 'outbox:update <success>)
+    ;; TODO: Maybe separate out the partial step from the other ones
+    (report-on! 'outbox:update:partial <success>))
   
   (with-report
    '(outbox:update)
@@ -2025,14 +2070,17 @@ object from a returned Create object."
          (report-on! 'outbox:create:actor-to-attributed-to
                      <fail>)))))
 
-(define (test-outbox-activity-follow case-worker)
+(define (test-outbox-activity-follow-undo case-worker)
   ;; @@: These should move into the let
 
   ;; [outbox:follow]
   ;; [outbox:follow:adds-followed-object]
+  ;; [outbox:undo]
+  ;; [outbox:undo:ensures-activity-and-actor-are-same]
   (with-report
    '(outbox:follow
-     outbox:follow:adds-followed-object)
+     outbox:follow:adds-followed-object
+     outbox:undo)
    (let* ((actor-to-follow
            (case-worker-pseudoactor-new! case-worker))
           (follow-id (pseudoactor-id actor-to-follow))
@@ -2051,18 +2099,27 @@ object from a returned Create object."
              (stream-take 1000
                           (apclient-following-stream apclient)))
             (item-in-stream?
-             (let lp ((stream f-stream))
-               (cond
-                ;; guess we didn't find it
-                ((stream-null? stream)
-                 #f)
-                ((equal? (asobj-id (stream-car stream))
-                         follow-id)
-                 #t)
-                (else (lp (stream-cdr stream)))))))
-       (if item-in-stream?
+             (lambda (id)
+               (let lp ((stream f-stream))
+                 (cond
+                  ;; guess we didn't find it
+                  ((stream-null? stream)
+                   #f)
+                  ((equal? (asobj-id (stream-car stream))
+                           id)
+                   #t)
+                  (else (lp (stream-cdr stream))))))))
+       (if (item-in-stream? follow-id)
            (report-on! 'outbox:follow:adds-followed-object <success>)
-           (report-on! 'outbox:follow:adds-followed-object <fail>))))))
+           (report-on! 'outbox:follow:adds-followed-object <fail>))
+       ;; Okay, now what about if we try to undo the follow
+       (%submit-asobj-and-retrieve apclient
+                                   (as:undo #:actor (uri->string (apclient-id apclient))
+                                            #:object (asobj-id retrieved-asobj)))
+       ;; Now we should have unfollowed it...
+       (if (item-in-stream? follow-id)
+           (report-on! 'outbox:undo <fail>)
+           (report-on! 'outbox:undo <success>))))))
 
 
 (define (test-outbox-activity-add-remove case-worker)
@@ -2217,6 +2274,22 @@ object from a returned Create object."
               (report-on! 'outbox:block:prevent-interaction-with-actor
                           <success>))))))))
 
+
+(define (test-outbox-remaining-questions case-worker)
+  (define (check-in title description questions)
+    (%check-in case-worker title description questions))
+  ;; Clarify whether this server does the right check on Undo's actor
+  ;; and its object's actor
+  (if (is-a? (report-ref case-worker 'outbox:undo) <success>)
+      (check-in "C2S Server: Undo details"
+                #f
+                '((outbox:undo:ensures-activity-and-actor-are-same
+                   ("When performing an Undo received to the actor's outbox, the server "
+                    "ensures that the actor is the same for both the Undo activity "
+                    "and the activity being undone (the Undo's object)."))))
+      (report-on! 'outbox:undo:ensures-activity-and-actor-are-same
+                  <fail>)))
+
 (define (test-outbox-pseudoactors-stub case-worker)
   (let* ((pseudoactor
           (case-worker-pseudoactor-new! case-worker))
@@ -2226,6 +2299,7 @@ object from a returned Create object."
      `(p "Okay, check out "
          (a (@ (href ,ps-id))
             ,ps-id)))))
+
 
 
 ;;; server to server server tests
@@ -2321,6 +2395,12 @@ object from a returned Create object."
               (inbox:delivery:do-not-deliver-block
                ("Server does not deliver " (code "Block") " activities to "
                 "their " (code "object") "."))))
+  (check-in "S2S Sever: Support for sharedInbox"
+            #f
+            '((inbox:delivery:sharedInbox
+               "Delivers to sharedInbox endpoints to reduce the number of receiving actors delivered to by identifying all followers which share the same sharedInbox who would otherwise be individual recipients and instead deliver objects to said sharedInbox.")
+              (inbox:delivery:sharedInbox:deliver-to-inbox-if-no-sharedInbox
+               "Deliver to actor inboxes and collections otherwise addressed which do not have a sharedInbox.")))
 
   (show-user
    '(h3 "Tests for receiving objects to inbox"))
@@ -2378,7 +2458,10 @@ object from a returned Create object."
   ;; * Follow
   (check-in "S2S Server: Activity acceptance side-effects"
             "Test accepting the following activities to an actor's inbox and observe the side effects:"
-            `((inbox:accept:follow:add-actor-to-users-followers
+            `((inbox:accept:create
+               ((code "Create")
+                " makes record of the object existing"))
+              (inbox:accept:follow:add-actor-to-users-followers
                ((code "Follow")
                 " should add the activity's actor to the receiving actor's "
                 "Followers Collection."))
