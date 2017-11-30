@@ -938,7 +938,7 @@ message handling, and within `with-user-io-prompt'."
       "Perform appropriate indication of the like being performed (See 7.10 for examples)")
      (inbox:accept:announce:add-to-shares-collection
       SHOULD
-      "Increments object's count of likes by adding the received activity to the 'shares' collection if this collection is present")
+      "Increments object's count of shares by adding the received activity to the 'shares' collection if this collection is present")
      (inbox:accept:undo
       NON-NORMATIVE
       "Performs Undo of object in federated context")
@@ -2455,16 +2455,35 @@ object from a returned Create object."
               (inbox:accept:update:completely-replace
                "Completely replaces its copy of the activity with the newly received value")))
 
+  (check-in "S2S Server: Delete activity"
+            #f
+            '((inbox:accept:delete
+               ((code "Delete")
+                " removes object's representation, assuming object is owned by sending actor/server"))
+              (inbox:accept:delete:tombstone
+               ("Replaces deleted object with a Tombstone object (optional)"))))
+
+  (check-in "S2S Server: Following, and handling accept/reject of follows"
+            #f
+            '((inbox:accept:follow:add-actor-to-users-followers
+               ((code "Follow")
+                " should add the activity's actor to the receiving actor's "
+                "Followers Collection."))
+              (inbox:accept:follow:generate-accept-or-reject
+               "Generates either an Accept or Reject activity with Follow as object and deliver to actor of the Follow")
+              (inbox:accept:accept:add-actor-to-users-following
+               "If receiving an Accept in reply to a Follow activity, adds actor to receiver's Following Collection")
+              (inbox:accept:reject:does-not-add-actor-to-users-following
+               ("If receiving a Reject in reply to a Follow activity, does "
+                (i "not")
+                " add actor to receiver's Following Collection"))))
+
   ;; * Follow
   (check-in "S2S Server: Activity acceptance side-effects"
             "Test accepting the following activities to an actor's inbox and observe the side effects:"
             `((inbox:accept:create
                ((code "Create")
                 " makes record of the object existing"))
-              (inbox:accept:follow:add-actor-to-users-followers
-               ((code "Follow")
-                " should add the activity's actor to the receiving actor's "
-                "Followers Collection."))
               ;; * Add
               (inbox:accept:add:to-collection
                ((code "Add")
@@ -2488,7 +2507,14 @@ object from a returned Create object."
                 "received activity to the "
                 ,(link "https://www.w3.org/TR/activitypub/#likes"
                        "likes")
-                " collection if this collection is present"))))
+                " collection if this collection is present"))
+              (inbox:accept:announce:add-to-shares-collection
+               ((code "Announce")
+                " increments object's count of shares by adding the received "
+                "activity to the 'shares' collection if this collection is present"))
+              (inbox:accept:undo
+               ((code "Undo")
+                " performs Undo of object in federated context"))))
   ;; (inbox:accept:validate-content
   ;;  SHOULD
   ;;  "Validate the content they receive to avoid content spoofing attacks.")
