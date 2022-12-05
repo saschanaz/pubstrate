@@ -144,7 +144,7 @@
                                   (div (@ (class "feedish-byline"))
                                        "By "
                                        (a (@ (href "http://dustycloud.org/"))
-                                          "Christopher Allan Webber")
+                                          "Christine Lemmer-Webber")
                                        " -- "
                                        (a (@ (href "/entry/293dc92a-1d5d-49dc-b3c4-b24ddc2feb9b/"))
                                           "April 22, 2016 @ 2:30pm"))))
@@ -190,8 +190,6 @@
               `(div (@ (class "post-and-replies-wrapper"))
                     ,(toplevel-activity-tmpl activity)))
             activities))))
-
-
 
 (define* (login-tmpl login-form #:key next try-again)
   (base-tmpl

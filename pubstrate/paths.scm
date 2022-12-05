@@ -1,5 +1,5 @@
 ;;; Pubstrate --- ActivityStreams based social networking for Guile
-;;; Copyright (C) 2015-2017 Christopher Allan Webber <cwebber@dustycloud.org>
+;;; Copyright (C) 2015-2017 Christine Lemmer-Webber <cwebber@dustycloud.org>
 ;;;
 ;;; And from Guix...
 ;;; Copyright © 2014 Ludovic Courtès <ludo@gnu.org>

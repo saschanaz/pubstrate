@@ -1,5 +1,5 @@
  ;;; Pubstrate --- ActivityStreams based social networking for Guile
-;;; Copyright © 2016 Christopher Allan Webber <cwebber@dustycloud.org>
+;;; Copyright © 2016 Christine Lemmer-Webber <cwebber@dustycloud.org>
 ;;;
 ;;; This file is part of Pubstrate.
 ;;;
