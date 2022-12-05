@@ -1,5 +1,5 @@
 ;;; Pubstrate --- ActivityStreams based social networking for Guile
-;;; Copyright © 2016 Christopher Allan Webber <cwebber@dustycloud.org>
+;;; Copyright © 2016 Christine Lemmer-Webber <cwebber@dustycloud.org>
 ;;;
 ;;; This file is part of Pubstrate.
 ;;;
@@ -45,6 +45,7 @@
              (gnu packages base)
              (gnu packages gettext)
              (gnu packages guile)
+             (gnu packages guile-xyz)
              (gnu packages pkg-config)
              (gnu packages texinfo)
              (gnu packages tls)
@@ -54,59 +55,26 @@
 
 (define %source-dir (dirname (current-filename)))
 
-(define guile-fibers-git
-  (package
-    (inherit guile-fibers)
-    (name "guile-fibers")
-    (version "git")
-    (source (origin
-              (method git-fetch)
-              (uri (git-reference
-                    (url "https://github.com/wingo/fibers.git")
-                    (commit "0fa1fd6adf9980229a46956503a6bf36e8154a78")))
-              (sha256
-               (base32
-                "0a782aa0v2d115427h1h57jkxy04axklan60dzgnsry4axw9iq8r"))))
-    (arguments
-     `(#:phases (modify-phases %standard-phases
-                  (add-before 'configure 'bootstrap
-                    (lambda _
-                      (zero? (system* "./autogen.sh"))))
-                  (add-before 'configure 'setenv
-                    (lambda _
-                      (setenv "GUILE_AUTO_COMPILE" "0"))))
-       ;; We wouldn't want this in the upstream fibers package, but gosh
-       ;; running tests takes forever and is painful
-       #:tests? #f))
-    (native-inputs
-     `(("autoconf" ,autoconf)
-       ("automake" ,automake)
-       ("libtool" ,libtool)
-       ("texinfo" ,texinfo)
-       ("gettext" ,gettext-minimal)
-       ,@(package-native-inputs guile-2.2)))))
-
 (define guile-8sync-latest
   (package
-    (inherit guile-8sync)
+    (name "guile-8sync")
     (version "git")
     (source
      (origin
        (method git-fetch)
        (uri (git-reference
              (url "git://git.savannah.gnu.org/8sync.git")
-             (commit "38afa0b278e17953b64764d800beaaa6368f70be")))
+             (commit "7972787723d08a491379b63e6e5dc1cc6a3fac87")))
        (sha256
         (base32
-         "1rhcpry86vk62bgzzqssqd2szmdkg2rhdcs9pfn512rxgb5vd2bh"))))
+         "0m3k3cizi89frnw58dws3g4jcssck6jf1ahpadxxg3ncclqzad8r"))))
     (build-system gnu-build-system)
     (native-inputs `(("autoconf" ,autoconf)
                      ("automake" ,automake)
-                     ("guile" ,guile-2.2)
+                     ("guile" ,guile-3.0)
                      ("pkg-config" ,pkg-config)
                      ("texinfo" ,texinfo)))
-    (propagated-inputs `(("guile-fibers" ,guile-fibers-git)))
-    (inputs `(("gnunet" ,gnunet)))
+    (propagated-inputs `(("guile-fibers" ,guile-fibers)))
     (arguments
      `(#:phases (modify-phases %standard-phases
                   (add-before 'configure 'bootstrap
@@ -114,51 +82,18 @@
                       (zero? (system* "./bootstrap.sh"))))
                   (add-before 'configure 'setenv
                     (lambda _
-                      (setenv "GUILE_AUTO_COMPILE" "0"))))))
+                      ;; quiet warnings
+                      (setenv "GUILE_AUTO_COMPILE" "0")
+                      #t)))))
     (home-page "https://gnu.org/s/8sync/")
     (synopsis "Asynchronous actor model library for Guile")
     (description
      "GNU 8sync (pronounced \"eight-sync\") is an asynchronous programming
-library for GNU Guile based on the actor model.")
-    (license lgpl3+)
-    (arguments
-     `(#:phases (modify-phases %standard-phases
-                  (add-before 'configure 'bootstrap
-                    (lambda _
-                      (zero? (system* "./bootstrap.sh")))))))))
+library for GNU Guile based on the actor model.
 
-(define guile-gcrypt
-  (package
-    (name "guile-gcrypt")
-    (version "git")
-    (source
-     (origin
-       (method git-fetch)
-       (uri (git-reference
-             (url "https://notabug.org/cwebber/guile-gcrypt.git")
-             (commit "6bda028ad7f67a1b75a04b1e3f172ec3d975391c")))
-       (sha256
-        (base32
-         "1xmlhkzd9b29rmipw7g71j5fvbzlj24wgpx1m2g49rm932f9pn8r"))))
-    (build-system gnu-build-system)
-    (arguments
-     '(#:phases
-       (modify-phases %standard-phases
-         (add-after 'unpack 'bootstrap
-           (lambda _ (zero? (system* "sh" "bootstrap.sh")))))))
-    (native-inputs
-     `(("pkg-config" ,pkg-config)
-       ("autoconf" ,autoconf)
-       ("automake" ,automake)
-       ("texinfo" ,texinfo)))
-    (inputs
-     `(("guile" ,guile-2.2)
-       ("libgcrypt" ,libgcrypt)))
-    (home-page "https://notabug.org/cwebber/guile-gcrypt")
-    (synopsis "Crypto library for Guile using libgcrypt")
-    (description "guile-gcrypt uses Guile's foreign function interface to wrap
-libgcrypt to provide a variety of encryption tooling.")
-    (license gpl3+)))
+Note that 8sync is only available for Guile 2.2.")
+    (properties '((upstream-name . "8sync")))
+    (license lgpl3+)))
 
 (define guile-webutils
   (package
@@ -169,10 +104,10 @@ libgcrypt to provide a variety of encryption tooling.")
        (method git-fetch)
        (uri (git-reference
              (url "https://notabug.org/cwebber/guile-webutils.git")
-             (commit "8541904f761066dc9c27b1153e9a838be9a55299")))
+             (commit "d309d65a85247e4f3cea63a17defd1e6d35d821f")))
        (sha256
         (base32
-         "1s9n3hbxd7lfpdi0x8wr0cfvlsf6g62ird9gbspxdrp5p05rbi64"))))
+         "1a3bblk5zaldkkxn0a94s544drqm0w2i5fsjpghagd64m149blf0"))))
     (build-system gnu-build-system)
     (arguments
      '(#:phases
@@ -185,56 +120,17 @@ libgcrypt to provide a variety of encryption tooling.")
        ("automake" ,automake)
        ("texinfo" ,texinfo)))
     (inputs
-     `(("guile" ,guile-2.2)))
+     `(("guile" ,guile-3.0)))
     (propagated-inputs
      ;; @@: We use guile-irregex for date.scm, but we could refactor
      ;; it and get rid of this dependency.
-     `(("guile-irregex" ,guile2.2-irregex)
+     `(("guile-irregex" ,guile-irregex)
        ("guile-gcrypt" ,guile-gcrypt)))
     (home-page "https://notabug.org/cwebber/guile-webutils")
     (synopsis "Web application authoring utilities for Guile")
     (description "Tooling to write web applications in Guile.")
     (license gpl3+)))
 
-(define guile-next
-  (package
-    (inherit guile-2.2)
-    (name "guile")
-    (version "git")
-    (source (origin
-              (method git-fetch)
-              (uri (git-reference
-                    (url "git://git.sv.gnu.org/guile.git")
-                    (commit "155ddcdc3bfc0d5e87397f18cd4cfb2f062fbb75")))
-              (sha256
-               (base32
-                "0sjp5ws7ccig880wkvjxl89737af7d3z89yw8svz1lgp35f5hbsc"))))
-    (arguments
-     (substitute-keyword-arguments `(;; Tests aren't passing for now.
-                                     ;; Obviously we should re-enable this!
-                                     #:tests? #f
-                                     ,@(package-arguments guile-2.2))
-       ((#:phases phases)
-        `(modify-phases ,phases
-           (add-after 'unpack 'autogen
-             (lambda _
-               (zero? (system* "sh" "autogen.sh"))))
-           (add-before 'autogen 'patch-/bin/sh
-             (lambda _
-               (substitute* "build-aux/git-version-gen"
-                 (("#!/bin/sh") (string-append "#!" (which "sh"))))
-               #t))))))
-    ;; (native-inputs
-    ;;  `(("autoconf" ,autoconf)
-    ;;    ("automake" ,automake)
-    ;;    ("libtool" ,libtool)
-    ;;    ("flex" ,flex)
-    ;;    ("texinfo" ,texinfo)
-    ;;    ("gettext" ,gettext-minimal)
-    ;;    ,@(package-native-inputs guile-2.2)))
-    ;; lazy avoidance of having to import flex, etc
-    (native-inputs
-     (package-native-inputs guile-for-guile-emacs))))
 
 (define pubstrate
   (package
@@ -250,13 +146,13 @@ libgcrypt to provide a variety of encryption tooling.")
        ("automake" ,automake)
        ("texinfo" ,texinfo)))
     (inputs
-     `(("guile" ,guile-next)
+     `(("guile" ,guile-3.0)
        ("libgcrypt" ,libgcrypt)))
     (propagated-inputs
      `(("gnutls" ,gnutls)
-       ("guile-gdbm-ffi" ,guile2.2-gdbm-ffi)
-       ("guile-irregex" ,guile2.2-irregex)
-       ("guile-lib" ,guile2.2-lib)
+       ("guile-gdbm-ffi" ,guile-gdbm-ffi)
+       ("guile-irregex" ,guile-irregex)
+       ("guile-lib" ,guile-lib)
        ("guile-8sync" ,guile-8sync-latest)
        ("guile-sjson" ,guile-sjson)
        ("guile-gcrypt" ,guile-gcrypt)
