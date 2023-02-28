@@ -63,11 +63,11 @@
      (origin
        (method git-fetch)
        (uri (git-reference
-             (url "git://git.savannah.gnu.org/8sync.git")
-             (commit "7972787723d08a491379b63e6e5dc1cc6a3fac87")))
+             (url "https://github.com/saschanaz/8sync.git")
+             (commit "b5515d1eb2e9feb653ccc27acff9dffab37d47e8")))
        (sha256
         (base32
-         "0m3k3cizi89frnw58dws3g4jcssck6jf1ahpadxxg3ncclqzad8r"))))
+         "0jg8hahfj10cv59l9bnacakhrqacy8gk36ljb01i256wi6qxx0y3"))))
     (build-system gnu-build-system)
     (native-inputs `(("autoconf" ,autoconf)
                      ("automake" ,automake)
